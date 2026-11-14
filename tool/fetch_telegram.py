@@ -16,7 +16,7 @@ OUT = os.path.join(os.path.dirname(__file__), '..', 'assets', 'data', 'channel.j
 MAX_PAGES = 1500
 
 msg_re = re.compile(r'<div class="tgme_widget_message_wrap.*?(?=<div class="tgme_widget_message_wrap|\Z)', re.S)
-post_re = re.compile(r'data-post="%s/(\d+)"' % CHANNEL)
+post_re = re.compile(r'data-post="%s/(\d+)"' % CHANNEL, re.I)
 text_re = re.compile(r'<div class="tgme_widget_message_text[^"]*"[^>]*>(.*?)</div>', re.S)
 time_re = re.compile(r'<time[^>]*datetime="([^"]+)"')
 
@@ -46,6 +46,8 @@ def main():
         except Exception as e:
             print('fetch failed:', e)
             break
+        if page == 0:
+            print('first page:', len(body), 'chars, messages:', body.count('tgme_widget_message_wrap'))
         found = []
         for block in msg_re.findall(body):
             m = post_re.search(block)
