@@ -1,0 +1,141 @@
+name: Build APK and website
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  # Every day: refresh the site with the sheikh's newest channel posts.
+  schedule:
+    - cron: '17 3 * * *'
+
+permissions:
+  contents: write
+
+jobs:
+  data:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Posts from the sheikh's Telegram channel
+        run: python3 tool/fetch_telegram.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: channel-data
+          path: |
+            assets/data/fatwas.json
+            assets/data/channel.json
+            assets/data/latest.json
+
+  android:
+    needs: data
+    # The daily refresh updates the site only; no new APK release.
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Create Android platform files
+        run: flutter create --org com.salmanalemad --project-name salman_alemad --platforms android .
+
+      - name: Permanent signing key (from the KEY_PASSWORD secret)
+        env:
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEY_PASSWORD" ]; then
+            openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in signing/upload.jks.enc -out android/app/upload.jks -pass env:KEY_PASSWORD
+            printf "storeFile=upload.jks\nstorePassword=%s\nkeyAlias=upload\nkeyPassword=%s\n" "$KEY_PASSWORD" "$KEY_PASSWORD" > android/key.properties
+            echo "Signing with the permanent key"
+          else
+            echo "KEY_PASSWORD secret not set - using debug key"
+          fi
+
+      - name: Patch Android (name, permissions, notifications, signing)
+        run: python3 tool/patch_android.py
+
+      - name: Books list from the sheikh's Google Drive
+        run: python3 tool/fetch_drive_books.py
+
+      - name: Latest videos from the sheikh's YouTube channel
+        run: python3 tool/fetch_youtube.py
+
+      - name: Trusted scholars and their books (names only) from Turath
+        run: python3 tool/fetch_scholars.py
+
+      - name: Answers from the sheikh's Telegram channel (fetched once)
+        uses: actions/download-artifact@v4
+        with:
+          name: channel-data
+          path: assets/data
+
+      - run: flutter pub get
+
+      - name: App icon (logo)
+        run: dart run flutter_launcher_icons
+
+      - name: Build APK
+        run: flutter build apk --release --build-number=${{ github.run_number }} --dart-define=BUILD_NUMBER=${{ github.run_number }}
+
+      - name: Rename APK
+        run: cp build/app/outputs/flutter-apk/app-release.apk salman-alemad.apk
+
+      - name: Publish as latest release (direct download link)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: سلمان العماد — نسخة ${{ github.run_number }}
+          make_latest: true
+          files: salman-alemad.apk
+
+  website:
+    needs: data
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Create web platform files
+        run: flutter create --org com.salmanalemad --project-name salman_alemad --platforms web .
+
+      - run: flutter pub get
+
+      - name: Web page title and description
+        run: python3 tool/patch_web.py
+
+      - name: Books list from the sheikh's Google Drive
+        run: python3 tool/fetch_drive_books.py
+
+      - name: Latest videos from the sheikh's YouTube channel
+        run: python3 tool/fetch_youtube.py
+
+      - name: Trusted scholars and their books (names only) from Turath
+        run: python3 tool/fetch_scholars.py
+
+      - name: Answers from the sheikh's Telegram channel (fetched once)
+        uses: actions/download-artifact@v4
+        with:
+          name: channel-data
+          path: assets/data
+
+      - name: Build website
+        run: flutter build web --release --no-web-resources-cdn --base-href /salman-alemad/ --dart-define=BUILD_NUMBER=0
+
+      - name: Publish website (gh-pages branch)
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: build/web
+          force_orphan: true
