@@ -14,5 +14,9 @@ jobs:
           done
           grep -oiE 'href="[^"]+"' https___www_fnoor_com_main_.html | sort | uniq -c | sort -rn | head -100 > links.txt || true
           ls -la
+          head -c 1500 https___www_fnoor_com_main_.html; echo
+          curl -sS -I -A "$UA" https://www.fnoor.com/main/ | head -20
+          curl -sS -o /dev/null -w 'http: %{http_code}\n' http://www.fnoor.com/main/
+          curl -sS -o /dev/null -w 'nowww: %{http_code}\n' https://fnoor.com/main/
       - uses: actions/upload-artifact@v4
         with: {name: probe, path: out}
