@@ -1,4 +1,4 @@
-"""Pull the sheikh's public Telegram channel posts (t.me/s/qaidghsh) into
+"""Pull the sheikh's public Telegram channel posts (t.me/s/salmansalehalemad) into
 assets/data/channel.json, verbatim. Runs in the build; on any failure the
 existing file is kept so the build never breaks."""
 import html
@@ -11,12 +11,12 @@ import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-CHANNEL = 'qaidghsh'
+CHANNEL = 'salmansalehalemad'
 OUT = os.path.join(os.path.dirname(__file__), '..', 'assets', 'data', 'channel.json')
 MAX_PAGES = 1500
 
 msg_re = re.compile(r'<div class="tgme_widget_message_wrap.*?(?=<div class="tgme_widget_message_wrap|\Z)', re.S)
-post_re = re.compile(r'data-post="%s/(\d+)"' % CHANNEL)
+post_re = re.compile(r'data-post="%s/(\d+)"' % CHANNEL, re.I)
 text_re = re.compile(r'<div class="tgme_widget_message_text[^"]*"[^>]*>(.*?)</div>', re.S)
 time_re = re.compile(r'<time[^>]*datetime="([^"]+)"')
 
@@ -31,7 +31,7 @@ def clean(fragment):
 
 
 def get(url):
-    req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Android 13) ibn-alshabira-build'})
+    req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Android 13) salman-alemad-build'})
     with urllib.request.urlopen(req, timeout=30) as r:
         return r.read().decode('utf-8', 'replace')
 
@@ -46,6 +46,8 @@ def main():
         except Exception as e:
             print('fetch failed:', e)
             break
+        if page == 0:
+            print('first page:', len(body), 'chars, messages:', body.count('tgme_widget_message_wrap'))
         found = []
         for block in msg_re.findall(body):
             m = post_re.search(block)

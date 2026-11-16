@@ -76,7 +76,7 @@ class DailyNotifications {
       await _plugin.zonedSchedule(
         _id,
         'جواب اليوم',
-        'افتح تطبيق «ابن الشابرة» واقرأ جواب اليوم',
+        'افتح تطبيق «سلمان العماد» واقرأ جواب اليوم',
         when,
         const NotificationDetails(
           android: AndroidNotificationDetails(
@@ -112,7 +112,7 @@ class AdhkarNotifications {
       await DailyNotifications._plugin.zonedSchedule(
         id,
         title,
-        'افتح الأذكار في تطبيق «ابن الشابرة»',
+        'افتح الأذكار في تطبيق «سلمان العماد»',
         tz.TZDateTime.from(next, tz.UTC),
         const NotificationDetails(
           android: AndroidNotificationDetails(
@@ -147,7 +147,7 @@ class UpdateWatch {
     try {
       await Workmanager().initialize(updateWatchDispatcher);
       await Workmanager().registerPeriodicTask(
-        'ibn-alshabira-update-watch',
+        'salman-alemad-update-watch',
         'updateWatch',
         frequency: const Duration(hours: 3),
         constraints: Constraints(networkType: NetworkType.connected),
@@ -172,7 +172,7 @@ class UpdateWatch {
       await plugin.initialize(const InitializationSettings(android: AndroidInitializationSettings('@mipmap/ic_launcher')));
       await plugin.show(
         9,
-        'تحديث جديد لتطبيق «ابن الشابرة» 🎉',
+        'تحديث جديد لتطبيق «سلمان العماد» 🎉',
         'افتح التطبيق واضغط «يوجد تحديث جديد» لتحميل النسخة الجديدة',
         const NotificationDetails(
           android: AndroidNotificationDetails(

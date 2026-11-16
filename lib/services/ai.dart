@@ -4,6 +4,8 @@ import 'package:firebase_ai/firebase_ai.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 
+import '../config.dart';
+
 /// The questions a long message holds, each with short phrases to search for.
 class AiIssue {
   final String title;
@@ -27,7 +29,7 @@ class Ai {
   static bool _prepared = false;
 
   /// App Check is registered for the Android app only.
-  static bool get supported => !kIsWeb;
+  static bool get supported => !kIsWeb && AppConfig.aiEnabled;
 
   static Future<void> _prepare() async {
     if (_prepared) return;

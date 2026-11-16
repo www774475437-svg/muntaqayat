@@ -6,7 +6,7 @@ from pathlib import Path
 # --- AndroidManifest.xml -------------------------------------------------
 manifest = Path("android/app/src/main/AndroidManifest.xml")
 m = manifest.read_text(encoding="utf-8")
-m = re.sub(r'android:label="[^"]*"', 'android:label="ابن الشابرة"', m, count=1)
+m = re.sub(r'android:label="[^"]*"', 'android:label="سلمان العماد"', m, count=1)
 
 permissions = [
     "android.permission.INTERNET",
@@ -98,7 +98,7 @@ for d in ["drawable", "drawable-v21"]:
     if lb.exists():
         lb.write_text('''<?xml version="1.0" encoding="utf-8"?>
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item><color android:color="#0A2417" /></item>
+    <item><color android:color="#0D1E33" /></item>
 </layer-list>
 ''', encoding="utf-8")
 print("Launch background set")
@@ -118,7 +118,7 @@ if "activity-alias" not in m:
     def alias(name, icon, on):
         return (f'\n        <activity-alias android:name=".{name}" android:targetActivity=".MainActivity"'
                 f' android:enabled="{"true" if on else "false"}" android:exported="true"'
-                f' android:icon="@mipmap/{icon}" android:label="ابن الشابرة">'
+                f' android:icon="@mipmap/{icon}" android:label="سلمان العماد">'
                 '<intent-filter><action android:name="android.intent.action.MAIN"/>'
                 '<category android:name="android.intent.category.LAUNCHER"/></intent-filter></activity-alias>')
     aliases = alias("IconMain", "ic_launcher", True) + alias("IconGreen", "ic_logo_green", False) + alias("IconGold", "ic_logo3", False)
@@ -129,7 +129,7 @@ if "activity-alias" not in m:
 
 for f in glob.glob("android/app/src/main/kotlin/**/MainActivity.kt", recursive=True):
     k = Path(f).read_text(encoding="utf-8")
-    if "ibn_alshabira/icon" in k:
+    if "salman_alemad/icon" in k:
         continue
     pkg = re.search(r"^package\s+(\S+)", k, re.M).group(1)
     base = re.search(r"class MainActivity\s*:\s*(\w+)", k).group(1)
@@ -144,7 +144,7 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity : {base}() {{
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {{
         super.configureFlutterEngine(flutterEngine)
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "ibn_alshabira/icon").setMethodCallHandler {{ call, result ->
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "salman_alemad/icon").setMethodCallHandler {{ call, result ->
             if (call.method == "set") {{
                 val chosen = (call.arguments as? Int) ?: 0
                 val names = listOf("IconMain", "IconGreen", "IconGold")

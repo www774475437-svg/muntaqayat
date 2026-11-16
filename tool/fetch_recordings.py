@@ -1,4 +1,4 @@
-"""Lists the recordings of the sheikh's public channel (t.me/s/QaidSandVe) into
+"""Lists the recordings of the sheikh's public channel (t.me/s/salmansalehalemad) into
 recordings.json: {"v": 2, "items": [{id, k, t, b, d, u}]}
   k: "v" voice note (the app plays it, asking Telegram for the link),
      "a" audio file (played in the app once the bot has it, else in Telegram)
@@ -14,7 +14,7 @@ import time
 import urllib.request
 from pathlib import Path
 
-CHANNEL = "QaidSandVe"
+CHANNEL = "salmansalehalemad"
 VERSION = 6
 OUT = Path(os.environ.get("MEDIA_ROOT", ".")) / "recordings.json"
 
@@ -32,7 +32,7 @@ LETTER = re.compile(r"[ء-ي0-9A-Za-z]")
 
 
 def get(url):
-    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Android 13) ibn-alshabira-build"})
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Android 13) salman-alemad-build"})
     with urllib.request.urlopen(req, timeout=30) as r:
         return r.read().decode("utf-8", "replace")
 

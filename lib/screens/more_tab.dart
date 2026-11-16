@@ -115,6 +115,10 @@ class MoreTab extends StatelessWidget {
                 onTap: () => Navigator.of(context)
                     .push(MaterialPageRoute(builder: (_) => const MyReadingScreen())),
               ),
+              if (!AppConfig.cloudEnabled)
+                _soon(context, Icons.account_circle_outlined, 'تسجيل الدخول أو إنشاء حساب',
+                    'الحساب ومراسلة الشيخ تُفتح قريباً بإذن الله.')
+              else
               ListenableBuilder(
                 listenable: Cloud.instance,
                 builder: (context, _) {
@@ -502,8 +506,8 @@ class MoreTab extends StatelessWidget {
               Padding(
                 padding: EdgeInsets.all(16),
                 child: Text(
-                  'تطبيق «ابن الشابرة» يجمع أجوبة ومقالات وكتب ورسائل الشيخ '
-                  'قايد بن غانم الشابرة حفظه الله، من اليمن، '
+                  'تطبيق «سلمان العماد» يجمع أجوبة ومقالات وكتب ورسائل الشيخ '
+                  'سلمان بن صالح العماد حفظه الله، '
                   'مرتّبة على الأبواب مع البحث بالموضوع.\n\n'
                   'الإصدار ${AppConfig.version} (${AppConfig.buildNumber})',
                   style: TextStyle(height: 1.8),
@@ -741,7 +745,7 @@ class _DownloadAllState extends State<_DownloadAll> {
 class _LogoPicker extends StatelessWidget {
   const _LogoPicker();
 
-  static const _channel = MethodChannel('ibn_alshabira/icon');
+  static const _channel = MethodChannel('salman_alemad/icon');
 
   Future<void> _pick(BuildContext context, int i) async {
     appLogo.value = i;

@@ -192,7 +192,7 @@ class _FatwaScreenState extends State<FatwaScreen> {
                 });
                 return;
               }
-              final report = '⚠️ بلاغ عن خطأ في تطبيق «ابن الشابرة»\n'
+              final report = '⚠️ بلاغ عن خطأ في تطبيق «سلمان العماد»\n'
                   'الجواب: ${current.title}\n'
                   'الرابط: ${AppConfig.fatwaLink(current.id)}\n'
                   'الملاحظة: ${note.isEmpty ? '—' : note}';

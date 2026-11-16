@@ -127,8 +127,11 @@ class _HomeTabState extends State<HomeTab> {
                     ),
                   ),
                   child: InkWell(
-                    onTap: () => Navigator.of(context)
-                        .push(MaterialPageRoute(builder: (_) => const TrustedFatwaScreen())),
+                    onTap: () => AppConfig.aiEnabled
+                        ? Navigator.of(context)
+                            .push(MaterialPageRoute(builder: (_) => const TrustedFatwaScreen()))
+                        : ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('البحث بالذكاء الاصطناعي قريباً بإذن الله'))),
                     child: const Padding(
                       padding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                       child: Row(
@@ -146,7 +149,7 @@ class _HomeTabState extends State<HomeTab> {
                                         fontSize: 16.5,
                                         fontWeight: FontWeight.bold)),
                                 SizedBox(height: 2),
-                                Text('باستخدام الذكاء الاصطناعي',
+                                Text(AppConfig.aiEnabled ? 'باستخدام الذكاء الاصطناعي' : 'باستخدام الذكاء الاصطناعي — قريباً',
                                     style: TextStyle(
                                         fontFamily: 'Tajawal',
                                         color: kGold,
@@ -178,7 +181,7 @@ class _HomeTabState extends State<HomeTab> {
             const SliverToBoxAdapter(
               child: _Banner(
                 icon: Icons.android,
-                title: 'حمّل تطبيق «ابن الشابرة»',
+                title: 'حمّل تطبيق «سلمان العماد»',
                 color: Color(0xFFB3261E),
                 subtitle: 'لأجهزة أندرويد — يعمل دون إنترنت',
                 url: AppConfig.apkUrl,
@@ -435,7 +438,7 @@ class _Header extends StatelessWidget {
                 children: [
                   ClipOval(child: AppLogo(size: 40)),
                   const SizedBox(width: 10),
-                  Text('ابن الشابرة',
+                  Text('سلمان العماد',
                       style: TextStyle(
                           fontFamily: 'Tajawal', color: ink, fontSize: 21, fontWeight: FontWeight.bold)),
                   const Spacer(),
@@ -456,7 +459,7 @@ class _Header extends StatelessWidget {
                   style: TextStyle(
                       fontFamily: 'Amiri', color: kGoldChip, fontSize: 19, fontWeight: FontWeight.bold)),
               const SizedBox(height: 2),
-              Text('قايد بن غانم الشابرة',
+              Text('سلمان بن صالح العماد',
                   style: TextStyle(
                       fontFamily: 'Tajawal', color: ink, fontSize: 29, fontWeight: FontWeight.bold, height: 1.5)),
               const SizedBox(height: 8),

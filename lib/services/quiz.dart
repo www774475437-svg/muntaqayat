@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../config.dart';
 import 'cloud.dart';
 
 /// One category of questions (a button in «الأسئلة»), named by the sheikh.
@@ -206,6 +207,7 @@ class Quiz extends ChangeNotifier {
 
   // ------------------------------------------------------------ loading
   Future<void> load({bool force = false}) async {
+    if (!AppConfig.cloudEnabled) return;
     if (loading || (loaded && !force)) return;
     loading = true;
     await _loadLocal();

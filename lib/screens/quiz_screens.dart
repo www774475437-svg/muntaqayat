@@ -7,6 +7,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../config.dart';
 import '../services/cloud.dart';
 import '../services/quiz.dart';
 import '../theme.dart';
@@ -21,8 +22,14 @@ void _toast(BuildContext context, String text, {bool ok = true}) {
         content: Text(text)));
 }
 
-Future<void> openQuiz(BuildContext context) =>
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const QuizHomeScreen()));
+Future<void> openQuiz(BuildContext context) async {
+  if (!AppConfig.cloudEnabled) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('قسم الأسئلة والأجوبة يُفتح قريباً بإذن الله')));
+    return;
+  }
+  await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const QuizHomeScreen()));
+}
 
 Future<void> openQuestion(BuildContext context, QuizQ q, {List<QuizQ> next = const [], bool preview = false}) =>
     Navigator.of(context)
@@ -35,9 +42,9 @@ Future<void> shareBoundary(BuildContext context, GlobalKey key, String text) asy
     final image = await b.toImage(pixelRatio: 3);
     final data = await image.toByteData(format: ui.ImageByteFormat.png);
     await Share.shareXFiles(
-        [XFile.fromData(data!.buffer.asUint8List(), mimeType: 'image/png', name: 'ibn-alshabira-quiz.png')],
+        [XFile.fromData(data!.buffer.asUint8List(), mimeType: 'image/png', name: 'salman-alemad-quiz.png')],
         text: text,
-        fileNameOverrides: ['ibn-alshabira-quiz.png']);
+        fileNameOverrides: ['salman-alemad-quiz.png']);
   } catch (_) {
     await Share.share(text);
   }
@@ -691,7 +698,7 @@ class _QuestionScreenState extends State<QuestionScreen> {
                   Row(children: [
                     Image.asset(logoAssets[appLogo.value], width: 22, height: 22),
                     const SizedBox(width: 6),
-                    const Text('الأسئلة — تطبيق ابن الشابرة', style: TextStyle(color: Colors.grey, fontSize: 11.5)),
+                    const Text('الأسئلة — تطبيق سلمان العماد', style: TextStyle(color: Colors.grey, fontSize: 11.5)),
                   ]),
                 ]),
               ),
@@ -712,7 +719,7 @@ class _QuestionScreenState extends State<QuestionScreen> {
                   icon: const Icon(Icons.share_outlined),
                   label: const Text('شارك النتيجة'),
                   onPressed: () => shareBoundary(context, _cardKey,
-                      '${q.text}\n\n${ok ? 'أجبت صحيحاً ✅' : 'أخطأت ❌'} في قسم الأسئلة من تطبيق «ابن الشابرة»\nhttps://ibnalshabira.com'),
+                      '${q.text}\n\n${ok ? 'أجبت صحيحاً ✅' : 'أخطأت ❌'} في قسم الأسئلة من تطبيق «سلمان العماد»\nhttps://www774475437-svg.github.io/salman-alemad'),
                 ),
               ),
               if (widget.queue.isNotEmpty) ...[
@@ -956,7 +963,7 @@ class _QuizHomeStripState extends State<QuizHomeStrip> {
   }
 
   @override
-  Widget build(BuildContext context) => ListenableBuilder(
+  Widget build(BuildContext context) => !AppConfig.cloudEnabled ? const SizedBox.shrink() : ListenableBuilder(
         listenable: Quiz.instance,
         builder: (context, _) {
           final q = Quiz.instance.ofTheDay;
@@ -1119,7 +1126,7 @@ class _QuizProfileScreenState extends State<QuizProfileScreen> {
                       ),
                   ]),
                   const SizedBox(height: 8),
-                  const Text('الأسئلة — تطبيق ابن الشابرة', style: TextStyle(color: Colors.white54, fontSize: 11)),
+                  const Text('الأسئلة — تطبيق سلمان العماد', style: TextStyle(color: Colors.white54, fontSize: 11)),
                 ]),
               ),
             ),
@@ -1128,7 +1135,7 @@ class _QuizProfileScreenState extends State<QuizProfileScreen> {
               icon: const Icon(Icons.share_outlined),
               label: const Text('شارك نتيجتي صورةً'),
               onPressed: () => shareBoundary(context, _key,
-                  'نتيجتي في قسم الأسئلة من تطبيق «ابن الشابرة»: ${quiz.right} جواباً صحيحاً\nhttps://ibnalshabira.com'),
+                  'نتيجتي في قسم الأسئلة من تطبيق «سلمان العماد»: ${quiz.right} جواباً صحيحاً\nhttps://www774475437-svg.github.io/salman-alemad'),
             ),
             const SizedBox(height: 16),
             const Text('الشارات', style: TextStyle(fontFamily: 'Tajawal', fontWeight: FontWeight.bold, fontSize: 17)),
@@ -1284,7 +1291,7 @@ class QuizCertificateScreen extends StatelessWidget {
               const SizedBox(height: 12),
               Text('${now.year}/${now.month}/${now.day}', style: const TextStyle(color: Colors.grey)),
               const SizedBox(height: 4),
-              const Text('قسم الأسئلة — تطبيق ابن الشابرة', style: TextStyle(color: Colors.grey, fontSize: 12)),
+              const Text('قسم الأسئلة — تطبيق سلمان العماد', style: TextStyle(color: Colors.grey, fontSize: 12)),
             ]),
           ),
         ),
@@ -1292,7 +1299,7 @@ class QuizCertificateScreen extends StatelessWidget {
         FilledButton.icon(
           icon: const Icon(Icons.share_outlined),
           label: const Text('شارك الشهادة'),
-          onPressed: () => shareBoundary(context, key, 'أتممت أسئلة باب «${cat.name}» في تطبيق «ابن الشابرة»'),
+          onPressed: () => shareBoundary(context, key, 'أتممت أسئلة باب «${cat.name}» في تطبيق «سلمان العماد»'),
         ),
       ]),
     );

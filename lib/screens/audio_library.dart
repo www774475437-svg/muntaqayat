@@ -165,7 +165,7 @@ class AudioLibraryScreen extends StatelessWidget {
   }
 }
 
-/// One recording of the sheikh's channel (t.me/QaidSandVe).
+/// One recording of the sheikh's channel (t.me/salmansalehalemad).
 class Recording {
   final int id;
   final String kind; // v: voice note, a: audio file
@@ -181,7 +181,7 @@ class Recording {
   String get playUrl => file.isNotEmpty ? file : 'tg:$id';
 }
 
-const recordingsChannel = 'QaidSandVe';
+const recordingsChannel = 'salmansalehalemad';
 const _mediaBase = 'https://raw.githubusercontent.com/${AppConfig.owner}/${AppConfig.repo}/media/';
 
 /// The list of recordings, kept on the phone so it opens at once.

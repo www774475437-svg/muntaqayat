@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../config.dart';
 import '../services/cloud.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
@@ -27,6 +28,7 @@ class _BenefitCardState extends State<BenefitCard> {
   }
 
   Future<void> _load() async {
+    if (!AppConfig.cloudEnabled) return;
     try {
       final q = await FirebaseFirestore.instance.collection('benefits').get();
       final l = [for (final d in q.docs) {...d.data(), 'id': d.id}]
@@ -131,7 +133,7 @@ class _BenefitCardState extends State<BenefitCard> {
                 IconButton(
                   tooltip: 'مشاركة',
                   icon: const Icon(Icons.share_outlined, size: 20, color: kGoldChip),
-                  onPressed: () => Share.share('${b['text']}\n[$source]\n\nتطبيق ابن الشابرة\nhttps://ibnalshabira.com'),
+                  onPressed: () => Share.share('${b['text']}\n[$source]\n\nتطبيق سلمان العماد\nhttps://www774475437-svg.github.io/salman-alemad'),
                 ),
               ]),
             ],

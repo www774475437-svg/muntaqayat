@@ -1,13 +1,13 @@
 /// App-wide links and the build number injected by GitHub Actions.
 class AppConfig {
   static const owner = 'www774475437-svg';
-  static const repo = 'ibn-alshabira';
+  static const repo = 'salman-alemad';
 
   /// The website (GitHub Pages).
-  static const siteUrl = 'https://ibnalshabira.com/';
+  static const siteUrl = 'https://www774475437-svg.github.io/salman-alemad/';
 
   /// Always points to the newest APK.
-  static const apkUrl = 'https://ibnalshabira.com/ibn-alshabira.apk';
+  static const apkUrl = 'https://github.com/$owner/$repo/releases/latest/download/salman-alemad.apk';
 
   /// Store links — fill in once the app is published there.
   static const playStoreUrl = '';
@@ -20,7 +20,13 @@ class AppConfig {
   /// The copy published on Google Play: Play updates it, so no APK update notices.
   static const fromPlay = bool.fromEnvironment('PLAY');
 
-  static const version = '4.1.0';
+  static const version = '1.1.0';
+
+  /// Online accounts (Firebase): sign-in, «اسأل الشيخ», admins. Off until set up.
+  static const cloudEnabled = false;
+
+  /// AI search. Off until set up.
+  static const aiEnabled = false;
 
   /// Short link: channel answers are «…/#/a/<number>».
   static String fatwaLink(String id) =>

@@ -4,8 +4,8 @@ const kGreen = Color(0xFF1F5E3B);
 const kGold = Color(0xFFC9A54C);
 const kPaper = Color(0xFFF4ECD8);
 const kInk = Color(0xFF3B2F1E);
-const kTeal = Color(0xFF2E6B73);
-const kTealDark = Color(0xFF1F4E55);
+const kTeal = Color(0xFF2B5A8A); // سلمان العماد: أزرق كحلي وذهبي
+const kTealDark = Color(0xFF1B3A5C);
 
 /// palette: 'teal' (light, teal & gold — default), 'green' (green & gold),
 /// 'black' (black & gold, always dark), 'paper' (warm paper, always light).
@@ -20,7 +20,7 @@ ThemeData buildTheme(Brightness brightness, [String fontFamily = '', String pale
   final barColor = dark ? Colors.black : brand;
   final surface = dark
       ? Colors.black
-      : (paper ? kPaper : (teal ? const Color(0xFFF6FAF9) : const Color(0xFFFBF8F1)));
+      : (paper ? kPaper : (teal ? const Color(0xFFF4F7FB) : const Color(0xFFFBF8F1)));
   final cardColor = dark ? const Color(0xFF141414) : (paper ? const Color(0xFFFBF5E6) : Colors.white);
 
   final scheme = ColorScheme.fromSeed(
@@ -30,7 +30,7 @@ ThemeData buildTheme(Brightness brightness, [String fontFamily = '', String pale
     primary: dark ? kGold : (teal ? kTeal : brand),
     secondary: kGold,
     surface: surface,
-    onSurface: paper ? kInk : (teal && !dark ? const Color(0xFF1C3438) : null),
+    onSurface: paper ? kInk : (teal && !dark ? const Color(0xFF1A2B3D) : null),
   );
 
   return ThemeData(

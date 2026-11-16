@@ -24,7 +24,7 @@ Future<void> main() async {
   final quick = kIsWeb && AppConfig.idFromRoute(Uri.base.fragment) == null;
   await Repository.instance.load(prefs, quick: quick);
   Repository.onSavedListsChanged = () => Cloud.instance.pushUserData();
-  runApp(const IbnAlshabiraApp());
+  runApp(const SalmanAlemadApp());
   Cloud.instance.init();
   loadFreshPosts();
   if (quick) Future.delayed(const Duration(milliseconds: 400), Repository.instance.loadRest);
@@ -56,8 +56,8 @@ Route<dynamic>? onGenerateRoute(RouteSettings settings) {
   );
 }
 
-class IbnAlshabiraApp extends StatelessWidget {
-  const IbnAlshabiraApp({super.key});
+class SalmanAlemadApp extends StatelessWidget {
+  const SalmanAlemadApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -65,7 +65,7 @@ class IbnAlshabiraApp extends StatelessWidget {
     return ListenableBuilder(
       listenable: repo,
       builder: (context, _) => MaterialApp(
-        title: 'ابن الشابرة',
+        title: 'سلمان العماد',
         debugShowCheckedModeBanner: false,
         locale: const Locale('ar'),
         supportedLocales: const [Locale('ar')],

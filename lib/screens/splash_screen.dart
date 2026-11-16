@@ -44,7 +44,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     final shine = CurvedAnimation(parent: _c, curve: const Interval(0.4, 0.9, curve: Curves.easeInOut));
     final textIn = CurvedAnimation(parent: _c, curve: const Interval(0.35, 0.7, curve: Curves.easeOut));
     return Scaffold(
-      backgroundColor: const Color(0xFF0A2417),
+      backgroundColor: const Color(0xFF0D1E33),
       body: Center(
         child: AnimatedBuilder(
           animation: _c,
@@ -82,10 +82,10 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                   offset: Offset(0, 12 * (1 - textIn.value)),
                   child: const Column(
                     children: [
-                      Text('ابن الشابرة',
+                      Text('سلمان العماد',
                           style: TextStyle(color: kGold, fontSize: 32, fontWeight: FontWeight.bold)),
                       SizedBox(height: 6),
-                      Text('أجوبة ومقالات وكتب الشيخ قايد بن غانم الشابرة',
+                      Text('أجوبة ومقالات وكتب الشيخ سلمان بن صالح العماد',
                           style: TextStyle(color: Colors.white70, fontSize: 14)),
                     ],
                   ),

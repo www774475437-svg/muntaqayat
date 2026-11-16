@@ -961,7 +961,7 @@ class _TrustedFatwaScreenState extends State<TrustedFatwaScreen> {
       add(t.$1, t.$2);
     }
     add(_asked, _found);
-    b.writeln('من «بحث الفتاوى من كتب الثقات» — تطبيق ابن الشابرة\nhttps://ibnalshabira.com');
+    b.writeln('من «بحث الفتاوى من كتب الثقات» — تطبيق سلمان العماد\nhttps://www774475437-svg.github.io/salman-alemad');
     Share.share(b.toString());
   }
 

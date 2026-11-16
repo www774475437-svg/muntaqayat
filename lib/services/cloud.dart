@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../config.dart';
 import '../data/models.dart';
 import '../data/repository.dart';
 import 'notifications.dart';
@@ -45,6 +46,11 @@ class Cloud extends ChangeNotifier {
   FirebaseFirestore get _db => FirebaseFirestore.instance;
 
   Future<void> init() async {
+    if (!AppConfig.cloudEnabled) {
+      ready = false;
+      notifyListeners();
+      return;
+    }
     try {
       await Firebase.initializeApp(
         options: const FirebaseOptions(

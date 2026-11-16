@@ -58,7 +58,7 @@ class AccountsScreen extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(12, 12, 12, 90),
             children: [
               _PersonCard(
-                name: 'الشيخ قايد بن غانم الشابرة',
+                name: 'الشيخ سلمان بن صالح العماد',
                 about: 'الحسابات الرسمية للشيخ',
                 links: [
                   for (final l in repo.sheikhLinks) {'platform': l.platform, 'name': l.name, 'url': l.url},
@@ -71,7 +71,7 @@ class AccountsScreen extends StatelessWidget {
                             builder: (_) => _PersonEditor(
                                   sheikh: true,
                                   person: {
-                                    'name': 'الشيخ قايد بن غانم الشابرة',
+                                    'name': 'الشيخ سلمان بن صالح العماد',
                                     'links': [
                                       for (final l in repo.sheikhLinks)
                                         {'platform': l.platform, 'name': l.name, 'url': l.url},

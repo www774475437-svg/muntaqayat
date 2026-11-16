@@ -360,7 +360,7 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
         'ملاحظاتي من كتاب «${widget.book.title}»',
         for (final m in l) '• ص ${m.page} (${BookMark.names[m.color]})${m.note.isEmpty ? '' : ': ${m.note}'}',
         '',
-        'تطبيق ابن الشابرة — https://ibnalshabira.com',
+        'تطبيق سلمان العماد — https://www774475437-svg.github.io/salman-alemad',
       ].join('\n');
 
   // ------------------------------------------------------------ index & go
@@ -515,7 +515,7 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
       final data = await img.toByteData(format: ui.ImageByteFormat.png);
       await Share.shareXFiles(
           [XFile.fromData(data!.buffer.asUint8List(), mimeType: 'image/png', name: 'page-$_page.png')],
-          text: '«${widget.book.title}» — صفحة $_page\nتطبيق ابن الشابرة: https://ibnalshabira.com',
+          text: '«${widget.book.title}» — صفحة $_page\nتطبيق سلمان العماد: https://www774475437-svg.github.io/salman-alemad',
           fileNameOverrides: ['page-$_page.png']);
     } catch (_) {}
   }
@@ -822,7 +822,7 @@ class _ReaderNotebookScreenState extends State<ReaderNotebookScreen> {
                 for (final m in l)
                   '• «${m.bookTitle}» ص ${m.page} (${BookMark.names[m.color]})${m.note.isEmpty ? '' : ': ${m.note}'}',
                 '',
-                'تطبيق ابن الشابرة — https://ibnalshabira.com',
+                'تطبيق سلمان العماد — https://www774475437-svg.github.io/salman-alemad',
               ].join('\n')),
             ),
         ],

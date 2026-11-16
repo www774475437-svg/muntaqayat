@@ -132,7 +132,7 @@ def convert(posts):
             'id': 'tg-%d' % p['id'],
             'tags': [],
             'date': p.get('date', ''),
-            'source': 'https://t.me/qaidghsh/%d' % p['id'],
+            'source': 'https://t.me/salmansalehalemad/%d' % p['id'],
         }
         if qa:
             q, a = qa

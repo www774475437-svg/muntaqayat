@@ -23,8 +23,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
   static const _pages = [
     (
       Icons.menu_book_rounded,
-      'مرحباً بك في «ابن الشابرة»',
-      'تطبيق يجمع أجوبة ومقالات وكتب ورسائل الشيخ قايد بن غانم الشابرة حفظه الله.',
+      'مرحباً بك في «سلمان العماد»',
+      'تطبيق يجمع أجوبة ومقالات وكتب ورسائل الشيخ سلمان بن صالح العماد حفظه الله.',
     ),
     (
       Icons.search_rounded,
@@ -102,7 +102,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFF0E2F1F), Color(0xFF1F5E3B), Color(0xFF123524)],
+            colors: [Color(0xFF0D1E33), Color(0xFF1B3A5C), Color(0xFF12294A)],
           ),
         ),
         child: Stack(

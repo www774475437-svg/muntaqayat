@@ -735,7 +735,7 @@ class Repository extends ChangeNotifier {
 
   // ---- Backup -----------------------------------------------------------
   String exportBackup() => jsonEncode({
-        'app': 'ibn_alshabira',
+        'app': 'salman_alemad',
         'favorites': favorites.toList(),
         'readLater': readLater.toList(),
         'recentSearches': recentSearches,
@@ -750,7 +750,7 @@ class Repository extends ChangeNotifier {
   bool importBackup(String text) {
     try {
       final m = jsonDecode(text.trim()) as Map<String, dynamic>;
-      if (m['app'] != 'ibn_alshabira') return false;
+      if (m['app'] != 'salman_alemad') return false;
       favorites = ((m['favorites'] ?? []) as List).map((e) => '$e').toSet();
       readLater = ((m['readLater'] ?? []) as List).map((e) => '$e').toSet();
       recentSearches = ((m['recentSearches'] ?? []) as List).map((e) => '$e').toList();

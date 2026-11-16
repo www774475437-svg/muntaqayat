@@ -78,10 +78,10 @@ class _ShareCardScreenState extends State<ShareCardScreen> {
         final image = await boundary.toImage(pixelRatio: 3);
         final data = await image.toByteData(format: ui.ImageByteFormat.png);
         files.add(XFile.fromData(data!.buffer.asUint8List(),
-            mimeType: 'image/png', name: 'ibn-alshabira-${i + 1}.png'));
+            mimeType: 'image/png', name: 'salman-alemad-${i + 1}.png'));
       }
       await Share.shareXFiles(files,
-          fileNameOverrides: [for (var i = 0; i < files.length; i++) 'ibn-alshabira-${i + 1}.png']);
+          fileNameOverrides: [for (var i = 0; i < files.length; i++) 'salman-alemad-${i + 1}.png']);
     } catch (_) {
       messenger.showSnackBar(const SnackBar(content: Text('تعذّر إنشاء الصورة')));
     }
@@ -185,7 +185,7 @@ class _Card extends StatelessWidget {
               children: [
                 ClipOval(child: AppLogo(size: 20)),
                 const SizedBox(width: 6),
-                const Text('ابن الشابرة',
+                const Text('سلمان العماد',
                     style: TextStyle(fontFamily: 'Tajawal', fontWeight: FontWeight.bold, fontSize: 11, color: ink)),
                 const Spacer(),
                 if (pages > 1)
@@ -244,7 +244,7 @@ class _Card extends StatelessWidget {
             Row(
               children: [
                 const Expanded(
-                  child: Text('الشيخ قايد بن غانم الشابرة حفظه الله',
+                  child: Text('الشيخ سلمان بن صالح العماد حفظه الله',
                       style: TextStyle(fontFamily: 'Amiri', fontWeight: FontWeight.bold, fontSize: 13, color: ink)),
                 ),
                 // Scan to open the answer (no written link on the picture).
