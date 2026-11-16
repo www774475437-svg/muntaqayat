@@ -1,3 +1,4 @@
+import '../widgets/common.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -22,8 +23,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
   static const _pages = [
     (
       Icons.menu_book_rounded,
-      'مرحباً بك في «سلمان العماد»',
-      'تطبيق يجمع أجوبة ومقالات وكتب ورسائل الشيخ سلمان بن صالح العماد حفظه الله.',
+      'مرحباً بك في «ابن الشابرة»',
+      'تطبيق يجمع أجوبة ومقالات وكتب ورسائل الشيخ قايد بن غانم الشابرة حفظه الله.',
     ),
     (
       Icons.search_rounded,
@@ -83,7 +84,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
                   opacity: show,
                   child: Transform.scale(
                     scale: 0.85 + 0.15 * show,
-                    child: ClipOval(child: Image.asset('assets/icon/icon.png', width: 168, height: 168)),
+                    child: ClipOval(child: AppLogo(size: 168)),
                   ),
                 ),
               ],

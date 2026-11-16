@@ -1,10 +1,14 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/services.dart';
 
 import '../config.dart';
 import '../services/notifications.dart';
 
 import '../data/repository.dart';
+import '../services/books_store.dart';
+import '../data/models.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import 'ask_screen.dart';
@@ -18,6 +22,7 @@ import 'package:share_plus/share_plus.dart';
 import 'content_screens.dart';
 import 'extra_screens.dart';
 import 'review_screen.dart';
+import 'quiz_screens.dart';
 import '../services/cloud.dart';
 
 class MoreTab extends StatelessWidget {
@@ -44,6 +49,21 @@ class MoreTab extends StatelessWidget {
               onTap: () =>
                   Navigator.of(context).push(MaterialPageRoute(builder: (_) => const QuranScreen())),
             ),
+            _BigCard(
+              icon: Icons.spa_outlined,
+              title: 'الأذكار',
+              subtitle: 'حصن المسلم كاملاً، وعدّاد التسبيح',
+              color: const Color(0xFF2E7D32),
+              onTap: () =>
+                  Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AdhkarScreen())),
+            ),
+            _BigCard(
+              icon: Icons.quiz_outlined,
+              title: 'الأسئلة والأجوبة',
+              subtitle: 'اختبر علمك بأسئلة الشيخ، والمتصدرون',
+              color: const Color(0xFF3B4A8C),
+              onTap: () => openQuiz(context),
+            ),
             // A small gold strip: channels and accounts of the sheikh and of those the staff add.
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
@@ -64,7 +84,7 @@ class MoreTab extends StatelessWidget {
                         Icon(Icons.campaign_outlined, color: kGoldChip, size: 22),
                         SizedBox(width: 10),
                         Expanded(
-                          child: Text('قنوات وحسابات',
+                          child: Text('قنوات وحسابات أنصح بها',
                               style: TextStyle(fontFamily: 'Tajawal', fontWeight: FontWeight.bold, fontSize: 15)),
                         ),
                         Icon(Icons.chevron_left, size: 20),
@@ -73,14 +93,6 @@ class MoreTab extends StatelessWidget {
                   ),
                 ),
               ),
-            ),
-            _BigCard(
-              icon: Icons.spa_outlined,
-              title: 'الأذكار',
-              subtitle: 'حصن المسلم كاملاً، وعدّاد التسبيح',
-              color: const Color(0xFF2E7D32),
-              onTap: () =>
-                  Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AdhkarScreen())),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
@@ -103,10 +115,6 @@ class MoreTab extends StatelessWidget {
                 onTap: () => Navigator.of(context)
                     .push(MaterialPageRoute(builder: (_) => const MyReadingScreen())),
               ),
-              if (!AppConfig.cloudEnabled)
-                _soon(context, Icons.account_circle_outlined, 'تسجيل الدخول أو إنشاء حساب',
-                    'الحساب ومراسلة الشيخ تُفتح قريباً بإذن الله.')
-              else
               ListenableBuilder(
                 listenable: Cloud.instance,
                 builder: (context, _) {
@@ -158,8 +166,8 @@ class MoreTab extends StatelessWidget {
                 ],
                 ListTile(
                   leading: const _IconBox(Icons.rule_folder_outlined),
-                  title: const Text('لم يُتحقق منها'),
-                  subtitle: const Text('راجع المنشورات واحداً واحداً: صحّح، انقل، ثم تحقّق'),
+                  title: const Text('المتحقق منه وغير المتحقق منه'),
+                  subtitle: const Text('غير المتحقق منه: صحّح وانقل ثم تحقّق — والمتحقق منه في تبويب مستقل'),
                   trailing: const Icon(Icons.chevron_left),
                   onTap: () => Navigator.of(context)
                       .push(MaterialPageRoute(builder: (_) => const ReviewScreen())),
@@ -191,7 +199,8 @@ class MoreTab extends StatelessWidget {
               ),
               ListTile(
                 leading: const _IconBox(Icons.headphones),
-                title: const Text('المكتبة الصوتية'),
+                title: const Text('الدروس والتسجيلات الصوتية'),
+                subtitle: const Text('سلاسل الدروس وتسجيلات الشيخ'),
                 trailing: const Icon(Icons.chevron_left),
                 onTap: () => Navigator.of(context)
                     .push(MaterialPageRoute(builder: (_) => const AudioLibraryScreen())),
@@ -262,6 +271,13 @@ class MoreTab extends StatelessWidget {
             ]),
             const _Group('الإعدادات'),
             _Section(children: [
+              ListTile(
+                leading: const _IconBox(Icons.palette_outlined),
+                title: const Text('شعار التطبيق'),
+                subtitle: const Text('اختر الشعار الذي يظهر في التطبيق وعلى شاشة الجوال'),
+                trailing: ClipRRect(borderRadius: BorderRadius.circular(8), child: const AppLogo(size: 36)),
+                onTap: () => showModalBottomSheet(context: context, showDragHandle: true, builder: (_) => const _LogoPicker()),
+              ),
               if (!kIsWeb) ...[
                 SwitchListTile(
                   secondary: const _IconBox(Icons.notifications_active_outlined),
@@ -385,6 +401,14 @@ class MoreTab extends StatelessWidget {
             ]),
             const _Group('التطبيق والموقع'),
             _Section(children: [
+              if (!kIsWeb)
+                ListTile(
+                  leading: const _IconBox(Icons.download_for_offline_outlined),
+                  title: const Text('حمّل كل الكتب للقراءة بلا إنترنت'),
+                  subtitle: const Text('الأجوبة محفوظة في التطبيق أصلاً'),
+                  trailing: const Icon(Icons.chevron_left),
+                  onTap: () => showDialog(context: context, barrierDismissible: false, builder: (_) => const _DownloadAll()),
+                ),
               ListTile(
                 leading: const _IconBox(Icons.qr_code_2),
                 title: const Text('رمز الموقع (QR) ونشر التطبيق'),
@@ -478,8 +502,8 @@ class MoreTab extends StatelessWidget {
               Padding(
                 padding: EdgeInsets.all(16),
                 child: Text(
-                  'تطبيق «سلمان العماد» يجمع أجوبة ومقالات وكتب ورسائل الشيخ '
-                  'سلمان بن صالح العماد حفظه الله، '
+                  'تطبيق «ابن الشابرة» يجمع أجوبة ومقالات وكتب ورسائل الشيخ '
+                  'قايد بن غانم الشابرة حفظه الله، من اليمن، '
                   'مرتّبة على الأبواب مع البحث بالموضوع.\n\n'
                   'الإصدار ${AppConfig.version} (${AppConfig.buildNumber})',
                   style: TextStyle(height: 1.8),
@@ -632,4 +656,145 @@ class _IconBox extends StatelessWidget {
         ),
         child: Icon(icon, color: kGold, size: 20),
       );
+}
+
+
+/// Downloads every book the reader does not have yet, one after another.
+class _DownloadAll extends StatefulWidget {
+  const _DownloadAll();
+
+  @override
+  State<_DownloadAll> createState() => _DownloadAllState();
+}
+
+class _DownloadAllState extends State<_DownloadAll> {
+  int _done = 0;
+  int _total = 0;
+  int _failed = 0;
+  double _part = 0;
+  bool _stop = false;
+  bool _finished = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _run();
+  }
+
+  Future<void> _run() async {
+    final books = Repository.instance.books;
+    final todo = <Book>[];
+    for (final b in books) {
+      if (await BooksStore.cachedFile(b) == null) todo.add(b);
+    }
+    if (!mounted) return;
+    setState(() => _total = todo.length);
+    for (final b in todo) {
+      if (_stop || !mounted) break;
+      try {
+        await BooksStore.download(b, (p) {
+          if (mounted) setState(() => _part = p < 0 ? 0 : p);
+        });
+      } catch (_) {
+        _failed++;
+      }
+      if (mounted) setState(() => _done++);
+    }
+    if (mounted) setState(() => _finished = true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('تحميل الكتب'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (_total == 0 && !_finished)
+            const Text('جارٍ التحقق…')
+          else if (_finished)
+            Text(_total == 0
+                ? 'كل الكتب محمّلة على جهازك ✅'
+                : 'انتهى التحميل: ${_done - _failed} من $_total${_failed > 0 ? '، وتعذّر $_failed' : ''}')
+          else ...[
+            Text('الكتاب ${_done + 1} من $_total'),
+            const SizedBox(height: 10),
+            LinearProgressIndicator(value: (_done + _part) / _total),
+          ],
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () {
+            _stop = true;
+            Navigator.pop(context);
+          },
+          child: Text(_finished ? 'تم' : 'إيقاف'),
+        ),
+      ],
+    );
+  }
+}
+
+
+/// «شعار التطبيق»: the reader picks one of the logos.
+class _LogoPicker extends StatelessWidget {
+  const _LogoPicker();
+
+  static const _channel = MethodChannel('ibn_alshabira/icon');
+
+  Future<void> _pick(BuildContext context, int i) async {
+    appLogo.value = i;
+    final p = await SharedPreferences.getInstance();
+    await p.setInt('appLogoV2', i);
+    if (!kIsWeb) {
+      try {
+        await _channel.invokeMethod('set', i);
+      } catch (_) {}
+    }
+    if (context.mounted) {
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(kIsWeb ? 'تم تغيير الشعار ✅' : 'تم تغيير الشعار ✅ قد يتأخر تغيّر أيقونة الجوال قليلاً')));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('شعار التطبيق', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+            const SizedBox(height: 14),
+            ValueListenableBuilder<int>(
+              valueListenable: appLogo,
+              builder: (context, cur, _) => Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  for (var i = 0; i < logoAssets.length; i++)
+                    GestureDetector(
+                      onTap: () => _pick(context, i),
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(22),
+                          border: Border.all(color: i == cur ? kGold : Colors.transparent, width: 3),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(18),
+                          child: Image.asset(logoAssets[i], width: 88, height: 88, fit: BoxFit.cover, cacheWidth: 264),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

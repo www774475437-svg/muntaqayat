@@ -1,7 +1,7 @@
-name: salman_alemad
-description: "تطبيق سلمان العماد — فتاوى ومقالات وكتب الشيخ سلمان بن صالح العماد"
+name: ibn_alshabira
+description: "تطبيق ابن الشابرة — فتاوى ومقالات وكتب الشيخ قايد بن غانم الشابرة"
 publish_to: 'none'
-version: 1.0.0+1
+version: 4.1.0+1
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
@@ -30,6 +30,8 @@ dependencies:
   cloud_firestore: ^6.0.0
   firebase_app_check: any
   firebase_ai: any
+  workmanager: ^0.10.0
+  wakelock_plus: ^1.2.8
 
 dev_dependencies:
   flutter_test:
@@ -39,9 +41,9 @@ dev_dependencies:
 flutter_launcher_icons:
   android: true
   ios: false
-  image_path: assets/icon/icon.png
-  adaptive_icon_background: "#0A2417"
-  adaptive_icon_foreground: assets/icon/icon_foreground.png
+  image_path: tool/launcher/main_icon.png
+  adaptive_icon_background: "#011230"
+  adaptive_icon_foreground: tool/launcher/main_fg.png
   min_sdk_android: 21
 
 flutter:

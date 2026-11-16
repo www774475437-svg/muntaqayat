@@ -6,7 +6,7 @@ import re
 import urllib.request
 from pathlib import Path
 
-HANDLE = "salmanalimad"
+HANDLE = "qaidghsh"
 OUT = Path("assets/data/videos.json")
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
@@ -89,7 +89,7 @@ except Exception as ex:
     print("YouTube not reachable:", ex)
     # Keep the last good list (the one the live site already shows).
     try:
-        old = json.loads(fetch("https://www774475437-svg.github.io/salman-alemad/assets/assets/data/videos.json"))
+        old = json.loads(fetch("https://ibnalshabira.com/assets/assets/data/videos.json"))
         if old:
             OUT.write_text(json.dumps(old, ensure_ascii=False, indent=1), encoding="utf-8")
             print("kept the last list:", len(old), "videos")

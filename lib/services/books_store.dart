@@ -9,8 +9,7 @@ import '../data/repository.dart';
 
 /// Downloads and keeps the sheikh's books inside the app.
 class BooksStore {
-  /// The sheikh's Google Drive books folder — empty until it is provided.
-  static const _folderId = '';
+  static const _folderId = '19p5At8pu_DEPA6M50PF6N4j3HpoNUbD_';
 
   static Future<Directory> _dir() async {
     final base = await getApplicationDocumentsDirectory();
@@ -63,7 +62,7 @@ class BooksStore {
 
   /// Re-reads the Drive folder so new books appear without an app update.
   static Future<void> refreshFromDrive() async {
-    if (kIsWeb || _folderId.isEmpty) return;
+    if (kIsWeb) return;
     try {
       final res = await http
           .get(Uri.parse('https://drive.google.com/embeddedfolderview?id=$_folderId'))

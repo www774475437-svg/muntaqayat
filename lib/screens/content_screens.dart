@@ -192,7 +192,7 @@ class VideosScreen extends StatelessWidget {
                     children: [
                       const Icon(Icons.play_circle_outline, size: 64, color: kGold),
                       const SizedBox(height: 12),
-                      const YouTubeButton(url: 'https://youtube.com/@salmanalimad', label: 'فتح قناة الشيخ في يوتيوب'),
+                      const YouTubeButton(url: 'https://youtube.com/@qaidghsh', label: 'فتح قناة الشيخ في يوتيوب'),
                     ],
                   ),
                 )
@@ -203,7 +203,7 @@ class VideosScreen extends StatelessWidget {
                     if (i == videos.length) {
                       return const Padding(
                         padding: EdgeInsets.symmetric(vertical: 12),
-                        child: YouTubeButton(url: 'https://youtube.com/@salmanalimad', label: 'كل المقاطع في قناة الشيخ'),
+                        child: YouTubeButton(url: 'https://youtube.com/@qaidghsh', label: 'كل المقاطع في قناة الشيخ'),
                       );
                     }
                     final v = videos[i];

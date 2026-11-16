@@ -4,8 +4,6 @@ import 'package:firebase_ai/firebase_ai.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 
-import '../config.dart';
-
 /// The questions a long message holds, each with short phrases to search for.
 class AiIssue {
   final String title;
@@ -29,7 +27,7 @@ class Ai {
   static bool _prepared = false;
 
   /// App Check is registered for the Android app only.
-  static bool get supported => !kIsWeb && AppConfig.aiEnabled;
+  static bool get supported => !kIsWeb;
 
   static Future<void> _prepare() async {
     if (_prepared) return;
@@ -62,15 +60,32 @@ class Ai {
   }
 
   /// Splits a message into its questions. Does not answer anything.
-  static Future<List<AiIssue>?> split(String question) async {
+  /// When the message cannot be understood at all, a short question back.
+  static String? lastClarify;
+
+  static Future<List<AiIssue>?> split(String question, {String previous = ''}) async {
+    lastClarify = null;
+    final context = previous.trim().isEmpty
+        ? ''
+        : '''
+هذه رسالة متابعة في محادثة. السؤال السابق كان:
+$previous
+فاجعل كل مسألة كاملة مفهومة بنفسها (اذكر موضوع السؤال السابق فيها إن احتاجت إليه)، فإن سأل «ما الدليل؟» فالمسألة: «دليل» ثم موضوع السؤال السابق.
+''';
     final j = await _json('''
 أنت تقسّم رسالة المستفتي إلى مسائلها الشرعية فقط، ولا تجيب عن شيء ولا تذكر أي حكم.
-أعد JSON فقط بهذا الشكل: [{"title": "عنوان المسألة بكلمات قليلة", "queries": ["عبارة بحث", "عبارة بحث أخرى"]}]
+$context
+إن كانت الرسالة ناقصة لا يُفهم منها أي مسألة أبداً، فأعد فقط: {"clarify": "سؤال قصير مهذب تستوضح به من المستفتي"}
+وإلا أعد JSON فقط بهذا الشكل: [{"title": "عنوان المسألة بكلمات قليلة", "queries": ["عبارة بحث", "عبارة بحث أخرى"]}]
 - المسائل أربع على الأكثر، بترتيب ورودها في الرسالة.
 - كل عبارة بحث من كلمتين إلى أربع كلمات، بألفاظ الفقهاء التي ترد في كتب الفتاوى، مثل: «قتل النمل»، «رفع الصوت على الوالدين»، «شروط التوبة».
 - لكل مسألة عبارتان أو ثلاث مختلفة الألفاظ.
 الرسالة:
 $question''');
+    if (j is Map && '${j['clarify'] ?? ''}'.trim().isNotEmpty) {
+      lastClarify = '${j['clarify']}'.trim();
+      return null;
+    }
     if (j is! List) return null;
     final out = <AiIssue>[];
     for (final e in j) {

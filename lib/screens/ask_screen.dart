@@ -76,13 +76,6 @@ class _AskScreenState extends State<AskScreen> {
       body: ListenableBuilder(
         listenable: cloud,
         builder: (context, _) {
-          if (!AppConfig.cloudEnabled) {
-            return const _Info(
-              icon: Icons.forum_outlined,
-              title: 'قريباً بإذن الله',
-              text: 'إرسال الأسئلة إلى الشيخ ومراسلته من داخل التطبيق تُفتح قريباً بإذن الله.',
-            );
-          }
           if (!cloud.ready) {
             return const _Info(
               icon: Icons.wifi_off,

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../config.dart';
 
 import '../data/models.dart';
 import '../data/repository.dart';
@@ -209,11 +208,8 @@ class _SearchTabState extends State<SearchTab> {
                     backgroundColor: const Color(0xFF2E7D32), foregroundColor: Colors.white),
                 icon: const Icon(Icons.manage_search),
                 label: const Text('بحث الفتاوى من كتب الثقات بالذكاء الاصطناعي'),
-                onPressed: () => AppConfig.aiEnabled
-                    ? Navigator.of(context)
-                        .push(MaterialPageRoute(builder: (_) => TrustedFatwaScreen(initial: _query.trim())))
-                    : ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('البحث بالذكاء الاصطناعي قريباً بإذن الله'))),
+                onPressed: () => Navigator.of(context)
+                    .push(MaterialPageRoute(builder: (_) => TrustedFatwaScreen(initial: _query.trim()))),
               ),
             ),
           ),

@@ -1,3 +1,4 @@
+import 'widgets/common.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -17,12 +18,13 @@ import 'theme.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final prefs = await SharedPreferences.getInstance();
+  appLogo.value = prefs.getInt('appLogoV2') ?? 0;
   // The site opens at once with the newest answers, then brings the rest
   // of the library in the background (unless a link to one answer was opened).
   final quick = kIsWeb && AppConfig.idFromRoute(Uri.base.fragment) == null;
   await Repository.instance.load(prefs, quick: quick);
   Repository.onSavedListsChanged = () => Cloud.instance.pushUserData();
-  runApp(const SalmanAlemadApp());
+  runApp(const IbnAlshabiraApp());
   Cloud.instance.init();
   loadFreshPosts();
   if (quick) Future.delayed(const Duration(milliseconds: 400), Repository.instance.loadRest);
@@ -34,6 +36,8 @@ Future<void> main() async {
       minute: Repository.instance.notifyMinute,
     ),
   );
+  // A notification to every reader when a new version comes out.
+  Future.delayed(const Duration(seconds: 3), UpdateWatch.start);
 }
 
 /// Routes: "/" home, "/fatwa/<id>" a single fatwa (shareable web link).
@@ -52,8 +56,8 @@ Route<dynamic>? onGenerateRoute(RouteSettings settings) {
   );
 }
 
-class SalmanAlemadApp extends StatelessWidget {
-  const SalmanAlemadApp({super.key});
+class IbnAlshabiraApp extends StatelessWidget {
+  const IbnAlshabiraApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -61,7 +65,7 @@ class SalmanAlemadApp extends StatelessWidget {
     return ListenableBuilder(
       listenable: repo,
       builder: (context, _) => MaterialApp(
-        title: 'سلمان العماد',
+        title: 'ابن الشابرة',
         debugShowCheckedModeBanner: false,
         locale: const Locale('ar'),
         supportedLocales: const [Locale('ar')],

@@ -92,7 +92,7 @@ class Fatwa {
     final b = StringBuffer('📜 $title\n\n');
     if (question.isNotEmpty) b.write('❓ السؤال:\n$question\n\n');
     b.write(question.isNotEmpty ? '✅ الجواب:\n$answer\n\n' : '$answer\n\n');
-    b.write('— الشيخ سلمان بن صالح العماد حفظه الله\n\n');
+    b.write('— الشيخ قايد بن غانم الشابرة حفظه الله\n\n');
     b.write('🔗 رابط الجواب:\n${AppConfig.fatwaLink(id)}');
     return b.toString();
   }
@@ -148,7 +148,7 @@ class ChannelPost {
   factory ChannelPost.fromJson(Map<String, dynamic> j) =>
       ChannelPost(id: (j['id'] as num).toInt(), text: '${j['text'] ?? ''}', date: '${j['date'] ?? ''}');
 
-  String get link => 'https://t.me/salmansalehalemad/$id';
+  String get link => 'https://t.me/qaidghsh/$id';
 
   String get firstLine {
     final l = text.split('\n').map((e) => e.trim()).firstWhere((e) => e.isNotEmpty, orElse: () => '');

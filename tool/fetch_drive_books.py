@@ -8,7 +8,7 @@ import sys
 import urllib.request
 from pathlib import Path
 
-ROOT_FOLDER = ""  # the sheikh's Drive folder, once provided
+ROOT_FOLDER = "19p5At8pu_DEPA6M50PF6N4j3HpoNUbD_"
 OUT = Path("assets/data/books.json")
 UA = {"User-Agent": "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36"}
 
@@ -51,9 +51,6 @@ def clean_title(name: str) -> str:
 
 
 def main():
-    if not ROOT_FOLDER:
-        print("No books folder yet")
-        return 0
     try:
         books = []
         for e in list_folder(ROOT_FOLDER):

@@ -1,9 +1,8 @@
 import math, sys
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
-import os
-F = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'assets', 'fonts') + '/'
-AMIRI_B = F+'Amiri-Bold.ttf'
-KUFI_B = F+'ReemKufi-Regular.ttf'
+F = '/home/claude/fonts/'
+AMIRI_B = F+'Amiri-1.000/Amiri-Bold.ttf'
+KUFI_B = F+'ReemKufi-1.7/ttf/ReemKufi-Bold.ttf'
 GOLD = (214, 178, 94); GOLD2 = (240, 212, 140); GREEN = (22, 64, 42); DGREEN = (10, 36, 23)
 S = 1024
 
@@ -57,22 +56,22 @@ def dots_ring(d, r, n, rad, col):
 def design_a():  # Amiri calligraphy in double gold ring, green
     im = radial_bg((34, 92, 60), DGREEN); d = ImageDraw.Draw(im)
     ring(d, 430, 14, GOLD); ring(d, 395, 4, GOLD); dots_ring(d, 412, 48, 4, GOLD)
-    gold_text(im, 'سلمان', AMIRI_B, 350, 330)
-    gold_text(im, 'العماد', AMIRI_B, 580, 560)
+    gold_text(im, 'ابن', AMIRI_B, 330, 200)
+    gold_text(im, 'الشابرة', AMIRI_B, 560, 600)
     return im
 
 def design_b():  # Kufi on black with gold disc
     im = Image.new('RGB', (S, S), (8, 8, 8)); d = ImageDraw.Draw(im)
     d.ellipse([S/2-420, S/2-420, S/2+420, S/2+420], fill=(18, 18, 18))
     ring(d, 420, 10, GOLD); ring(d, 380, 3, GOLD)
-    gold_text(im, 'العماد', KUFI_B, 520, 560)
+    gold_text(im, 'الشابرة', KUFI_B, 520, 560)
     d.line([(S/2-150, 700), (S/2+150, 700)], fill=GOLD, width=4)
     return im
 
 def design_c():  # Open book + name, green
     im = radial_bg((30, 84, 55), DGREEN); d = ImageDraw.Draw(im)
     ring(d, 430, 10, GOLD)
-    gold_text(im, 'العماد', AMIRI_B, 420, 560)
+    gold_text(im, 'الشابرة', AMIRI_B, 420, 560)
     # open book
     cx, top = S/2, 600
     for side in (-1, 1):

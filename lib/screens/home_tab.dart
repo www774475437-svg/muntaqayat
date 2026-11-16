@@ -1,3 +1,5 @@
+import 'benefit_card.dart';
+import 'quiz_screens.dart';
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -18,6 +20,7 @@ import 'channel_screen.dart';
 import 'book_reader_screen.dart';
 import 'content_screens.dart';
 import 'chapter_screen.dart';
+import 'audio_library.dart';
 import 'trusted_screens.dart';
 import 'quran_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -36,26 +39,35 @@ class _HomeTabState extends State<HomeTab> {
   List<Object> _feed = [];
   int _feedKey = -1;
   List<TrustedScholar> _scholars = [];
+  List<Recording> _recs = [];
   final _home = ScrollController();
   bool _showTop = false;
 
   /// The long list under the sections: every answer and article once, in an
   /// order that changes each day, with a book and a scholar now and then.
-  /// Nothing shown in «أُضيف حديثاً» or «جواب اليوم» is repeated here.
+  /// Nothing shown in «أحدث ما نُشر» or «جواب اليوم» is repeated here.
   List<Object> _feedFor(Repository repo) {
-    final key = repo.fatwas.length * 31 + repo.books.length * 7 + _scholars.length;
+    final key = repo.fatwas.length * 31 + repo.books.length * 7 + _scholars.length + _recs.length * 1000003;
     if (key == _feedKey) return _feed;
     _feedKey = key;
     final day = DateTime.now().difference(DateTime(2024)).inDays;
     final skip = {for (final f in repo.latest()) f.id, if (repo.fatwaOfDay != null) repo.fatwaOfDay!.id};
     final fatwas = repo.fatwas.where((f) => !skip.contains(f.id)).toList()..shuffle(math.Random(day));
     final books = [...repo.books]..shuffle(math.Random(day));
+    // A recording now and then, at uneven distances, so the reader can listen too.
+    final recs = [..._recs]..shuffle(math.Random(day + 7));
+    const gaps = [5, 10, 7, 17, 9, 12, 6, 14];
     final out = <Object>[];
-    var b = 0, sc = 0;
+    var b = 0, sc = 0, r = 0, nextRec = 4;
     for (var i = 0; i < fatwas.length; i++) {
       out.add(fatwas[i]);
       if (i % 6 == 5 && b < books.length) out.add(books[b++]);
       if (i % 14 == 9 && sc < _scholars.length) out.add(_scholars[sc++]);
+      if (i == nextRec && r < recs.length) {
+        out.add(recs[r]);
+        nextRec += gaps[r % gaps.length];
+        r++;
+      }
     }
     return _feed = out;
   }
@@ -71,6 +83,9 @@ class _HomeTabState extends State<HomeTab> {
     });
     loadTrustedScholars().then((l) {
       if (mounted) setState(() => _scholars = l.where((x) => x.bio.isNotEmpty).toList());
+    }).catchError((_) {});
+    Recordings.load().then((l) {
+      if (mounted) setState(() => _recs = l);
     }).catchError((_) {});
     updatePublishedAt().then((v) {
       if (mounted && v != null) setState(() => _updateAt = v);
@@ -112,11 +127,8 @@ class _HomeTabState extends State<HomeTab> {
                     ),
                   ),
                   child: InkWell(
-                    onTap: () => AppConfig.aiEnabled
-                        ? Navigator.of(context)
-                            .push(MaterialPageRoute(builder: (_) => const TrustedFatwaScreen()))
-                        : ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('البحث بالذكاء الاصطناعي قريباً بإذن الله'))),
+                    onTap: () => Navigator.of(context)
+                        .push(MaterialPageRoute(builder: (_) => const TrustedFatwaScreen())),
                     child: const Padding(
                       padding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                       child: Row(
@@ -134,7 +146,7 @@ class _HomeTabState extends State<HomeTab> {
                                         fontSize: 16.5,
                                         fontWeight: FontWeight.bold)),
                                 SizedBox(height: 2),
-                                Text(AppConfig.aiEnabled ? 'باستخدام الذكاء الاصطناعي' : 'باستخدام الذكاء الاصطناعي — قريباً',
+                                Text('باستخدام الذكاء الاصطناعي',
                                     style: TextStyle(
                                         fontFamily: 'Tajawal',
                                         color: kGold,
@@ -166,12 +178,14 @@ class _HomeTabState extends State<HomeTab> {
             const SliverToBoxAdapter(
               child: _Banner(
                 icon: Icons.android,
-                title: 'حمّل تطبيق «سلمان العماد»',
+                title: 'حمّل تطبيق «ابن الشابرة»',
                 color: Color(0xFFB3261E),
                 subtitle: 'لأجهزة أندرويد — يعمل دون إنترنت',
                 url: AppConfig.apkUrl,
               ),
             ),
+          // The newest answers and recordings, side by side.
+          SliverToBoxAdapter(child: _LatestBoard(recordings: _recs)),
           // Back to where the reader stopped.
           const SliverToBoxAdapter(child: _Resume()),
           // The chapters, as a row that moves right and left.
@@ -180,6 +194,7 @@ class _HomeTabState extends State<HomeTab> {
           if (repo.fatwaOfDay != null)
             SliverToBoxAdapter(child: _FatwaOfDay(fatwa: repo.fatwaOfDay!)),
           const SliverToBoxAdapter(child: _DailyVerse()),
+          const SliverToBoxAdapter(child: BenefitCard()),
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
@@ -203,57 +218,44 @@ class _HomeTabState extends State<HomeTab> {
 
           // ------------------------------------------------ للقراءة
           const SliverToBoxAdapter(child: _GroupTitle('للقراءة', Icons.menu_book_outlined)),
-          if (repo.latest().isNotEmpty) ...[
-            const SliverToBoxAdapter(child: _SectionTitle('أُضيف حديثاً')),
-            SliverToBoxAdapter(
-              child: SizedBox(
-                height: 132,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  itemCount: repo.latest().length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 10),
-                  itemBuilder: (context, i) {
-                    final f = repo.latest()[i];
-                    return SizedBox(
-                      width: 240,
-                      child: Card(
-                        margin: EdgeInsets.zero,
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(18),
-                          onTap: () => openFatwa(context, f),
-                          child: Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('${repo.chapterName(f.chapter)} · ${Hijri.parse(f.date) ?? f.date}',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(color: kGoldChip, fontSize: 12)),
-                                const SizedBox(height: 6),
-                                Expanded(
-                                  child: Text(f.title,
-                                      maxLines: 3,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(height: 1.6, fontWeight: FontWeight.w600)),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ),
-          ],
           const SliverToBoxAdapter(child: _MostRead()),
           const SliverToBoxAdapter(child: _MostSearched()),
 
           // ------------------------------------------------ للمشاهدة والمتابعة
           const SliverToBoxAdapter(child: _GroupTitle('للمشاهدة والمتابعة', Icons.play_circle_outline)),
+          if (_recs.isNotEmpty) ...[
+            SliverToBoxAdapter(
+              child: _SectionTitle('التسجيلات الصوتية',
+                  action: 'الكل',
+                  onAction: () => Navigator.of(context)
+                      .push(MaterialPageRoute(builder: (_) => const RecordingsScreen()))),
+            ),
+            SliverToBoxAdapter(
+              child: _AutoRow(
+                height: 138,
+                step: 222,
+                gap: 10,
+                itemCount: math.min(20, _recs.length),
+                itemBuilder: (context, i) => _RecordingCard(rec: _recs[i]),
+              ),
+            ),
+          ],
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+              child: Card(
+                margin: EdgeInsets.zero,
+                child: ListTile(
+                  leading: const Icon(Icons.headphones, color: kGold, size: 28),
+                  title: const Text('الدروس والتسجيلات الصوتية', style: TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: const Text('سلاسل الدروس وتسجيلات الشيخ'),
+                  trailing: const Icon(Icons.chevron_left),
+                  onTap: () => Navigator.of(context)
+                      .push(MaterialPageRoute(builder: (_) => const AudioLibraryScreen())),
+                ),
+              ),
+            ),
+          ),
           if (repo.videos.isEmpty)
             SliverToBoxAdapter(
               child: Column(
@@ -288,6 +290,9 @@ class _HomeTabState extends State<HomeTab> {
               child: _VideoStrip(videos: repo.videos.take(8).toList()),
             ),
           ],
+          // «الأسئلة»: today's question and a button to the section, after the videos.
+          const SliverToBoxAdapter(child: _GroupTitle('الأسئلة', Icons.quiz_outlined)),
+          const SliverToBoxAdapter(child: QuizHomeStrip()),
           if (repo.channel.isNotEmpty) ...[
             SliverToBoxAdapter(
               child: _SectionTitle('أحدث منشورات القناة',
@@ -358,6 +363,7 @@ class _HomeTabState extends State<HomeTab> {
               if (item is Fatwa) return FatwaTile(fatwa: item);
               if (item is Book) return _BookRow(book: item);
               if (item is TrustedScholar) return _ScholarRow(scholar: item);
+              if (item is Recording) return _RecordingRow(rec: item);
               return const SizedBox.shrink();
             },
           ),
@@ -427,9 +433,9 @@ class _Header extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  ClipOval(child: Image.asset('assets/icon/icon.png', width: 40, height: 40)),
+                  ClipOval(child: AppLogo(size: 40)),
                   const SizedBox(width: 10),
-                  Text('سلمان العماد',
+                  Text('ابن الشابرة',
                       style: TextStyle(
                           fontFamily: 'Tajawal', color: ink, fontSize: 21, fontWeight: FontWeight.bold)),
                   const Spacer(),
@@ -450,7 +456,7 @@ class _Header extends StatelessWidget {
                   style: TextStyle(
                       fontFamily: 'Amiri', color: kGoldChip, fontSize: 19, fontWeight: FontWeight.bold)),
               const SizedBox(height: 2),
-              Text('سلمان بن صالح العماد',
+              Text('قايد بن غانم الشابرة',
                   style: TextStyle(
                       fontFamily: 'Tajawal', color: ink, fontSize: 29, fontWeight: FontWeight.bold, height: 1.5)),
               const SizedBox(height: 8),
@@ -1374,4 +1380,190 @@ class _MostSearchedState extends State<_MostSearched> {
       ],
     );
   }
+}
+
+
+/// «أحدث ما نُشر»: the newest answers and recordings in one moving row.
+class _LatestBoard extends StatelessWidget {
+  final List<Recording> recordings;
+  const _LatestBoard({required this.recordings});
+
+  @override
+  Widget build(BuildContext context) {
+    final repo = Repository.instance;
+    final answers = repo.latest().take(8).toList();
+    final recs = recordings.take(8).toList();
+    // One answer, one recording, in turn.
+    final items = <Object>[];
+    for (var i = 0; i < math.max(answers.length, recs.length); i++) {
+      if (i < answers.length) items.add(answers[i]);
+      if (i < recs.length) items.add(recs[i]);
+    }
+    if (items.isEmpty) return const SizedBox.shrink();
+    final brand = brandColor(context);
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 14, 12, 4),
+      padding: const EdgeInsets.only(top: 12, bottom: 12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        gradient: LinearGradient(
+          begin: AlignmentDirectional.topStart,
+          end: AlignmentDirectional.bottomEnd,
+          colors: [brand, Color.lerp(brand, Colors.black, 0.35)!],
+        ),
+        border: Border.all(color: kGold.withValues(alpha: 0.7), width: 1.2),
+        boxShadow: [BoxShadow(color: brand.withValues(alpha: 0.25), blurRadius: 14, offset: const Offset(0, 6))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(children: [
+              const Icon(Icons.campaign_rounded, color: kGold, size: 24),
+              const SizedBox(width: 8),
+              const Text('أحدث ما نُشر',
+                  style: TextStyle(fontFamily: 'Tajawal', fontSize: 19, fontWeight: FontWeight.bold, color: Colors.white)),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(color: kGold, borderRadius: BorderRadius.circular(20)),
+                child: const Text('جديد', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.black)),
+              ),
+            ]),
+          ),
+          const SizedBox(height: 10),
+          _AutoRow(
+            height: 128,
+            step: 232,
+            gap: 10,
+            itemCount: items.length,
+            itemBuilder: (context, i) {
+              final it = items[i];
+              final rec = it is Recording ? it : null;
+              final ans = it is Fatwa ? it : null;
+              final isRec = rec != null;
+              final title = rec?.title ?? ans!.title;
+              final sub = rec != null
+                  ? [if (rec.dur.isNotEmpty) '⏱ ${rec.dur}', rec.date].join('  ·  ')
+                  : '${repo.chapterName(ans!.chapter)} · ${Hijri.parse(ans.date) ?? ans.date}';
+              return SizedBox(
+                width: 222,
+                child: Material(
+                  color: Colors.white.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(16),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: () => rec != null ? openRecording(context, rec) : openFatwa(context, ans!),
+                    child: Padding(
+                      padding: const EdgeInsets.all(11),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(children: [
+                            Icon(isRec ? Icons.headphones : Icons.article_outlined, color: kGold, size: 17),
+                            const SizedBox(width: 5),
+                            Text(isRec ? 'تسجيل صوتي' : 'جواب',
+                                style: const TextStyle(color: kGold, fontSize: 12, fontWeight: FontWeight.bold)),
+                          ]),
+                          const SizedBox(height: 6),
+                          Expanded(
+                            child: Text(title,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(color: Colors.white, height: 1.55, fontWeight: FontWeight.w600)),
+                          ),
+                          Text(sub,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(color: Colors.white.withValues(alpha: 0.75), fontSize: 11.5)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A recording in the moving row of «التسجيلات الصوتية».
+class _RecordingCard extends StatelessWidget {
+  final Recording rec;
+  const _RecordingCard({required this.rec});
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+        width: 212,
+        child: Card(
+          margin: EdgeInsets.zero,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(18),
+            onTap: () => openRecording(context, rec),
+            child: Padding(
+              padding: const EdgeInsets.all(11),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(children: [
+                    CircleAvatar(
+                      radius: 15,
+                      backgroundColor: kGold.withValues(alpha: 0.2),
+                      child: Icon(rec.playable ? Icons.play_arrow : Icons.send_outlined, color: kGoldChip, size: 18),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text([if (rec.dur.isNotEmpty) rec.dur, rec.date].join('  ·  '),
+                          maxLines: 1, overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(color: kGoldChip, fontSize: 12)),
+                    ),
+                  ]),
+                  const SizedBox(height: 6),
+                  Expanded(
+                    child: Text(rec.title,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(height: 1.5, fontWeight: FontWeight.w600)),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+}
+
+/// A recording between the answers of the long list.
+class _RecordingRow extends StatelessWidget {
+  final Recording rec;
+  const _RecordingRow({required this.rec});
+
+  @override
+  Widget build(BuildContext context) => Card(
+        margin: const EdgeInsets.fromLTRB(12, 6, 12, 6),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+          side: BorderSide(color: kGold.withValues(alpha: 0.6)),
+        ),
+        child: ListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+          leading: CircleAvatar(
+            radius: 22,
+            backgroundColor: kGold,
+            child: Icon(rec.playable ? Icons.play_arrow : Icons.send_outlined, color: Colors.black, size: 26),
+          ),
+          title: Text(rec.title,
+              maxLines: 3, overflow: TextOverflow.ellipsis, style: const TextStyle(height: 1.55, fontWeight: FontWeight.w600)),
+          subtitle: Text(
+            ['🎧 تسجيل صوتي', if (rec.by.isNotEmpty) rec.by, if (rec.dur.isNotEmpty) rec.dur].join('  ·  '),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          onTap: () => openRecording(context, rec),
+        ),
+      );
 }

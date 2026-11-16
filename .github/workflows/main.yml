@@ -6,7 +6,8 @@ on:
   workflow_dispatch:
   # Every day: refresh the site with the sheikh's newest channel posts.
   schedule:
-    - cron: '17 3 * * *'
+    # 02:00 UTC = 5:00 AM Yemen time
+    - cron: '0 2 * * *'
 
 permissions:
   contents: write
@@ -45,7 +46,7 @@ jobs:
           cache: true
 
       - name: Create Android platform files
-        run: flutter create --org com.salmanalemad --project-name salman_alemad --platforms android .
+        run: flutter create --org com.ibnalshabira --project-name ibn_alshabira --platforms android .
 
       - name: Permanent signing key (from the KEY_PASSWORD secret)
         env:
@@ -83,21 +84,30 @@ jobs:
         run: dart run flutter_launcher_icons
 
       - name: Build APK
-        run: flutter build apk --release --build-number=${{ github.run_number }} --dart-define=BUILD_NUMBER=${{ github.run_number }}
+        run: flutter build apk --release --target-platform android-arm,android-arm64 --build-number=${{ github.run_number }} --dart-define=BUILD_NUMBER=${{ github.run_number }}
 
       - name: Rename APK
-        run: cp build/app/outputs/flutter-apk/app-release.apk salman-alemad.apk
+        run: cp build/app/outputs/flutter-apk/app-release.apk ibn-alshabira.apk
+
+      - name: Build the Google Play bundle (AAB)
+        run: |
+          flutter build appbundle --release --build-number=${{ github.run_number }} --dart-define=BUILD_NUMBER=${{ github.run_number }} --dart-define=PLAY=true
+          cp build/app/outputs/bundle/release/app-release.aab ibn-alshabira-play.aab
 
       - name: Publish as latest release (direct download link)
         uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_number }}
-          name: سلمان العماد — نسخة ${{ github.run_number }}
+          name: ابن الشابرة — نسخة ${{ github.run_number }}
           make_latest: true
-          files: salman-alemad.apk
+          files: |
+            ibn-alshabira.apk
+            ibn-alshabira-play.aab
 
   website:
-    needs: data
+    needs: [data, android]
+    # Runs after the APK (or without it on the daily refresh).
+    if: always() && needs.data.result == 'success' && needs.android.result != 'failure'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -108,7 +118,7 @@ jobs:
           cache: true
 
       - name: Create web platform files
-        run: flutter create --org com.salmanalemad --project-name salman_alemad --platforms web .
+        run: flutter create --org com.ibnalshabira --project-name ibn_alshabira --platforms web .
 
       - run: flutter pub get
 
@@ -131,7 +141,15 @@ jobs:
           path: assets/data
 
       - name: Build website
-        run: flutter build web --release --no-web-resources-cdn --base-href /salman-alemad/ --dart-define=BUILD_NUMBER=0
+        run: flutter build web --release --no-web-resources-cdn --base-href / --dart-define=BUILD_NUMBER=0
+
+      - name: Privacy and account deletion pages (for Google Play)
+        run: cp -r tool/web_pages/. build/web/
+
+      - name: The APK on our own domain (ibnalshabira.com/ibn-alshabira.apk)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download --repo ${{ github.repository }} --pattern ibn-alshabira.apk --dir build/web || echo "no release yet"
 
       - name: Publish website (gh-pages branch)
         uses: peaceiris/actions-gh-pages@v4
@@ -139,3 +157,4 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: build/web
           force_orphan: true
+          cname: ibnalshabira.com

@@ -4,8 +4,8 @@ import json
 import re
 from pathlib import Path
 
-TITLE = "سلمان العماد — أجوبة الشيخ سلمان بن صالح العماد"
-DESC = ("أجوبة ومقالات وكتب ورسائل الشيخ سلمان بن صالح العماد حفظه الله، "
+TITLE = "ابن الشابرة — أجوبة الشيخ قايد بن غانم الشابرة"
+DESC = ("أجوبة ومقالات وكتب ورسائل الشيخ قايد بن غانم الشابرة حفظه الله، "
         "مرتبة على أبواب العقيدة والفقه والآداب، مع البحث بالموضوع.")
 
 index = Path("web/index.html")
@@ -13,7 +13,7 @@ h = index.read_text(encoding="utf-8")
 h = re.sub(r"<html[^>]*>", '<html lang="ar" dir="rtl">', h, count=1)
 h = re.sub(r"<title>.*?</title>", f"<title>{TITLE}</title>", h, count=1, flags=re.S)
 h = re.sub(r'<meta name="description" content="[^"]*">', f'<meta name="description" content="{DESC}">', h, count=1)
-SITE = "https://www774475437-svg.github.io/salman-alemad/"
+SITE = "https://ibnalshabira.com/"
 if 'property="og:title"' not in h:
     h = h.replace("</head>",
                   f'  <meta property="og:title" content="{TITLE}">\n'
@@ -22,7 +22,7 @@ if 'property="og:title"' not in h:
                   f'  <meta property="og:url" content="{SITE}">\n'
                   f'  <meta property="og:type" content="website">\n'
                   f'  <meta name="twitter:card" content="summary">\n</head>', 1)
-h = h.replace('content="salman_alemad"', 'content="سلمان العماد"')
+h = h.replace('content="ibn_alshabira"', 'content="ابن الشابرة"')
 # A loading screen with the logo, shown until the app draws its first frame.
 if 'id="loading"' not in h:
     h = h.replace("<body>", '''<body>
@@ -33,7 +33,7 @@ if 'id="loading"' not in h:
     #loading p { color: #fff; font: 16px sans-serif; margin-top: 22px; }
     @keyframes pulse { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.06); opacity: .8; } }
   </style>
-  <div id="loading"><img src="icons/Icon-192.png" alt=""><p>جارٍ فتح «سلمان العماد»…</p></div>
+  <div id="loading"><img src="icons/Icon-192.png" alt=""><p>جارٍ فتح «ابن الشابرة»…</p></div>
   <script>
     window.addEventListener('flutter-first-frame', function () {
       var l = document.getElementById('loading');
@@ -44,7 +44,7 @@ index.write_text(h, encoding="utf-8")
 
 manifest = Path("web/manifest.json")
 data = json.loads(manifest.read_text(encoding="utf-8"))
-data.update({"name": "سلمان العماد", "short_name": "سلمان العماد", "description": DESC,
+data.update({"name": "ابن الشابرة", "short_name": "ابن الشابرة", "description": DESC,
              "background_color": "#1F5E3B", "theme_color": "#1F5E3B", "dir": "rtl", "lang": "ar"})
 manifest.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 print("Web patched")
