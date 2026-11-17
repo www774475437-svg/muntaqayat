@@ -42,12 +42,34 @@ def rhyme(lines):
 out=[];poets={}
 for e in d['entries']:
     if not e['lines'] or e['chapter']<0: continue
+    def versey(t): return len(t)>=16 and not re.search(r'[:0-9٠-٩"«»()\-]',t)
+    merged=[];i=0;L=e['lines']
+    while i<len(L):
+        if len(L[i])==1 and i+1<len(L) and len(L[i+1])==1 and versey(L[i][0]) and versey(L[i+1][0]):
+            merged.append([L[i][0],L[i+1][0]]); i+=2
+        else:
+            merged.append(L[i]); i+=1
+    lines2=[];notes2=[]
+    for l in merged:
+        t=l[0]
+        prose=len(l)==1 and (not re.search('[\u064B-\u0652]',t) or ':' in t or t.strip()[:1] in '"-«' or '«»' in t)
+        (notes2.append(t) if prose else lines2.append(l))
+    if lines2:
+        e['lines']=lines2; e['notes']=notes2+e['notes']
+    else:
+        e['lines']=merged
     at=parse_attr(e['attr'])
     flags=list(e['flags'])
     if any(len(l)==1 for l in e['lines']): flags.append('سطر منفرد')
     if not e['attr']: flags.append('بلا سطر نسبة')
     if '①' in (e['attr'] or ''): flags.append('نسبة متعددة')
     ch=chapters[e['chapter']][0]
+    def fixb(t):
+        t=re.sub(r'\)([^()]*)\(',r'(\1)',t)
+        t=re.sub(r'»([^«»]*)«',r'«\1»',t)
+        return t
+    e['notes']=[fixb(n) for n in e['notes'] if len(n.strip())>2]
+    e['lines']=[[fixb(h) for h in l] for l in e['lines']]
     item=dict(id=len(out)+1,ch=e['chapter'],sec=sec_of(chapters[e['chapter']][1]),page=e['page'],
               lines=e['lines'],notes=[n for n in e['notes'] if n and not re.fullmatch(r'[٠-٩\s]+',n)],
               poet=at['poet'],era=at['era'],death=at['death'],pnote=at['note'],attr=at['raw'],

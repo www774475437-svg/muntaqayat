@@ -44,8 +44,8 @@ class _PoemScreenState extends State<PoemScreen> {
   Widget build(BuildContext context) {
     final related = Library.related(p);
     final meta = [
-      if (p.era.isNotEmpty) 'العصر ${p.era}',
-      if (p.death.isNotEmpty) 'ت ${p.death}',
+      if (p.era.isNotEmpty) p.era,
+      if (p.death.isNotEmpty) 'تُوفي ${p.death}',
       if (p.rhyme.isNotEmpty) 'القافية: ${p.rhyme}',
       p.chapterName,
     ].join(' · ');
