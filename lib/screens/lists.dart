@@ -276,7 +276,7 @@ class ChaptersScreen extends StatelessWidget {
           if (section == null || section == s) ...[
             Padding(
               padding: const EdgeInsets.fromLTRB(6, 10, 6, 10),
-              child: Text('القسم ${s == 0 ? 'الأول' : 'الثاني'}: ${Library.sections[s]}',
+              child: Text(s == 2 ? Library.sections[s] : 'القسم ${s == 0 ? 'الأول' : 'الثاني'}: ${Library.sections[s]}',
                   style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: C.accent(context))),
             ),
             Container(

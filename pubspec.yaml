@@ -1,7 +1,7 @@
 name: muntaqayat
 description: "منتقيات الشعر — مختارات من عيون الشعر العربي مرتبة على الأبواب والعصور والشعراء"
 publish_to: 'none'
-version: 1.0.1+1
+version: 1.1.0+1
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
@@ -14,6 +14,10 @@ dependencies:
   shared_preferences: ^2.3.2
   share_plus: ^10.1.4
   url_launcher: ^6.3.1
+  speech_to_text: ^7.0.0
+  flutter_local_notifications: ^19.0.0
+  timezone: ^0.10.0
+  home_widget: ^0.7.0
 
 dev_dependencies:
   flutter_launcher_icons: ^0.14.1

@@ -27,9 +27,51 @@ String formatVerses(List<List<String>> lines) {
   return '$text،.🪶';
 }
 
-void copyVerses(BuildContext context, List<List<String>> lines) {
-  Clipboard.setData(ClipboardData(text: formatVerses(lines)));
-  toast(context, lines.length > 1 ? 'تمّ نسخ ${Ar.verses(lines.length)}' : 'تمّ نسخ البيت');
+/// For WhatsApp: no hidden direction marks or indentation, a blank line
+/// between verses and «،.🪶» at the end.
+String formatWhatsApp(List<List<String>> lines) {
+  var text = [for (final l in lines) l.map((h) => h.trim()).join('\n')].join('\n\n').trimRight();
+  text = text.replaceFirst(RegExp(r'[،,.\s]+$'), '');
+  return '$text،.🪶';
+}
+
+void copyVerses(BuildContext context, List<List<String>> lines, {bool whatsapp = false}) {
+  Clipboard.setData(ClipboardData(text: whatsapp ? formatWhatsApp(lines) : formatVerses(lines)));
+  final what = lines.length > 1 ? Ar.verses(lines.length) : 'البيت';
+  toast(context, 'تمّ نسخ $what${whatsapp ? ' لواتساب' : ''}');
+}
+
+/// Choose: copy for Telegram (the channel layout) or for WhatsApp.
+void copySheet(BuildContext context, List<List<String>> lines) {
+  showModalBottomSheet(
+    context: context,
+    showDragHandle: true,
+    builder: (c) => SafeArea(
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Text(lines.length > 1 ? 'نسخ ${Ar.verses(lines.length)}' : 'نسخ البيت', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+        const SizedBox(height: 6),
+        ListTile(
+          leading: const Icon(Icons.send_rounded),
+          title: const Text('نسخ لتيليجرام'),
+          subtitle: const Text('بتنسيق القناة: «..» بين الأبيات'),
+          onTap: () {
+            Navigator.pop(c);
+            copyVerses(context, lines);
+          },
+        ),
+        ListTile(
+          leading: const Icon(Icons.chat_rounded),
+          title: const Text('نسخ لواتساب'),
+          subtitle: const Text('سطر فارغ بين الأبيات'),
+          onTap: () {
+            Navigator.pop(c);
+            copyVerses(context, lines, whatsapp: true);
+          },
+        ),
+        const SizedBox(height: 8),
+      ]),
+    ),
+  );
 }
 
 class PoemScreen extends StatefulWidget {
@@ -88,7 +130,7 @@ class _PoemScreenState extends State<PoemScreen> {
                   ),
                   IconButton(
                     tooltip: 'نسخ المقطع كاملاً',
-                    onPressed: () => copyVerses(context, p.lines),
+                    onPressed: () => copySheet(context, p.lines),
                     icon: Icon(Icons.copy_all_rounded, color: C.ink(context)),
                   ),
                   IconButton(onPressed: () => shareSheet(context, p, p.firstVerse), icon: Icon(Icons.ios_share_rounded, color: C.ink(context))),
@@ -116,6 +158,14 @@ class _PoemScreenState extends State<PoemScreen> {
               Text(Ar.verses(p.verseCount), style: TextStyle(fontSize: 15.5, color: C.muted(context))),
               const SizedBox(height: 4),
               Text(meta, style: TextStyle(fontSize: 14.5, color: C.muted(context), height: 1.5)),
+              if (p.status.isNotEmpty || p.src == 'add')
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Wrap(spacing: 6, runSpacing: 6, children: [
+                    if (p.status.isNotEmpty) StatusBadge(p.status),
+                    if (p.src == 'add') const Tag('من خارج الكتاب'),
+                  ]),
+                ),
               if (p.poetNote.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 6),
@@ -143,21 +193,10 @@ class _PoemScreenState extends State<PoemScreen> {
               padding: const EdgeInsets.fromLTRB(18, 4, 18, 0),
               child: OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 13)),
-                onPressed: () => copyVerses(context, p.lines),
+                onPressed: () => copySheet(context, p.lines),
                 icon: const Icon(Icons.copy_all_rounded),
                 label: Text('نسخ الأبيات كلها (${Ar.verses(p.lines.length)})', style: const TextStyle(fontSize: 16)),
               ),
-            ),
-          if (p.notes.isNotEmpty)
-            Container(
-              margin: const EdgeInsets.fromLTRB(18, 14, 18, 0),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: C.card(context), borderRadius: BorderRadius.circular(18), border: Border.all(color: C.line(context))),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('معاني وفوائد', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: C.accent(context))),
-                const SizedBox(height: 6),
-                for (final n in p.notes) Text(Store.i.show(n), style: TextStyle(fontFamily: verseFont, fontSize: 17, height: 1.7, color: C.ink(context))),
-              ]),
             ),
           Padding(
             padding: const EdgeInsets.fromLTRB(18, 22, 18, 0),
@@ -230,7 +269,7 @@ class _PoemScreenState extends State<PoemScreen> {
               title: Text('نسخ المقطع كاملاً (${Ar.verses(p.lines.length)})'),
               onTap: () {
                 Navigator.pop(c);
-                copyVerses(context, p.lines);
+                copySheet(context, p.lines);
               },
             ),
           ListTile(
@@ -238,7 +277,7 @@ class _PoemScreenState extends State<PoemScreen> {
             title: const Text('نسخ هذا البيت وحده'),
             onTap: () {
               Navigator.pop(c);
-              copyVerses(context, [line]);
+              copySheet(context, [line]);
             },
           ),
           ListTile(
@@ -273,7 +312,7 @@ class _PoemScreenState extends State<PoemScreen> {
             title: const Text('نسخ المقطع كاملاً'),
             onTap: () {
               Navigator.pop(c);
-              copyVerses(context, p.lines);
+              copySheet(context, p.lines);
             },
           ),
           ListTile(

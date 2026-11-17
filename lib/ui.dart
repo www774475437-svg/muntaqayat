@@ -280,3 +280,34 @@ class Hijri {
     return '${Ar.num(hd)} ${months[(hm - 1).clamp(0, 11)]} ${Ar.num(hy)} هـ · ${Ar.num(d.day)} ${gMonths[d.month - 1]} ${Ar.num(d.year)}';
   }
 }
+
+/// «ثابت النسبة» (green) or «يُنسب» (amber).
+class StatusBadge extends StatelessWidget {
+  final String status;
+  const StatusBadge(this.status, {super.key});
+  @override
+  Widget build(BuildContext context) {
+    final ok = status == 'ثابت';
+    final c = ok ? const Color(0xFF2F6B4F) : const Color(0xFFB7791F);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(color: c.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(20), border: Border.all(color: c.withValues(alpha: 0.5))),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(ok ? Icons.verified_rounded : Icons.help_outline_rounded, size: 15, color: c),
+        const SizedBox(width: 4),
+        Text(ok ? 'ثابت النسبة' : 'يُنسب', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: c)),
+      ]),
+    );
+  }
+}
+
+class Tag extends StatelessWidget {
+  final String text;
+  const Tag(this.text, {super.key});
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(color: C.soft(context), borderRadius: BorderRadius.circular(20)),
+        child: Text(text, style: TextStyle(fontSize: 13, color: C.muted(context))),
+      );
+}

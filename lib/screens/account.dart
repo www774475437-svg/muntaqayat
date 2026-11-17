@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -7,6 +8,7 @@ import '../ui.dart';
 import 'lists.dart';
 import 'plus.dart';
 import 'poem.dart';
+import '../services/device.dart';
 
 const developerPin = '7744';
 
@@ -253,6 +255,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 value: s.tashkeel,
                 onChanged: s.setTashkeel,
               ),
+              if (!kIsWeb) ...[
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('بيت الصباح', style: TextStyle(fontSize: 17)),
+                  subtitle: Text(s.morning
+                      ? 'تنبيه كل يوم الساعة ${Ar.num(s.morningHour)}:${s.morningMinute.toString().padLeft(2, '0')}'
+                      : 'تنبيه كل صباح ببيت جميل'),
+                  value: s.morning,
+                  onChanged: (v) async {
+                    s.setMorning(v, s.morningHour, s.morningMinute);
+                    await Device.refresh();
+                  },
+                ),
+                if (s.morning)
+                  Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: TextButton.icon(
+                      icon: const Icon(Icons.schedule_rounded),
+                      label: const Text('تغيير الوقت'),
+                      onPressed: () async {
+                        final t = await showTimePicker(context: context, initialTime: TimeOfDay(hour: s.morningHour, minute: s.morningMinute));
+                        if (t == null) return;
+                        s.setMorning(true, t.hour, t.minute);
+                        await Device.refresh();
+                      },
+                    ),
+                  ),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Text('ولـ«بيت اليوم» على شاشة الجوال: اضغط مطوّلاً على الشاشة الرئيسية ← الأدوات (Widgets) ← منتقيات الشعر.',
+                      style: TextStyle(fontSize: 13.5, color: C.muted(context), height: 1.6)),
+                ),
+              ],
               if (s.developer)
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
@@ -284,7 +319,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 },
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 18),
-                  child: Center(child: Text('منتقيات الشعر — الإصدار ١٫٠٫١', style: TextStyle(color: C.muted(context)))),
+                  child: Center(child: Text('منتقيات الشعر — الإصدار ١٫١', style: TextStyle(color: C.muted(context)))),
                 ),
               ),
             ]),

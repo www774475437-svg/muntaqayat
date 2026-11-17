@@ -7,12 +7,14 @@ import 'screens/browse.dart';
 import 'screens/poem.dart';
 import 'screens/search.dart';
 import 'screens/today.dart';
+import 'services/device.dart';
 import 'ui.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Future.wait([Library.load(), Store.i.load()]);
   runApp(const MuntaqayatApp());
+  Device.init();
 }
 
 class MuntaqayatApp extends StatelessWidget {

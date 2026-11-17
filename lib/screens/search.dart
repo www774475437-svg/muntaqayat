@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:speech_to_text/speech_to_text.dart';
 
 import '../data.dart';
 import '../main.dart';
@@ -14,6 +15,53 @@ class SearchScreen extends StatefulWidget {
 class _SearchScreenState extends State<SearchScreen> {
   final ctl = TextEditingController();
   String q = '';
+  final _stt = SpeechToText();
+  bool _sttReady = false, listening = false;
+
+  Future<void> _voice() async {
+    if (listening) {
+      await _stt.stop();
+      setState(() => listening = false);
+      return;
+    }
+    try {
+      _sttReady = _sttReady ||
+          await _stt.initialize(
+            onStatus: (st) {
+              if ((st == 'done' || st == 'notListening') && mounted) setState(() => listening = false);
+            },
+            onError: (_) {
+              if (mounted) setState(() => listening = false);
+            },
+          );
+    } catch (_) {
+      _sttReady = false;
+    }
+    if (!mounted) return;
+    if (!_sttReady) {
+      toast(context, 'البحث بالصوت غير متاح على هذا الجهاز');
+      return;
+    }
+    setState(() => listening = true);
+    await _stt.listen(
+      localeId: 'ar-SA',
+      onResult: (r) {
+        if (!mounted) return;
+        setState(() {
+          ctl.text = r.recognizedWords;
+          q = r.recognizedWords;
+        });
+        if (r.finalResult) Store.i.addRecent(r.recognizedWords);
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _stt.cancel();
+    ctl.dispose();
+    super.dispose();
+  }
 
   // Words people search for and the chapters they mean.
   static const _topics = {
@@ -72,7 +120,12 @@ class _SearchScreenState extends State<SearchScreen> {
             hintText: 'ابحث عن بيت أو شاعر أو باب…',
             border: InputBorder.none,
             suffixIcon: q.isEmpty
-                ? null
+                ? IconButton(
+                    tooltip: 'البحث بالصوت',
+                    icon: Icon(listening ? Icons.stop_circle_rounded : Icons.mic_none_rounded,
+                        color: listening ? const Color(0xFFB3261E) : null),
+                    onPressed: _voice,
+                  )
                 : IconButton(
                     icon: const Icon(Icons.close_rounded),
                     onPressed: () => setState(() {
@@ -83,7 +136,11 @@ class _SearchScreenState extends State<SearchScreen> {
           ),
         ),
       ),
-      body: nq.isEmpty ? _start(context) : _results(context, chapters, poets, poems),
+      body: listening && nq.isEmpty
+          ? const EmptyNote(Icons.mic_rounded, 'أسمعك… قل شيئاً من البيت أو اسم الشاعر.')
+          : nq.isEmpty
+              ? _start(context)
+              : _results(context, chapters, poets, poems),
     );
   }
 

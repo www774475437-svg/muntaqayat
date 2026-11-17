@@ -4,6 +4,7 @@ import '../data.dart';
 import '../main.dart';
 import '../ui.dart';
 import 'lists.dart';
+import 'games.dart';
 import 'plus.dart';
 
 class BrowseScreen extends StatelessWidget {
@@ -69,7 +70,7 @@ class BrowseScreen extends StatelessWidget {
             ),
             Divider(height: 1, indent: 18, endIndent: 18, color: C.line(context)),
             InkWell(
-              onTap: () => openList(context, 'أبيات غريبة الألفاظ', Library.ofChapter(Library.chapters.length - 1)),
+              onTap: () => openList(context, 'أبيات غريبة الألفاظ', Library.ofChapter(Library.chapterNamed('أبيات غريبة الألفاظ'))),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                 child: Row(children: [
@@ -93,6 +94,21 @@ class BrowseScreen extends StatelessWidget {
             Expanded(
               child: _pick(context, Icons.format_list_bulleted_rounded, 'الأبواب العامة', 'حكمة وأخلاق وأدب', () => push(context, const ChaptersScreen(section: 1))),
             ),
+          ]),
+        ),
+        const SizedBox(height: 12),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: _pick(context, Icons.mosque_outlined, 'ديوان العلماء والصحابة', 'ابن القيم، ابن تيمية، الشافعي، الخنساء، حسان…',
+              () => push(context, const ChaptersScreen(section: 2))),
+        ),
+        const SizedBox(height: 12),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(children: [
+            Expanded(child: _pick(context, Icons.extension_outlined, 'أكمل البيت', 'اختر الشطر الثاني', () => push(context, const GameScreen(kind: 0)))),
+            const SizedBox(width: 12),
+            Expanded(child: _pick(context, Icons.person_search_outlined, 'من القائل؟', 'اعرف الشاعر', () => push(context, const GameScreen(kind: 1)))),
           ]),
         ),
         const SizedBox(height: 12),

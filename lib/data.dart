@@ -19,6 +19,12 @@ class Poem {
   final String rhyme;
   final List<String> flags;
 
+  /// «ثابت» or «يُنسب» (empty for verses without a poet).
+  final String status;
+
+  /// 'book' = from the book; 'add' = added from outside the book.
+  final String src;
+
   Poem.fromJson(Map<String, dynamic> j)
       : id = j['id'] as int,
         chapter = j['ch'] as int,
@@ -33,7 +39,9 @@ class Poem {
         death = (j['death'] as String?) ?? '',
         poetNote = (j['pnote'] as String?) ?? '',
         rhyme = (j['rhyme'] as String?) ?? '',
-        flags = [for (final f in (j['flags'] as List)) f as String];
+        flags = [for (final f in (j['flags'] as List)) f as String],
+        status = (j['status'] as String?) ?? '',
+        src = (j['src'] as String?) ?? 'book';
 
   /// Number of verses, counting a lone hemistich line as a verse.
   int get verseCount => lines.length;
@@ -123,11 +131,16 @@ class Library {
   }
 
   /// The verse of the day: same for everyone on the same day.
-  static Poem poemOfDay() {
+  static Poem poemOfDay([DateTime? day]) {
     final full = poems.where((p) => p.lines.isNotEmpty && p.lines.first.length == 2 && p.flags.isEmpty).toList();
     final list = full.isEmpty ? poems : full;
-    return list[(_dayIndex() * 37) % list.length];
+    return list[(_dayIndex(day) * 37) % list.length];
   }
+
+  static int chapterNamed(String name) => chapters.indexWhere((c) => c.name == name);
+
+  /// Selections added from outside the book (scholars and Companions).
+  static List<Poem> get additions => poems.where((p) => p.src == 'add').toList();
 
   static Poet poetOfDay() {
     final list = namedPoets.where((p) => p.count >= 2).toList();
@@ -200,6 +213,9 @@ class Store extends ChangeNotifier {
   double fontScale = 1.0;
   bool tashkeel = true;
   bool developer = false;
+  bool morning = false;
+  int morningHour = 7;
+  int morningMinute = 0;
   Set<String> days = {};
 
   Future<void> load() async {
@@ -214,6 +230,9 @@ class Store extends ChangeNotifier {
     fontScale = _p.getDouble('fontScale') ?? 1.0;
     tashkeel = _p.getBool('tashkeel') ?? true;
     developer = _p.getBool('developer') ?? false;
+    morning = _p.getBool('morning') ?? false;
+    morningHour = _p.getInt('morningHour') ?? 7;
+    morningMinute = _p.getInt('morningMinute') ?? 0;
     try {
       final c = jsonDecode(_p.getString('collections') ?? '{}') as Map<String, dynamic>;
       collections = c.map((k, v) => MapEntry(k, [for (final x in v as List) x as int]));
@@ -304,6 +323,16 @@ class Store extends ChangeNotifier {
   void setDeveloper(bool v) {
     developer = v;
     _p.setBool('developer', v);
+    notifyListeners();
+  }
+
+  void setMorning(bool on, int hour, int minute) {
+    morning = on;
+    morningHour = hour;
+    morningMinute = minute;
+    _p.setBool('morning', on);
+    _p.setInt('morningHour', hour);
+    _p.setInt('morningMinute', minute);
     notifyListeners();
   }
 
