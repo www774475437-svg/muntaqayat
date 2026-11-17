@@ -1,0 +1,13 @@
+name: Screenshot site
+on: workflow_dispatch
+jobs:
+  shot:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          for u in "" "%23/p/6"; do
+            n=$(echo "$u" | tr -dc 'a-z0-9'); [ -z "$n" ] && n=home
+            google-chrome --headless=new --no-sandbox --hide-scrollbars --window-size=412,915 --force-device-scale-factor=1 \
+              --virtual-time-budget=20000 --screenshot=/tmp/$n.png "https://www774475437-svg.github.io/salman-alemad/$(printf '%b' "${u//%/\\x}")" 2>/dev/null
+            echo "=====SHOT $n"; base64 -w0 /tmp/$n.png; echo; echo "=====END"
+          done
