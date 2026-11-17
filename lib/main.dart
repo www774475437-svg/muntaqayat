@@ -1,71 +1,29 @@
-import 'widgets/common.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
-import 'config.dart';
-import 'data/repository.dart';
-import 'screens/fatwa_screen.dart';
-import 'screens/home_shell.dart';
-import 'screens/onboarding_screen.dart';
-import 'screens/splash_screen.dart';
-import 'services/cloud.dart';
-import 'services/fresh_posts.dart';
-import 'services/notifications.dart';
-import 'theme.dart';
+import 'data.dart';
+import 'screens/account.dart';
+import 'screens/browse.dart';
+import 'screens/poem.dart';
+import 'screens/search.dart';
+import 'screens/today.dart';
+import 'ui.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  final prefs = await SharedPreferences.getInstance();
-  appLogo.value = prefs.getInt('appLogoV2') ?? 0;
-  // The site opens at once with the newest answers, then brings the rest
-  // of the library in the background (unless a link to one answer was opened).
-  final quick = kIsWeb && AppConfig.idFromRoute(Uri.base.fragment) == null;
-  await Repository.instance.load(prefs, quick: quick);
-  Repository.onSavedListsChanged = () => Cloud.instance.pushUserData();
-  runApp(const SalmanAlemadApp());
-  Cloud.instance.init();
-  loadFreshPosts();
-  if (quick) Future.delayed(const Duration(milliseconds: 400), Repository.instance.loadRest);
-  // Set up the daily notification after the first frame; never blocks startup.
-  DailyNotifications.init().then(
-    (_) => DailyNotifications.setEnabled(
-      Repository.instance.dailyNotification,
-      hour: Repository.instance.notifyHour,
-      minute: Repository.instance.notifyMinute,
-    ),
-  );
-  // A notification to every reader when a new version comes out.
-  Future.delayed(const Duration(seconds: 3), UpdateWatch.start);
+  await Future.wait([Library.load(), Store.i.load()]);
+  runApp(const MuntaqayatApp());
 }
 
-/// Routes: "/" home, "/fatwa/<id>" a single fatwa (shareable web link).
-Route<dynamic>? onGenerateRoute(RouteSettings settings) {
-  final name = settings.name ?? '/';
-  final routeId = AppConfig.idFromRoute(name);
-  if (routeId != null) {
-    final f = Repository.instance.findById(routeId);
-    if (f != null) {
-      return MaterialPageRoute(settings: settings, builder: (_) => FatwaScreen(fatwa: f));
-    }
-  }
-  return MaterialPageRoute(
-    settings: const RouteSettings(name: '/'),
-    builder: (_) => Repository.instance.onboarded ? const HomeShell() : const OnboardingScreen(),
-  );
-}
-
-class SalmanAlemadApp extends StatelessWidget {
-  const SalmanAlemadApp({super.key});
+class MuntaqayatApp extends StatelessWidget {
+  const MuntaqayatApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final repo = Repository.instance;
     return ListenableBuilder(
-      listenable: repo,
+      listenable: Store.i,
       builder: (context, _) => MaterialApp(
-        title: 'سلمان العماد',
+        title: 'منتقيات الشعر',
         debugShowCheckedModeBanner: false,
         locale: const Locale('ar'),
         supportedLocales: const [Locale('ar')],
@@ -74,43 +32,103 @@ class SalmanAlemadApp extends StatelessWidget {
           GlobalWidgetsLocalizations.delegate,
           GlobalCupertinoLocalizations.delegate,
         ],
-        theme: buildTheme(Brightness.light, repo.fontFamily, repo.palette),
-        darkTheme: buildTheme(Brightness.dark, repo.fontFamily, repo.palette),
-        themeMode: repo.palette == 'black'
-            ? ThemeMode.dark
-            : (repo.palette == 'paper' ? ThemeMode.light : repo.effectiveThemeMode),
-        builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(context).copyWith(
-            textScaler: TextScaler.linear(repo.fontScale),
-          ),
-          child: child!,
-        ),
-        onGenerateRoute: onGenerateRoute,
-        // A shared link to one fatwa opens it directly, with home underneath.
-        onGenerateInitialRoutes: (initial) {
-          final initialId = AppConfig.idFromRoute(initial);
-          if (initialId != null) {
-            final f = Repository.instance.findById(initialId);
-            if (f != null) {
-              return [
-                MaterialPageRoute(
-                    settings: const RouteSettings(name: '/'), builder: (_) => const HomeShell()),
-                MaterialPageRoute(
-                    settings: RouteSettings(name: initial),
-                    builder: (_) => FatwaScreen(fatwa: f)),
-              ];
-            }
+        theme: buildTheme(Brightness.light),
+        darkTheme: buildTheme(Brightness.dark),
+        themeMode: const [ThemeMode.system, ThemeMode.light, ThemeMode.dark][Store.i.themeMode],
+        onGenerateRoute: (s) {
+          // Shared links: …/#/p/12 opens that selection directly.
+          final m = RegExp(r'^/p/(\d+)').firstMatch(s.name ?? '');
+          final poem = m == null ? null : Library.byId[int.parse(m.group(1)!)];
+          if (poem != null) {
+            return MaterialPageRoute(settings: s, builder: (_) => PoemScreen(poem: poem, fromLink: true));
           }
-          return [
-            MaterialPageRoute(
-              settings: const RouteSettings(name: '/'),
-              builder: (_) => SplashScreen(
-                next: Repository.instance.onboarded ? const HomeShell() : const OnboardingScreen(),
-              ),
-            ),
-          ];
+          return MaterialPageRoute(settings: s, builder: (_) => const Shell());
         },
       ),
     );
   }
+}
+
+/// The three tabs with the floating bar and the round search button.
+class Shell extends StatefulWidget {
+  const Shell({super.key});
+  @override
+  State<Shell> createState() => _ShellState();
+}
+
+class _ShellState extends State<Shell> {
+  int tab = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final pages = [
+      TodayScreen(onBrowse: () => setState(() => tab = 1)),
+      const BrowseScreen(),
+      const AccountScreen(),
+    ];
+    return Scaffold(
+      body: Stack(children: [
+        Positioned.fill(child: IndexedStack(index: tab, children: pages)),
+        Positioned(
+          left: 16,
+          right: 16,
+          bottom: 14 + MediaQuery.paddingOf(context).bottom,
+          child: Row(children: [
+            Expanded(
+              child: Container(
+                height: 74,
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: C.bar(context),
+                  borderRadius: BorderRadius.circular(40),
+                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.10), blurRadius: 22, offset: const Offset(0, 6))],
+                ),
+                child: Row(children: [
+                  _item(0, Icons.wb_sunny_outlined, Icons.wb_sunny, 'اليوم'),
+                  _item(1, Icons.grid_view_outlined, Icons.grid_view_rounded, 'تصفّح'),
+                  _item(2, Icons.account_circle_outlined, Icons.account_circle, 'حسابك'),
+                ]),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Material(
+              color: C.bar(context),
+              shape: const CircleBorder(),
+              elevation: 6,
+              shadowColor: Colors.black26,
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SearchScreen())),
+                child: SizedBox(width: 74, height: 74, child: Icon(Icons.search_rounded, size: 32, color: C.ink(context))),
+              ),
+            ),
+          ]),
+        ),
+      ]),
+    );
+  }
+
+  Widget _item(int i, IconData icon, IconData active, String label) {
+    final on = tab == i;
+    return Expanded(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => setState(() => tab = i),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          decoration: BoxDecoration(color: on ? C.soft(context) : Colors.transparent, borderRadius: BorderRadius.circular(34)),
+          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Icon(on ? active : icon, color: on ? C.accent(context) : C.ink(context), size: 27),
+            const SizedBox(height: 2),
+            Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: on ? C.accent(context) : C.ink(context))),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+/// Open a selection (used everywhere).
+void openPoem(BuildContext context, Poem p) {
+  Navigator.of(context).push(MaterialPageRoute(settings: RouteSettings(name: '/p/${p.id}'), builder: (_) => PoemScreen(poem: p)));
 }

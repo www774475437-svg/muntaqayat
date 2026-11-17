@@ -4,33 +4,25 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
-  # Every day: refresh the site with the sheikh's newest channel posts.
-  schedule:
-    # 02:00 UTC = 5:00 AM Yemen time
-    - cron: '0 2 * * *'
 
 permissions:
   contents: write
 
 jobs:
-  data:
+  check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Posts from the sheikh's Telegram channel
-        run: python3 tool/fetch_telegram.py
-      - uses: actions/upload-artifact@v4
+      - uses: subosito/flutter-action@v2
         with:
-          name: channel-data
-          path: |
-            assets/data/fatwas.json
-            assets/data/channel.json
-            assets/data/latest.json
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Check the code
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings lib
 
   android:
-    needs: data
-    # The daily refresh updates the site only; no new APK release.
-    if: github.event_name != 'schedule'
+    needs: check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -46,7 +38,7 @@ jobs:
           cache: true
 
       - name: Create Android platform files
-        run: flutter create --org com.salmanalemad --project-name salman_alemad --platforms android .
+        run: flutter create --org com.muntaqayat --project-name muntaqayat --platforms android .
 
       - name: Permanent signing key (from the KEY_PASSWORD secret)
         env:
@@ -60,23 +52,8 @@ jobs:
             echo "KEY_PASSWORD secret not set - using debug key"
           fi
 
-      - name: Patch Android (name, permissions, notifications, signing)
+      - name: Patch Android (name, permission, signing)
         run: python3 tool/patch_android.py
-
-      - name: Books list from the sheikh's Google Drive
-        run: python3 tool/fetch_drive_books.py
-
-      - name: Latest videos from the sheikh's YouTube channel
-        run: python3 tool/fetch_youtube.py
-
-      - name: Trusted scholars and their books (names only) from Turath
-        run: python3 tool/fetch_scholars.py
-
-      - name: Answers from the sheikh's Telegram channel (fetched once)
-        uses: actions/download-artifact@v4
-        with:
-          name: channel-data
-          path: assets/data
 
       - run: flutter pub get
 
@@ -84,23 +61,21 @@ jobs:
         run: dart run flutter_launcher_icons
 
       - name: Build APK
-        run: flutter build apk --release --target-platform android-arm,android-arm64 --build-number=${{ github.run_number }} --dart-define=BUILD_NUMBER=${{ github.run_number }}
+        run: flutter build apk --release --target-platform android-arm,android-arm64 --build-number=${{ github.run_number }}
 
       - name: Rename APK
-        run: cp build/app/outputs/flutter-apk/app-release.apk salman-alemad.apk
+        run: cp build/app/outputs/flutter-apk/app-release.apk muntaqayat.apk
 
       - name: Publish as latest release (direct download link)
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: build-${{ github.run_number }}
-          name: سلمان العماد — نسخة ${{ github.run_number }}
+          tag_name: poetry-${{ github.run_number }}
+          name: منتقيات الشعر — نسخة ${{ github.run_number }}
           make_latest: true
-          files: salman-alemad.apk
+          files: muntaqayat.apk
 
   website:
-    needs: [data, android]
-    # Runs after the APK (or without it on the daily refresh).
-    if: always() && needs.data.result == 'success' && needs.android.result != 'failure'
+    needs: check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -111,32 +86,17 @@ jobs:
           cache: true
 
       - name: Create web platform files
-        run: flutter create --org com.salmanalemad --project-name salman_alemad --platforms web .
+        run: flutter create --org com.muntaqayat --project-name muntaqayat --platforms web .
 
       - run: flutter pub get
 
-      - name: Web page title and description
+      - name: Web page title, description and icons
         run: python3 tool/patch_web.py
 
-      - name: Books list from the sheikh's Google Drive
-        run: python3 tool/fetch_drive_books.py
-
-      - name: Latest videos from the sheikh's YouTube channel
-        run: python3 tool/fetch_youtube.py
-
-      - name: Trusted scholars and their books (names only) from Turath
-        run: python3 tool/fetch_scholars.py
-
-      - name: Answers from the sheikh's Telegram channel (fetched once)
-        uses: actions/download-artifact@v4
-        with:
-          name: channel-data
-          path: assets/data
-
       - name: Build website
-        run: flutter build web --release --no-web-resources-cdn --base-href /salman-alemad/ --dart-define=BUILD_NUMBER=0
+        run: flutter build web --release --no-web-resources-cdn --base-href /salman-alemad/
 
-      - name: Privacy and account deletion pages (for Google Play)
+      - name: Privacy page
         run: cp -r tool/web_pages/. build/web/
 
       - name: Publish website (gh-pages branch)
