@@ -8,7 +8,7 @@ from pathlib import Path
 TITLE = "منتقيات الشعر — مختارات من عيون الشعر العربي"
 DESC = ("مختارات من عيون الشعر العربي مرتّبة على الأبواب والعصور والشعراء والقوافي، "
         "من كتاب «منتقيات شعرية» لأبي عبد الرحمن أحمد الأثري.")
-SITE = "https://www774475437-svg.github.io/salman-alemad/"
+SITE = "https://www774475437-svg.github.io/muntaqayat/"
 
 index = Path("web/index.html")
 h = index.read_text(encoding="utf-8")

@@ -94,7 +94,7 @@ jobs:
         run: python3 tool/patch_web.py
 
       - name: Build website
-        run: flutter build web --release --no-web-resources-cdn --base-href /salman-alemad/
+        run: flutter build web --release --no-web-resources-cdn --base-href /muntaqayat/
 
       - name: Privacy page
         run: cp -r tool/web_pages/. build/web/

@@ -10,7 +10,7 @@ import '../main.dart';
 import '../ui.dart';
 import 'lists.dart';
 
-const siteUrl = 'https://www774475437-svg.github.io/salman-alemad/';
+const siteUrl = 'https://www774475437-svg.github.io/muntaqayat/';
 
 String poemLink(Poem p) => '$siteUrl#/p/${p.id}';
 
