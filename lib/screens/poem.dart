@@ -14,6 +14,24 @@ const siteUrl = 'https://www774475437-svg.github.io/salman-alemad/';
 
 String poemLink(Poem p) => '$siteUrl#/p/${p.id}';
 
+/// The copy layout used in the channel: each verse on two lines (the second
+/// indented), «..» between verses, and «،.🪶» at the very end.
+String formatVerses(List<List<String>> lines) {
+  const rlm = '\u200F';
+  final verses = [
+    for (final l in lines)
+      l.length > 1 ? '$rlm${l[0].trim()}\n         $rlm${l[1].trim()}' : '$rlm${l[0].trim()}',
+  ];
+  var text = verses.join('\n..\n').trimRight();
+  text = text.replaceFirst(RegExp(r'[،,.\s]+$'), '');
+  return '$text،.🪶';
+}
+
+void copyVerses(BuildContext context, List<List<String>> lines) {
+  Clipboard.setData(ClipboardData(text: formatVerses(lines)));
+  toast(context, lines.length > 1 ? 'تمّ نسخ ${Ar.verses(lines.length)}' : 'تمّ نسخ البيت');
+}
+
 class PoemScreen extends StatefulWidget {
   final Poem poem;
   final bool fromLink;
@@ -68,6 +86,11 @@ class _PoemScreenState extends State<PoemScreen> {
                     onPressed: () => Store.i.toggleLike(p.id),
                     icon: Icon(Store.i.liked(p.id) ? Icons.favorite : Icons.favorite_border, color: Store.i.liked(p.id) ? C.accent(context) : C.ink(context)),
                   ),
+                  IconButton(
+                    tooltip: 'نسخ المقطع كاملاً',
+                    onPressed: () => copyVerses(context, p.lines),
+                    icon: Icon(Icons.copy_all_rounded, color: C.ink(context)),
+                  ),
                   IconButton(onPressed: () => shareSheet(context, p, p.firstVerse), icon: Icon(Icons.ios_share_rounded, color: C.ink(context))),
                   IconButton(onPressed: () => _more(context), icon: Icon(Icons.more_horiz_rounded, color: C.ink(context))),
                   IconButton(onPressed: () => _font(context), icon: Text('أء', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700, color: C.ink(context)))),
@@ -101,12 +124,28 @@ class _PoemScreenState extends State<PoemScreen> {
               Divider(height: 30, color: C.line(context)),
             ]),
           ),
-          for (var i = 0; i < p.lines.length; i++)
-            InkWell(
-              onTap: () => _verseActions(context, p.lines[i]),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(18, 10, 18, 14),
-                child: VerseLines(p.lines[i], size: 27, number: p.lines.length > 1 ? i + 1 : null),
+          // Long-press to select any part of the verses; tap a verse for its actions.
+          SelectionArea(
+            child: Column(children: [
+              for (var i = 0; i < p.lines.length; i++)
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => _verseActions(context, p.lines[i]),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(18, 10, 18, 14),
+                    child: VerseLines(p.lines[i], size: 27, number: p.lines.length > 1 ? i + 1 : null),
+                  ),
+                ),
+            ]),
+          ),
+          if (p.lines.length > 1)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 4, 18, 0),
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 13)),
+                onPressed: () => copyVerses(context, p.lines),
+                icon: const Icon(Icons.copy_all_rounded),
+                label: Text('نسخ الأبيات كلها (${Ar.verses(p.lines.length)})', style: const TextStyle(fontSize: 16)),
               ),
             ),
           if (p.notes.isNotEmpty)
@@ -185,13 +224,21 @@ class _PoemScreenState extends State<PoemScreen> {
       builder: (c) => SafeArea(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Padding(padding: const EdgeInsets.fromLTRB(22, 0, 22, 12), child: VerseLines(line, size: 21)),
+          if (p.lines.length > 1)
+            ListTile(
+              leading: const Icon(Icons.copy_all_rounded),
+              title: Text('نسخ المقطع كاملاً (${Ar.verses(p.lines.length)})'),
+              onTap: () {
+                Navigator.pop(c);
+                copyVerses(context, p.lines);
+              },
+            ),
           ListTile(
             leading: const Icon(Icons.copy_rounded),
-            title: const Text('نسخ البيت'),
+            title: const Text('نسخ هذا البيت وحده'),
             onTap: () {
               Navigator.pop(c);
-              Clipboard.setData(ClipboardData(text: '${line.join('\n')}\n— ${p.poet}'));
-              toast(context, 'تمّ النسخ');
+              copyVerses(context, [line]);
             },
           ),
           ListTile(
@@ -226,9 +273,7 @@ class _PoemScreenState extends State<PoemScreen> {
             title: const Text('نسخ المقطع كاملاً'),
             onTap: () {
               Navigator.pop(c);
-              final text = '${p.lines.map((l) => l.join('\n')).join('\n\n')}\n\n— ${p.poet}\n${poemLink(p)}';
-              Clipboard.setData(ClipboardData(text: text));
-              toast(context, 'تمّ النسخ');
+              copyVerses(context, p.lines);
             },
           ),
           ListTile(
@@ -244,7 +289,7 @@ class _PoemScreenState extends State<PoemScreen> {
             title: const Text('مشاركة الرابط'),
             onTap: () {
               Navigator.pop(c);
-              Share.share('${p.firstVerse.join('\n')}\n— ${p.poet}\n\n${poemLink(p)}');
+              Share.share('${formatVerses(p.lines)}\n\n${poemLink(p)}');
             },
           ),
           ListTile(
