@@ -117,5 +117,6 @@ class Device {
     }
     return (all, last, lastN);
   }
-}
 
+  static List<int>? zlib(List<int> data) => ZLibCodec(level: 6).encode(data);
+}

@@ -7,4 +7,5 @@ class Device {
   static final update = ValueNotifier<int?>(null);
   static Future<void> checkUpdate() async {}
   static Future<(int, int, int)?> downloads() async => null;
+  static List<int>? zlib(List<int> data) => null;
 }

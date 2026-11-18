@@ -3,13 +3,13 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_tts/flutter_tts.dart';
-import 'package:pdf/pdf.dart' as pdf;
-import 'package:pdf/widgets.dart' as pw;
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 
 import '../data.dart';
+import '../services/device.dart';
+import '../services/pdf_image.dart';
 import '../ui.dart';
 import 'lists.dart';
 
@@ -375,24 +375,19 @@ class _CertificateScreenState extends State<CertificateScreen> {
 
   Future<ui.Image> _image() async {
     final b = _key.currentContext!.findRenderObject() as RenderRepaintBoundary;
-    return b.toImage(pixelRatio: 3);
+    return b.toImage(pixelRatio: 2.5);
   }
 
   Future<void> _share(bool asPdf) async {
     setState(() => busy = true);
     try {
       final img = await _image();
-      final png = (await img.toByteData(format: ui.ImageByteFormat.png))!.buffer.asUint8List();
       if (!asPdf) {
+        final png = (await img.toByteData(format: ui.ImageByteFormat.png))!.buffer.asUint8List();
         await Share.shareXFiles([XFile.fromData(png, mimeType: 'image/png', name: 'shahada-${widget.matn.id}.png')]);
       } else {
-        final doc = pw.Document();
-        final page = pdf.PdfPageFormat(img.width.toDouble() / 3, img.height.toDouble() / 3);
-        doc.addPage(pw.Page(
-            pageFormat: page,
-            margin: pw.EdgeInsets.zero,
-            build: (_) => pw.Image(pw.MemoryImage(png), fit: pw.BoxFit.fill)));
-        final bytes = await doc.save();
+        final rgba = (await img.toByteData(format: ui.ImageByteFormat.rawRgba))!.buffer.asUint8List();
+        final bytes = imagePdf(img.width, img.height, rgba, Device.zlib);
         await Share.shareXFiles([XFile.fromData(bytes, mimeType: 'application/pdf', name: 'shahada-${widget.matn.id}.pdf')]);
       }
     } catch (_) {
