@@ -5,6 +5,9 @@ import '../main.dart';
 import '../ui.dart';
 import 'lists.dart';
 import 'games.dart';
+import 'mutun.dart';
+import 'shawahid.dart';
+import 'whosaid.dart';
 import 'plus.dart';
 
 class BrowseScreen extends StatelessWidget {
@@ -114,8 +117,17 @@ class BrowseScreen extends StatelessWidget {
         const SizedBox(height: 12),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: _pick(context, Icons.school_outlined, 'المتون والمنظومات', 'ألفية ابن مالك، النونية، الرحبية… للحفظ — قريباً',
-              () => soonSheet(context, 'المتون والمنظومات', 'قسم لطلاب العلم: ألفية ابن مالك، ونونية ابن القيم، والرحبية، والبيقونية وغيرها، مع قائمة الحفظ والورد اليومي ووضع التسميع — قريباً بإذن الله.')),
+          child: _pick(context, Icons.school_outlined, 'متون طالب العلم وقصائده', 'احفظ وراجع واختبر نفسك كتابةً',
+              () => push(context, const MutunScreen())),
+        ),
+        const SizedBox(height: 12),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(children: [
+            Expanded(child: _pick(context, Icons.format_quote_rounded, 'مما استشهد به العلماء', 'بالكتاب والصفحة', () => push(context, const ShawahidScreen()))),
+            const SizedBox(width: 12),
+            Expanded(child: _pick(context, Icons.manage_search_rounded, 'من قائل هذا البيت؟', 'الصق وابحث', () => push(context, const WhoSaidScreen()))),
+          ]),
         ),
         const SectionTitle('قصائد لك'),
         TwoColumns(poems: forYou, onTap: (p) => openPoem(context, p)),

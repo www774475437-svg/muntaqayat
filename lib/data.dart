@@ -76,6 +76,51 @@ class Poet {
   }
 }
 
+/// A scholarly poem for memorizing («متون طالب العلم وقصائده»).
+class Matn {
+  final String id, title, author, death, branch, intro, source;
+  final List<List<String>> lines;
+  final Set<int> review; // verse numbers (1-based) still to be checked
+  final Map<int, (String, String, bool)> notes; // verse → (scholar, text, important)
+  Matn.fromJson(Map<String, dynamic> j)
+      : id = j['id'] as String,
+        title = j['title'] as String,
+        author = j['author'] as String,
+        death = (j['death'] as String?) ?? '',
+        branch = j['branch'] as String,
+        intro = (j['intro'] as String?) ?? '',
+        source = (j['source'] as String?) ?? '',
+        lines = [
+          for (final l in (j['lines'] as List)) [for (final h in (l as List)) h as String]
+        ],
+        review = {for (final r in (j['review'] as List? ?? [])) r as int},
+        notes = {
+          for (final e in ((j['notes'] as Map?) ?? {}).entries)
+            int.parse(e.key as String): (
+              (e.value as Map)['scholar'] as String,
+              (e.value as Map)['text'] as String,
+              ((e.value as Map)['important'] as bool?) ?? false
+            )
+        };
+  bool get ready => lines.isNotEmpty;
+}
+
+/// A verse a scholar quoted in one of his books («مما استشهد به العلماء»).
+class Shahid {
+  final String scholar, book, vol, page, poet, url;
+  final List<List<String>> lines;
+  Shahid.fromJson(Map<String, dynamic> j)
+      : scholar = j['scholar'] as String,
+        book = j['book'] as String,
+        vol = (j['vol'] as String?) ?? '',
+        page = (j['page'] as String?) ?? '',
+        poet = (j['poet'] as String?) ?? '',
+        url = (j['url'] as String?) ?? '',
+        lines = [
+          for (final l in (j['lines'] as List)) [for (final h in (l as List)) h as String]
+        ];
+}
+
 class Chapter {
   final int index;
   final String name;
@@ -94,6 +139,10 @@ class Library {
   static List<Poem> poems = [];
   static final Map<int, Poem> byId = {};
   static final Map<String, Poet> poetByName = {};
+  static List<String> branches = [];
+  static List<Matn> mutun = [];
+  static List<String> shawahidScholars = [];
+  static List<Shahid> shawahid = [];
 
   static Future<void> load() async {
     final raw = await rootBundle.loadString('assets/data/poems.json');
@@ -115,6 +164,12 @@ class Library {
     poetByName
       ..clear()
       ..addEntries(poets.map((p) => MapEntry(p.name, p)));
+    final m = jsonDecode(await rootBundle.loadString('assets/data/mutun.json')) as Map<String, dynamic>;
+    branches = [for (final b in m['branches'] as List) b as String];
+    mutun = [for (final x in m['mutun'] as List) Matn.fromJson(x as Map<String, dynamic>)];
+    final sh = jsonDecode(await rootBundle.loadString('assets/data/shawahid.json')) as Map<String, dynamic>;
+    shawahidScholars = [for (final x in sh['scholars'] as List) x as String];
+    shawahid = [for (final x in sh['items'] as List) Shahid.fromJson(x as Map<String, dynamic>)];
   }
 
   static List<Poem> ofPoet(String name) => poems.where((p) => p.poet == name).toList();
@@ -217,6 +272,8 @@ class Store extends ChangeNotifier {
   int morningHour = 7;
   int morningMinute = 0;
   Set<String> days = {};
+  Map<String, Set<int>> memorized = {};
+  int wird = 5;
 
   Future<void> load() async {
     _p = await SharedPreferences.getInstance();
@@ -233,6 +290,11 @@ class Store extends ChangeNotifier {
     morning = _p.getBool('morning') ?? false;
     morningHour = _p.getInt('morningHour') ?? 7;
     morningMinute = _p.getInt('morningMinute') ?? 0;
+    wird = _p.getInt('wird') ?? 5;
+    try {
+      final mm = jsonDecode(_p.getString('memorized') ?? '{}') as Map<String, dynamic>;
+      memorized = mm.map((k, v) => MapEntry(k, {for (final x in v as List) x as int}));
+    } catch (_) {}
     try {
       final c = jsonDecode(_p.getString('collections') ?? '{}') as Map<String, dynamic>;
       collections = c.map((k, v) => MapEntry(k, [for (final x in v as List) x as int]));
@@ -333,6 +395,20 @@ class Store extends ChangeNotifier {
     _p.setBool('morning', on);
     _p.setInt('morningHour', hour);
     _p.setInt('morningMinute', minute);
+    notifyListeners();
+  }
+
+  Set<int> memOf(String matn) => memorized[matn] ?? <int>{};
+  void setMemorized(String matn, int verse, bool on) {
+    final s = memorized.putIfAbsent(matn, () => <int>{});
+    on ? s.add(verse) : s.remove(verse);
+    _p.setString('memorized', jsonEncode(memorized.map((k, v) => MapEntry(k, v.toList()))));
+    notifyListeners();
+  }
+
+  void setWird(int n) {
+    wird = n;
+    _p.setInt('wird', n);
     notifyListeners();
   }
 

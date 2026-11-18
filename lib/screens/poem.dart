@@ -182,8 +182,16 @@ class _PoemScreenState extends State<PoemScreen> {
                   behavior: HitTestBehavior.opaque,
                   onTap: () => _verseActions(context, p.lines[i]),
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(18, 10, 18, 14),
-                    child: VerseLines(p.lines[i], size: 27, number: p.lines.length > 1 ? i + 1 : null),
+                    padding: const EdgeInsets.fromLTRB(18, 10, 6, 14),
+                    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Expanded(child: VerseLines(p.lines[i], size: 27, number: p.lines.length > 1 ? i + 1 : null)),
+                      IconButton(
+                        tooltip: 'نسخ البيت',
+                        visualDensity: VisualDensity.compact,
+                        onPressed: () => copySheet(context, [p.lines[i]]),
+                        icon: Icon(Icons.copy_rounded, size: 18, color: C.muted(context)),
+                      ),
+                    ]),
                   ),
                 ),
             ]),
