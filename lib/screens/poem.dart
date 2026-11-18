@@ -8,6 +8,7 @@ import 'package:share_plus/share_plus.dart';
 import '../data.dart';
 import '../main.dart';
 import '../ui.dart';
+import 'plus.dart';
 import 'lists.dart';
 
 const siteUrl = 'https://www774475437-svg.github.io/muntaqayat/';
@@ -185,6 +186,7 @@ class _PoemScreenState extends State<PoemScreen> {
                     padding: const EdgeInsets.fromLTRB(18, 10, 6, 14),
                     child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Expanded(child: VerseLines(p.lines[i], size: 27, number: p.lines.length > 1 ? i + 1 : null)),
+                      if (Store.i.developer) VerifyButton('p:${p.id}:${i + 1}', what: 'هذا البيت'),
                       IconButton(
                         tooltip: 'نسخ البيت',
                         visualDensity: VisualDensity.compact,
@@ -286,6 +288,14 @@ class _PoemScreenState extends State<PoemScreen> {
             onTap: () {
               Navigator.pop(c);
               copySheet(context, [line]);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.format_quote_rounded),
+            title: const Text('اقتبسه في صفحتي'),
+            onTap: () {
+              Navigator.pop(c);
+              soonSheet(context, 'الاقتباس في صفحتك', 'تنشر البيت في صفحتك الشخصية وقسم «الاقتباسات» (عشرة اقتباسات في اليوم). تُفعَّل مع الحسابات قريباً بإذن الله.');
             },
           ),
           ListTile(

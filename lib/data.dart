@@ -82,6 +82,9 @@ class Matn {
   final List<List<String>> lines;
   final Set<int> review; // verse numbers (1-based) still to be checked
   final Map<int, (String, String, bool)> notes; // verse → (scholar, text, important)
+  final bool complete; // false → «غير كاملة»
+  final Map<int, String> heads; // verse index (0-based) → section title
+  final List<Map<String, String>> links; // explanations shipped with the app: {title,url}
   Matn.fromJson(Map<String, dynamic> j)
       : id = j['id'] as String,
         title = j['title'] as String,
@@ -101,6 +104,11 @@ class Matn {
               (e.value as Map)['text'] as String,
               ((e.value as Map)['important'] as bool?) ?? false
             )
+        },
+        complete = (j['complete'] as bool?) ?? true,
+        links = [for (final x in (j['shuruh'] as List? ?? [])) Map<String, String>.from(x as Map)],
+        heads = {
+          for (final h in (j['heads'] as List? ?? [])) ((h as List)[0] as num).toInt(): h[1] as String
         };
   bool get ready => lines.isNotEmpty;
 }
@@ -274,6 +282,15 @@ class Store extends ChangeNotifier {
   Set<String> days = {};
   Map<String, Set<int>> memorized = {};
   int wird = 5;
+  Set<String> verified = {}; // developer «توثيق» marks: p:ID, p:ID:v, m:ID, m:ID:v
+  Map<String, List<int>> memLog = {}; // 'matn:verse' → [epoch day of last review, stage]
+  Map<String, int> best = {}; // matn → best writing-test score out of 10 (whole matn)
+  String certName = '';
+  int repeat = 3;
+  bool plusOn = true; // developer switch: show «منتقيات+» to non-subscribers
+  bool teacher = false; // «خانة المعلّم» turned on in settings
+  List<String> students = []; // personal numbers the teacher added before
+  Map<String, List<Map<String, String>>> shuruh = {}; // matn → [{title,url}] added by the developer
 
   Future<void> load() async {
     _p = await SharedPreferences.getInstance();
@@ -291,6 +308,20 @@ class Store extends ChangeNotifier {
     morningHour = _p.getInt('morningHour') ?? 7;
     morningMinute = _p.getInt('morningMinute') ?? 0;
     wird = _p.getInt('wird') ?? 5;
+    verified = (_p.getStringList('verified') ?? []).toSet();
+    certName = _p.getString('certName') ?? '';
+    repeat = _p.getInt('repeat') ?? 3;
+    plusOn = _p.getBool('plusOn') ?? true;
+    teacher = _p.getBool('teacher') ?? false;
+    students = _p.getStringList('students') ?? [];
+    try {
+      final ml = jsonDecode(_p.getString('memLog') ?? '{}') as Map<String, dynamic>;
+      memLog = ml.map((k, v) => MapEntry(k, [for (final x in v as List) (x as num).toInt()]));
+      final b = jsonDecode(_p.getString('best') ?? '{}') as Map<String, dynamic>;
+      best = b.map((k, v) => MapEntry(k, (v as num).toInt()));
+      final sh = jsonDecode(_p.getString('shuruh') ?? '{}') as Map<String, dynamic>;
+      shuruh = sh.map((k, v) => MapEntry(k, [for (final x in v as List) Map<String, String>.from(x as Map)]));
+    } catch (_) {}
     try {
       final mm = jsonDecode(_p.getString('memorized') ?? '{}') as Map<String, dynamic>;
       memorized = mm.map((k, v) => MapEntry(k, {for (final x in v as List) x as int}));
@@ -402,7 +433,114 @@ class Store extends ChangeNotifier {
   void setMemorized(String matn, int verse, bool on) {
     final s = memorized.putIfAbsent(matn, () => <int>{});
     on ? s.add(verse) : s.remove(verse);
+    if (on) {
+      memLog.putIfAbsent('$matn:$verse', () => [today, 0]);
+    } else {
+      memLog.remove('$matn:$verse');
+    }
     _p.setString('memorized', jsonEncode(memorized.map((k, v) => MapEntry(k, v.toList()))));
+    _p.setString('memLog', jsonEncode(memLog));
+    notifyListeners();
+  }
+
+  /// Days since 2024-01-01 (local calendar day).
+  static int get today {
+    final n = DateTime.now();
+    return DateTime.utc(n.year, n.month, n.day).difference(DateTime.utc(2024, 1, 1)).inDays;
+  }
+
+  /// Smart review: after 1, 3, 7, 14, 30 then 60 days.
+  static const intervals = [1, 3, 7, 14, 30, 60];
+
+  /// Memorized verses whose review day has come.
+  List<int> dueOf(String matn) {
+    final out = <int>[];
+    for (final v in memOf(matn)) {
+      final l = memLog['$matn:$v'];
+      if (l == null || today >= l[0] + intervals[l[1].clamp(0, intervals.length - 1)]) out.add(v);
+    }
+    return out..sort();
+  }
+
+  int get dueAll => [for (final m in memorized.keys) dueOf(m).length].fold(0, (a, b) => a + b);
+
+  /// Result of reviewing a verse: remembered → next, longer step; forgot → back to the start.
+  void reviewed1(String matn, int verse, bool remembered) {
+    final l = memLog['$matn:$verse'] ?? [today, 0];
+    memLog['$matn:$verse'] = [today, remembered ? (l[1] + 1).clamp(0, intervals.length - 1) : 0];
+    _p.setString('memLog', jsonEncode(memLog));
+    notifyListeners();
+  }
+
+  /// 0 = not memorized (grey), 1 = due for review (yellow), 2 = firm (green).
+  int stateOf(String matn, int verse) {
+    if (!memOf(matn).contains(verse)) return 0;
+    final l = memLog['$matn:$verse'];
+    if (l == null) return 1;
+    return today >= l[0] + intervals[l[1].clamp(0, intervals.length - 1)] ? 1 : 2;
+  }
+
+  void setBest(String matn, int score) {
+    if ((best[matn] ?? -1) >= score) return;
+    best[matn] = score;
+    _p.setString('best', jsonEncode(best));
+    notifyListeners();
+  }
+
+  void setCertName(String v) {
+    certName = v;
+    _p.setString('certName', v);
+  }
+
+  void setRepeat(int n) {
+    repeat = n;
+    _p.setInt('repeat', n);
+    notifyListeners();
+  }
+
+  void setPlusOn(bool v) {
+    plusOn = v;
+    _p.setBool('plusOn', v);
+    notifyListeners();
+  }
+
+  void setTeacher(bool v) {
+    teacher = v;
+    _p.setBool('teacher', v);
+    notifyListeners();
+  }
+
+  void addStudents(Iterable<String> ids) {
+    for (final id in ids) {
+      if (!students.contains(id)) students.add(id);
+    }
+    _p.setStringList('students', students);
+    notifyListeners();
+  }
+
+  void removeStudent(String id) {
+    students.remove(id);
+    _p.setStringList('students', students);
+    notifyListeners();
+  }
+
+  bool isVerified(String key) => verified.contains(key);
+  void toggleVerified(String key) {
+    verified.contains(key) ? verified.remove(key) : verified.add(key);
+    _p.setStringList('verified', verified.toList());
+    notifyListeners();
+  }
+
+  List<Map<String, String>> shuruhOf(String matn) => shuruh[matn] ?? const [];
+  void addSharh(String matn, String title, String url) {
+    shuruh.putIfAbsent(matn, () => []).add({'title': title, 'url': url});
+    _p.setString('shuruh', jsonEncode(shuruh));
+    notifyListeners();
+  }
+
+  void removeSharh(String matn, int i) {
+    shuruh[matn]?.removeAt(i);
+    _p.setString('shuruh', jsonEncode(shuruh));
     notifyListeners();
   }
 

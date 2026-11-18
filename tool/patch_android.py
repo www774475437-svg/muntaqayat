@@ -21,6 +21,10 @@ if "android.speech.RecognitionService" not in m:
     else:
         m = m.replace("<application", "<queries>" + q + "</queries>\n    <application", 1)
 
+# «استمع وردّد» needs the phone's text-to-speech engine.
+if "android.intent.action.TTS_SERVICE" not in m:
+    m = m.replace("<queries>", '<queries><intent><action android:name="android.intent.action.TTS_SERVICE"/></intent>', 1)
+
 extra = """
         <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
         <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">

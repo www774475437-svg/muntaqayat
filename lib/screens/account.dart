@@ -8,6 +8,8 @@ import '../ui.dart';
 import 'lists.dart';
 import 'plus.dart';
 import 'poem.dart';
+import 'social.dart';
+import 'today.dart';
 import '../services/device.dart';
 
 const developerPin = '7744';
@@ -54,6 +56,13 @@ class AccountScreen extends StatelessWidget {
         ),
         const SizedBox(height: 14),
         _group(context, [
+          _tile(context, Icons.badge_outlined, 'صفحتك الشخصية', 'رقمك الشخصي', () => push(context, const ProfileScreen())),
+          _tile(context, Icons.format_quote_rounded, 'الاقتباسات', '', () => push(context, const QuotesScreen())),
+          _tile(context, Icons.school_outlined, 'خانة المعلّم', s.teacher ? 'مفعّلة' : '', () => push(context, const TeacherScreen())),
+          _tile(context, Icons.assignment_outlined, 'اختباراتي', '', () => push(context, const StudentTestsScreen())),
+        ]),
+        const SizedBox(height: 14),
+        _group(context, [
           _tile(context, Icons.favorite_border, 'ما أعجبك', Ar.selections(liked.length),
               () => openList(context, 'ما أعجبك', liked)),
           _tile(context, Icons.folder_copy_outlined, 'مجموعاتي', Ar.num(s.collections.length), () => push(context, const CollectionsScreen())),
@@ -64,10 +73,12 @@ class AccountScreen extends StatelessWidget {
           _tile(context, Icons.workspace_premium_outlined, 'منتقيات+', 'الشروح والكتاب باسمك',
               () => Navigator.of(context).push(MaterialPageRoute(fullscreenDialog: true, builder: (_) => const PlusScreen()))),
           _tile(context, Icons.lightbulb_outline_rounded, 'اقترح بيتاً أو قصيدة', '', () => suggest(context, 'اقتراح بيت أو قصيدة:\n')),
+          _tile(context, Icons.mark_email_unread_outlined, 'راسل المطوّر', '٣ رسائل في اليوم', () => push(context, const MessageDevScreen())),
         ]),
         const SizedBox(height: 14),
         _group(context, [
           _tile(context, Icons.settings_outlined, 'الإعدادات', 'المظهر والخط والتشكيل', () => push(context, const SettingsScreen())),
+          if (s.developer) _tile(context, Icons.admin_panel_settings_outlined, 'خانة المطوّر', 'الإحصائيات والمشتركون', () => push(context, const DeveloperHub())),
           if (s.developer)
             _tile(context, Icons.fact_check_outlined, 'قائمة المراجعة (للمطوّر)',
                 'بقي ${Ar.num(Library.poems.where((p) => !s.isReviewed(p.id)).length)}', () => push(context, const ReviewScreen())),
@@ -296,6 +307,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   onChanged: (_) => s.setDeveloper(false),
                 ),
               const Divider(height: 34),
+              if (!kIsWeb)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.system_update_rounded),
+                  title: const Text('التحقق من وجود تحديث'),
+                  onTap: () async {
+                    await Device.checkUpdate();
+                    if (!context.mounted) return;
+                    if (Device.update.value != null) {
+                      launchUrl(Uri.parse(apkUrl), mode: LaunchMode.externalApplication);
+                    } else {
+                      toast(context, 'عندك أحدث نسخة');
+                    }
+                  },
+                ),
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.send_rounded),
@@ -319,7 +345,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 },
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 18),
-                  child: Center(child: Text('منتقيات الشعر — الإصدار ١٫٢', style: TextStyle(color: C.muted(context)))),
+                  child: Center(child: Text('منتقيات الشعر — الإصدار ١٫٣', style: TextStyle(color: C.muted(context)))),
                 ),
               ),
             ]),

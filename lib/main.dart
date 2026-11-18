@@ -15,6 +15,7 @@ Future<void> main() async {
   await Future.wait([Library.load(), Store.i.load()]);
   runApp(const MuntaqayatApp());
   Device.init();
+  Device.checkUpdate();
 }
 
 class MuntaqayatApp extends StatelessWidget {

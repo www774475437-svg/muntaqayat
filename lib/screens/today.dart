@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../data.dart';
 import '../main.dart';
@@ -6,6 +7,7 @@ import '../ui.dart';
 import 'lists.dart';
 import 'plus.dart';
 import 'poem.dart';
+import '../services/device.dart';
 
 class TodayScreen extends StatelessWidget {
   final VoidCallback onBrowse;
@@ -28,8 +30,29 @@ class TodayScreen extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
           child: Row(children: [
             const Spacer(),
-            const PlusChip(),
+            if (Store.i.plusOn || Store.i.developer) const PlusChip(),
           ]),
+        ),
+        ValueListenableBuilder<int?>(
+          valueListenable: Device.update,
+          builder: (context, n, _) => n == null
+              ? const SizedBox.shrink()
+              : SoftCard(
+                  margin: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+                  padding: const EdgeInsets.all(14),
+                  onTap: () => launchUrl(Uri.parse(apkUrl), mode: LaunchMode.externalApplication),
+                  child: Row(children: [
+                    RoundIcon(Icons.system_update_rounded, size: 46),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text('يوجد تحديث جديد', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: C.accent(context))),
+                        Text('اضغط لتحميله، ثم ثبّته فوق التطبيق', style: TextStyle(fontSize: 14, color: C.muted(context))),
+                      ]),
+                    ),
+                    Icon(Icons.download_rounded, color: C.accent(context)),
+                  ]),
+                ),
         ),
         const SizedBox(height: 26),
         Center(child: Text(Hijri.today(), style: TextStyle(fontSize: 15, color: C.muted(context)))),
@@ -68,6 +91,10 @@ class TodayScreen extends StatelessWidget {
             IconButton(onPressed: () => shareSheet(context, day, day.firstVerse), icon: Icon(Icons.ios_share_rounded, color: C.ink(context))),
           ]),
         ),
+        if (season() case final se?) ...[
+          SectionTitle(se.$1, onMore: () => openList(context, se.$1, se.$2)),
+          _row(context, se.$2.take(8).toList()),
+        ],
         const SectionTitle('شاعر اليوم'),
         SoftCard(
           margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -137,4 +164,40 @@ class TodayScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+const apkUrl = 'https://github.com/www774475437-svg/muntaqayat/releases/latest/download/muntaqayat.apk';
+
+/// Verses for the season: Ramadan, the two Eids, the ten days of Dhul-Hijja, Friday.
+(String, List<Poem>)? season() {
+  final (_, m, d) = Hijri.parts();
+  List<String> ch;
+  String title;
+  if (m == 9) {
+    title = 'أبيات رمضان';
+    ch = ['التوبة والاستغفار', 'الدعاء والمناجاة', 'الوقت والعمر', 'الإخلاص وصدق النية'];
+  } else if (m == 10 && d <= 3) {
+    title = 'أبيات العيد';
+    ch = ['الأخوة والصداقة', 'الكرم والجود', 'الإحسان إلى الناس', 'العفو والصفح'];
+  } else if (m == 12 && d >= 10 && d <= 13) {
+    title = 'أبيات عيد الأضحى';
+    ch = ['الأخوة والصداقة', 'الكرم والجود', 'الشكر والجحود', 'الإحسان إلى الناس'];
+  } else if (m == 12 && d < 10) {
+    title = 'أبيات العشر من ذي الحجة';
+    ch = ['التوبة والاستغفار', 'الدعاء والمناجاة', 'الافتقار إلى الله'];
+  } else if (DateTime.now().weekday == DateTime.friday) {
+    title = 'أبيات الجمعة';
+    ch = ['ذكر الموت والآخرة', 'التذكير بالله والغفلة', 'الدعاء والمناجاة', 'التوبة والاستغفار'];
+  } else {
+    return null;
+  }
+  final list = <Poem>[];
+  for (final c in ch) {
+    final i = Library.chapterNamed(c);
+    if (i >= 0) list.addAll(Library.ofChapter(i));
+  }
+  if (list.isEmpty) return null;
+  final day = DateTime.now().day;
+  list.sort((a, b) => ((a.id * 31 + day) % 97).compareTo((b.id * 31 + day) % 97));
+  return (title, list);
 }

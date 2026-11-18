@@ -263,6 +263,23 @@ class Hijri {
     'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر',
   ];
 
+  /// (year, month 1–12, day) in the Hijri calendar.
+  static (int, int, int) parts([DateTime? at]) {
+    final d = at ?? DateTime.now();
+    final a = (14 - d.month) ~/ 12;
+    final y = d.year + 4800 - a;
+    final m = d.month + 12 * a - 3;
+    final jd = d.day + (153 * m + 2) ~/ 5 + 365 * y + y ~/ 4 - y ~/ 100 + y ~/ 400 - 32045;
+    var l = jd - 1948440 + 10632;
+    final n = (l - 1) ~/ 10631;
+    l = l - 10631 * n + 354;
+    final j = ((10985 - l) ~/ 5316) * ((50 * l) ~/ 17719) + (l ~/ 5670) * ((43 * l) ~/ 15238);
+    l = l - ((30 - j) ~/ 15) * ((17719 * j) ~/ 50) - (j ~/ 16) * ((15238 * j) ~/ 43) + 29;
+    final hm = (24 * l) ~/ 709;
+    final hd = l - (709 * hm) ~/ 24;
+    return (30 * n + j - 30, hm, hd);
+  }
+
   static String today() {
     final d = DateTime.now();
     final a = (14 - d.month) ~/ 12;
@@ -310,4 +327,24 @@ class Tag extends StatelessWidget {
         decoration: BoxDecoration(color: C.soft(context), borderRadius: BorderRadius.circular(20)),
         child: Text(text, style: TextStyle(fontSize: 13, color: C.muted(context))),
       );
+}
+
+/// Developer-only «توثيق» mark (nobody else sees it).
+class VerifyButton extends StatelessWidget {
+  final String keyName;
+  final String what;
+  const VerifyButton(this.keyName, {super.key, this.what = ''});
+  @override
+  Widget build(BuildContext context) {
+    final ok = Store.i.isVerified(keyName);
+    return IconButton(
+      tooltip: ok ? 'موثّق — اضغط للإلغاء' : 'توثيق $what',
+      visualDensity: VisualDensity.compact,
+      onPressed: () {
+        Store.i.toggleVerified(keyName);
+        toast(context, ok ? 'أُلغي التوثيق' : 'تمّ توثيق $what ✓');
+      },
+      icon: Icon(ok ? Icons.verified_rounded : Icons.verified_outlined, size: 20, color: ok ? const Color(0xFF2F6B4F) : Colors.orange.shade700),
+    );
+  }
 }

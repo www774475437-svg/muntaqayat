@@ -4,6 +4,8 @@ import 'package:share_plus/share_plus.dart';
 import '../data.dart';
 import '../ui.dart';
 import 'lists.dart';
+import 'matn_tools.dart';
+import 'plus.dart';
 
 /// «متون طالب العلم وقصائده»: branches, then the poems to memorize.
 class MutunScreen extends StatelessWidget {
@@ -11,46 +13,72 @@ class MutunScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ListenableBuilder(
         listenable: Store.i,
-        builder: (context, _) => Scaffold(
-          appBar: AppBar(title: const Text('متون طالب العلم وقصائده')),
-          body: ListView(padding: const EdgeInsets.fromLTRB(16, 0, 16, 40), children: [
-            Text('منظومات علماء السنة للحفظ والمراجعة: احفظ وِردك كل يوم، وراجع ما حفظت، واختبر نفسك كتابةً.',
-                style: TextStyle(fontSize: 15, color: C.muted(context), height: 1.6)),
-            for (final b in Library.branches) ...[
-              Padding(
-                padding: const EdgeInsets.fromLTRB(4, 20, 4, 10),
-                child: Text(b, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: C.accent(context))),
-              ),
-              for (final m in Library.mutun.where((m) => m.branch == b))
+        builder: (context, _) {
+          final due = Store.i.dueAll;
+          return Scaffold(
+            appBar: AppBar(title: const Text('متون طالب العلم وقصائده')),
+            body: ListView(padding: const EdgeInsets.fromLTRB(16, 0, 16, 40), children: [
+              Text('منظومات علماء السنة للحفظ والمراجعة: احفظ وِردك كل يوم، وراجع ما حفظت، واختبر نفسك كتابةً.',
+                  style: TextStyle(fontSize: 15, color: C.muted(context), height: 1.6)),
+              if (due > 0)
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.only(top: 12),
                   child: SoftCard(
-                    onTap: m.ready
-                        ? () => push(context, MatnScreen(matn: m))
-                        : () => toast(context, '«${m.title}» يُضاف قريباً بإذن الله'),
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(14),
                     child: Row(children: [
-                      RoundIcon(m.ready ? Icons.menu_book_rounded : Icons.hourglass_empty_rounded, size: 48),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text(m.title, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: C.ink(context))),
-                          Text('${m.author}${m.death.isEmpty ? '' : ' · ت ${m.death}'}', style: TextStyle(fontSize: 13.5, color: C.muted(context))),
-                          const SizedBox(height: 4),
-                          if (m.ready)
-                            Text('حفظتَ ${Ar.num(Store.i.memOf(m.id).length)} من ${Ar.num(m.lines.length)} بيتاً',
-                                style: TextStyle(fontSize: 13.5, color: C.accent(context)))
-                          else
-                            Text('يُضاف قريباً', style: TextStyle(fontSize: 13.5, color: C.muted(context))),
-                        ]),
-                      ),
-                      if (m.ready) Icon(Icons.chevron_left_rounded, color: C.muted(context)),
+                      const Icon(Icons.notifications_active_outlined, color: Color(0xFFD9A21B)),
+                      const SizedBox(width: 10),
+                      Expanded(child: Text('عليك مراجعة ${Ar.verses(due)} اليوم حتى لا تُنسى', style: TextStyle(fontSize: 15.5, color: C.ink(context)))),
                     ]),
                   ),
                 ),
-            ],
+              for (final b in Library.branches) ...[
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 20, 4, 10),
+                  child: Text(b, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: C.accent(context))),
+                ),
+                for (final m in Library.mutun.where((m) => m.branch == b)) _card(context, m),
+              ],
+            ]),
+          );
+        },
+      );
+
+  Widget _card(BuildContext context, Matn m) => Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: SoftCard(
+          onTap: () => push(context, MatnScreen(matn: m)),
+          padding: const EdgeInsets.all(16),
+          child: Row(children: [
+            RoundIcon(m.ready ? Icons.menu_book_rounded : Icons.hourglass_empty_rounded, size: 48),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(m.title, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: C.ink(context))),
+                Text('${m.author}${m.death.isEmpty ? '' : ' · ت ${m.death}'}', style: TextStyle(fontSize: 13.5, color: C.muted(context))),
+                const SizedBox(height: 4),
+                Wrap(spacing: 6, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
+                  if (m.ready)
+                    Text('حفظتَ ${Ar.num(Store.i.memOf(m.id).length)} من ${Ar.num(m.lines.length)} بيتاً',
+                        style: TextStyle(fontSize: 13.5, color: C.accent(context))),
+                  if (!m.complete) const IncompleteTag(),
+                  if (Store.i.developer && Store.i.isVerified('m:${m.id}')) const Icon(Icons.verified_rounded, size: 18, color: Color(0xFF2F6B4F)),
+                ]),
+              ]),
+            ),
+            Icon(Icons.chevron_left_rounded, color: C.muted(context)),
           ]),
         ),
+      );
+}
+
+class IncompleteTag extends StatelessWidget {
+  const IncompleteTag({super.key});
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(color: const Color(0x1AB3261E), borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFFB3261E))),
+        child: const Text('غير كاملة', style: TextStyle(fontSize: 12.5, color: Color(0xFFB3261E), fontWeight: FontWeight.w700)),
       );
 }
 
@@ -64,30 +92,51 @@ class MatnScreen extends StatelessWidget {
         builder: (context, _) {
           final mem = Store.i.memOf(matn.id);
           final total = matn.lines.length;
-          return Scaffold(
-            appBar: AppBar(title: Text(matn.title)),
-            body: ListView(padding: const EdgeInsets.fromLTRB(16, 0, 16, 40), children: [
-              Text('${matn.author}${matn.death.isEmpty ? '' : ' · ت ${matn.death}'}',
-                  style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700, color: C.accent(context))),
-              if (matn.intro.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 6),
-                  child: Text(matn.intro, style: TextStyle(fontSize: 15, height: 1.6, color: C.ink(context))),
-                ),
-              if (matn.source.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text('المصدر: ${matn.source}', style: TextStyle(fontSize: 13, color: C.muted(context))),
-                ),
+          final due = Store.i.dueOf(matn.id).length;
+          final dev = Store.i.developer;
+          final head = <Widget>[
+            Text('${matn.author}${matn.death.isEmpty ? '' : ' · ت ${matn.death}'}',
+                style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700, color: C.accent(context))),
+            if (!matn.complete || dev)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Wrap(spacing: 8, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
+                  if (!matn.complete) const IncompleteTag(),
+                  if (dev)
+                    ActionChip(
+                      avatar: Icon(Store.i.isVerified('m:${matn.id}') ? Icons.verified_rounded : Icons.verified_outlined,
+                          color: Store.i.isVerified('m:${matn.id}') ? const Color(0xFF2F6B4F) : Colors.orange.shade700),
+                      label: Text(Store.i.isVerified('m:${matn.id}') ? 'المنظومة موثّقة (للمطوّر)' : 'وثّق المنظومة كلها (للمطوّر)'),
+                      onPressed: () => Store.i.toggleVerified('m:${matn.id}'),
+                    ),
+                ]),
+              ),
+            if (matn.intro.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(matn.intro, style: TextStyle(fontSize: 15, height: 1.6, color: C.ink(context))),
+              ),
+            if (matn.source.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text('المصدر: ${matn.source}', style: TextStyle(fontSize: 13, color: C.muted(context))),
+              ),
+            if (!matn.ready)
+              const Padding(
+                padding: EdgeInsets.only(top: 20),
+                child: EmptyNote(Icons.hourglass_empty_rounded, 'نصّ هذه المنظومة يُضاف قريباً من طبعة محقّقة بإذن الله.'),
+              )
+            else ...[
               const SizedBox(height: 14),
               LinearProgressIndicator(value: total == 0 ? 0 : mem.length / total, minHeight: 8, borderRadius: BorderRadius.circular(6)),
               const SizedBox(height: 6),
-              Text('حفظتَ ${Ar.num(mem.length)} من ${Ar.num(total)} بيتاً', style: TextStyle(color: C.muted(context))),
+              Text('حفظتَ ${Ar.num(mem.length)} من ${Ar.num(total)} بيتاً${due > 0 ? ' · للمراجعة اليوم ${Ar.num(due)}' : ''}',
+                  style: TextStyle(color: C.muted(context))),
               const SizedBox(height: 14),
               Row(children: [
                 _big(context, Icons.auto_stories_rounded, 'احفظ', 'وِرد اليوم', () => push(context, WirdScreen(matn: matn))),
                 const SizedBox(width: 10),
-                _big(context, Icons.replay_rounded, 'راجع', 'ما حفظتَه', () {
+                _big(context, Icons.replay_rounded, 'راجع', due > 0 ? 'حان ${Ar.num(due)}' : 'ما حفظتَه', () {
                   if (mem.isEmpty) {
                     toast(context, 'لم تحفظ شيئاً بعد. ابدأ بـ«احفظ».');
                   } else {
@@ -97,11 +146,48 @@ class MatnScreen extends StatelessWidget {
                 const SizedBox(width: 10),
                 _big(context, Icons.edit_note_rounded, 'اختبر', 'كتابةً', () => push(context, TestSetupScreen(matn: matn))),
               ]),
-              const SectionTitle('أبيات المنظومة'),
-              for (var i = 0; i < total; i++) _verse(context, i, mem.contains(i + 1)),
+              const SizedBox(height: 10),
+              Row(children: [
+                _small(context, Icons.grid_view_rounded, 'خريطة الحفظ', () => push(context, MemoryMapScreen(matn: matn))),
+                const SizedBox(width: 8),
+                _small(context, Icons.record_voice_over_outlined, 'استمع وردّد', () => push(context, ListenScreen(matn: matn))),
+                const SizedBox(width: 8),
+                _small(context, Icons.workspace_premium_outlined, 'الشهادة', () {
+                  if (certificateReady(matn) || dev) {
+                    push(context, CertificateScreen(matn: matn));
+                  } else {
+                    soonSheet(context, 'شهادة إتمام الحفظ',
+                        'احفظ المنظومة كلها، ثم اختبر نفسك كتابةً فيها كلها، فإذا نلت ٩ من ١٠ أو أكثر ظهرت لك شهادتك باسمك بصيغة PDF.\n\nأفضل درجتك الآن: ${Ar.num(Store.i.best[matn.id] ?? 0)} من ١٠.');
+                  }
+                }),
+              ]),
+            ],
+            ShuruhSection(matn: matn),
+            if (matn.ready) const SectionTitle('أبيات المنظومة'),
+          ];
+          return Scaffold(
+            appBar: AppBar(title: Text(matn.title)),
+            body: CustomScrollView(slivers: [
+              SliverPadding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 0), sliver: SliverList.list(children: head)),
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 40),
+                sliver: SliverList.builder(itemCount: total, itemBuilder: (c, i) => _verse(c, i, mem.contains(i + 1))),
+              ),
             ]),
           );
         },
+      );
+
+  Widget _small(BuildContext context, IconData icon, String t, VoidCallback onTap) => Expanded(
+        child: SoftCard(
+          onTap: onTap,
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+          child: Column(children: [
+            Icon(icon, color: C.accent(context)),
+            const SizedBox(height: 4),
+            Text(t, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: C.ink(context))),
+          ]),
+        ),
       );
 
   Widget _big(BuildContext context, IconData icon, String t, String sub, VoidCallback onTap) => Expanded(
@@ -119,11 +205,18 @@ class MatnScreen extends StatelessWidget {
 
   Widget _verse(BuildContext context, int i, bool done) {
     final note = matn.notes[i + 1];
+    final h = matn.heads[i];
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        if (h != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(4, 14, 4, 8),
+            child: Text(h, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: C.accent(context))),
+          ),
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Expanded(child: VerseLines(matn.lines[i], size: 22, number: i + 1)),
+          if (Store.i.developer) VerifyButton('m:${matn.id}:${i + 1}', what: 'هذا البيت'),
           IconButton(
             tooltip: done ? 'محفوظ' : 'علّمه محفوظاً',
             onPressed: () => Store.i.setMemorized(matn.id, i + 1, !done),
@@ -176,14 +269,22 @@ class WirdScreen extends StatefulWidget {
 
 class _WirdScreenState extends State<WirdScreen> {
   final shown = <int>{};
+  final graded = <int, bool>{};
   late List<int> items;
+  bool dueOnly = false;
 
   @override
   void initState() {
     super.initState();
     final mem = Store.i.memOf(widget.matn.id);
     final all = List.generate(widget.matn.lines.length, (i) => i + 1);
-    items = widget.review ? all.where(mem.contains).toList() : all.where((n) => !mem.contains(n)).take(Store.i.wird).toList();
+    if (widget.review) {
+      final due = Store.i.dueOf(widget.matn.id);
+      dueOnly = due.isNotEmpty;
+      items = dueOnly ? due : all.where(mem.contains).toList();
+    } else {
+      items = all.where((n) => !mem.contains(n)).take(Store.i.wird).toList();
+    }
   }
 
   @override
@@ -208,6 +309,9 @@ class _WirdScreenState extends State<WirdScreen> {
                     },
                   ),
                 ]),
+              if (widget.review)
+                Text(dueOnly ? 'هذه الأبيات حان وقت مراجعتها. بعد أن ترى الشطر الثاني اختر: تذكّرته أو نسيته.' : 'لا شيء حان وقت مراجعته اليوم، وهذه كل أبياتك المحفوظة.',
+                    style: TextStyle(color: C.ink(context), height: 1.6)),
               Text('اقرأ الشطر الأول وتذكّر الثاني، ثم اضغط لتراه.', style: TextStyle(color: C.muted(context))),
               const SizedBox(height: 12),
               for (final n in items) _card(context, n),
@@ -252,6 +356,37 @@ class _WirdScreenState extends State<WirdScreen> {
                         child: Text('اضغط لإظهار الشطر الثاني', style: TextStyle(color: C.muted(context))),
                       ),
               ),
+            ),
+          if (widget.review && (shown.contains(n) || l.length < 2))
+            Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: graded.containsKey(n)
+                  ? Text(graded[n]! ? 'أحسنت! تُراجعه بعد مدة أطول.' : 'لا بأس، سيُعاد عليك غداً.',
+                      style: TextStyle(color: graded[n]! ? const Color(0xFF2F6B4F) : const Color(0xFFB3261E)))
+                  : Row(children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => setState(() {
+                            graded[n] = false;
+                            Store.i.reviewed1(widget.matn.id, n, false);
+                          }),
+                          icon: const Icon(Icons.close_rounded, color: Color(0xFFB3261E)),
+                          label: const Text('نسيته'),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: FilledButton.icon(
+                          style: FilledButton.styleFrom(backgroundColor: const Color(0xFF2F6B4F)),
+                          onPressed: () => setState(() {
+                            graded[n] = true;
+                            Store.i.reviewed1(widget.matn.id, n, true);
+                          }),
+                          icon: const Icon(Icons.check_rounded),
+                          label: const Text('تذكّرته'),
+                        ),
+                      ),
+                    ]),
             ),
         ]),
       ),
@@ -454,6 +589,13 @@ class _WritingTestScreenState extends State<WritingTestScreen> {
             onPressed: () {
               FocusScope.of(context).unfocus();
               setState(() => checked = true);
+              final (r, t) = _score;
+              if (t > 0 && widget.verses.length >= widget.matn.lines.length) {
+                Store.i.setBest(widget.matn.id, (r * 10 / t).floor());
+                if (certificateReady(widget.matn)) {
+                  toast(context, 'مبارك! نلت شهادة إتمام الحفظ — افتحها من صفحة المنظومة');
+                }
+              }
             },
             icon: const Icon(Icons.fact_check_rounded),
             label: const Text('تحقّق', style: TextStyle(fontSize: 17)),

@@ -1,3 +1,7 @@
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:home_widget/home_widget.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
@@ -61,4 +65,57 @@ class Device {
       }
     } catch (_) {}
   }
+
+  /// This build's number (set by the build workflow); 0 when unknown.
+  static const build = int.fromEnvironment('BUILD');
+
+  /// The number of the newest published build, when it is newer than this one.
+  static final update = ValueNotifier<int?>(null);
+
+  static Future<Object?> _get(String url) async {
+    final c = HttpClient()..connectionTimeout = const Duration(seconds: 12);
+    try {
+      final rq = await c.getUrl(Uri.parse(url));
+      rq.headers.set('Accept', 'application/vnd.github+json');
+      final rs = await rq.close();
+      if (rs.statusCode != 200) return null;
+      return jsonDecode(await rs.transform(utf8.decoder).join());
+    } catch (_) {
+      return null;
+    } finally {
+      c.close();
+    }
+  }
+
+  static const _api = 'https://api.github.com/repos/www774475437-svg/muntaqayat/releases';
+
+  /// Looks once for a newer APK.
+  static Future<void> checkUpdate() async {
+    if (build == 0) return;
+    final j = await _get('$_api/latest');
+    if (j is! Map) return;
+    final n = int.tryParse('${j['tag_name']}'.replaceAll(RegExp(r'[^0-9]'), ''));
+    if (n != null && n > build) update.value = n;
+  }
+
+  /// (all APK downloads, downloads of the newest build, newest build number).
+  static Future<(int, int, int)?> downloads() async {
+    final j = await _get('$_api?per_page=100');
+    if (j is! List) return null;
+    var all = 0, last = 0, lastN = 0;
+    for (final r in j) {
+      final n = int.tryParse('${(r as Map)['tag_name']}'.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+      var d = 0;
+      for (final a in (r['assets'] as List? ?? [])) {
+        d += ((a as Map)['download_count'] as num?)?.toInt() ?? 0;
+      }
+      all += d;
+      if (n > lastN) {
+        lastN = n;
+        last = d;
+      }
+    }
+    return (all, last, lastN);
+  }
 }
+
