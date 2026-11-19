@@ -285,6 +285,13 @@ class UserScreen extends StatelessWidget {
                 const SizedBox(height: 6),
                 Text(name, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: C.ink(context))),
                 Text('رقمه الشخصي: $id', style: TextStyle(color: C.muted(context))),
+                if (user['plus'] == true || user['banned'] == true) ...[
+                  const SizedBox(height: 6),
+                  Wrap(spacing: 6, children: [
+                    if (user['plus'] == true) const Tag('مشترك'),
+                    if (user['banned'] == true) const Tag('محظور عن النشر'),
+                  ]),
+                ],
                 const SizedBox(height: 10),
                 Text('${Ar.num(_n(user['points']))} نقطة · حفظ ${Ar.verses(_n(user['memo']))} · ${Ar.num(_n(user['streak']))} يوماً متتالياً',
                     textAlign: TextAlign.center, style: TextStyle(color: C.ink(context))),
@@ -299,7 +306,10 @@ class UserScreen extends StatelessWidget {
                       onPressed: () async {
                         final on = user['banned'] != true;
                         final ok = await Cloud.i.setBanned('${user['uid']}', on);
-                        if (ok) user['banned'] = on;
+                        if (ok) {
+                          user['banned'] = on;
+                          Cloud.i.touch();
+                        }
                         if (context.mounted) toast(context, !ok ? 'تعذّر' : (on ? 'حُظر عن النشر' : 'رُفع الحظر'));
                       },
                       child: Text(user['banned'] == true ? 'ارفع الحظر' : 'احظره عن النشر'),
@@ -308,7 +318,10 @@ class UserScreen extends StatelessWidget {
                       onPressed: () async {
                         final on = user['plus'] != true;
                         final ok = await Cloud.i.setPlus('${user['uid']}', on);
-                        if (ok) user['plus'] = on;
+                        if (ok) {
+                          user['plus'] = on;
+                          Cloud.i.touch();
+                        }
                         if (context.mounted) toast(context, !ok ? 'تعذّر' : (on ? 'صار مشتركاً' : 'أُلغي اشتراكه'));
                       },
                       child: Text(user['plus'] == true ? 'ألغِ اشتراكه' : 'اجعله مشتركاً'),

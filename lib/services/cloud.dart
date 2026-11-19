@@ -630,6 +630,9 @@ class Cloud extends ChangeNotifier {
     }
   }
 
+  /// Redraws the screens that listen to the cloud.
+  void touch() => notifyListeners();
+
   Future<bool> setPlus(String userUid, bool on) async {
     try {
       await _db.collection('users').doc(userUid).update({'plus': on, if (on) 'plusAt': _now else 'plusEnded': _now});
