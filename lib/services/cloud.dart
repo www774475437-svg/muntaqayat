@@ -352,7 +352,11 @@ class Cloud extends ChangeNotifier {
   int _count(String k) => _p.getInt('$k:${Store.today}') ?? 0;
   void _bump(String k) => _p.setInt('$k:${Store.today}', _count(k) + 1);
   int get quotesLeft => 10 - _count('q');
-  int get messagesLeft => 3 - _count('msg');
+  bool get plus => profile['plus'] == true;
+
+  /// One message a day for free, twenty for subscribers.
+  int get messagesLimit => plus ? 20 : 1;
+  int get messagesLeft => isDev ? 99 : messagesLimit - _count('msg');
   Set<String> get likedQuotes => (_p.getStringList('likedQ') ?? []).toSet();
 
   static List<Doc> _docs(QuerySnapshot<Map<String, dynamic>> q) => [
@@ -462,10 +466,14 @@ class Cloud extends ChangeNotifier {
   Future<String?> sendMessage(String text, {String kind = 'message'}) async {
     if (!signedIn) return 'ادخل بحسابك أولاً.';
     if (text.trim().isEmpty) return 'اكتب رسالتك أولاً.';
-    if (messagesLeft <= 0 && profile['plus'] != true) return 'أرسلت ثلاث رسائل اليوم. عُد غداً.';
+    final counter = kind == 'message' ? 'msg' : 'msg$kind';
+    if (!isDev && _count(counter) >= (kind == 'message' ? messagesLimit : 1)) {
+      return plus ? 'أرسلت عشرين رسالة اليوم. عُد غداً.' : 'المجاني رسالة واحدة في اليوم. عُد غداً، أو اشترك لتراسل عشرين مرة في اليوم.';
+    }
     try {
       await _db.collection('messages').add({'uid': uid, 'name': name, 'publicId': publicId, 'text': text.trim(), 'kind': kind, 'reply': '', 'at': _now});
-      _bump('msg');
+      _bump(counter);
+      notifyListeners();
       return null;
     } catch (_) {
       return 'تعذّر الإرسال. تحقّق من الإنترنت.';
@@ -483,7 +491,7 @@ class Cloud extends ChangeNotifier {
 
   Future<List<Doc>> allMessages() async {
     try {
-      return _docs(await _db.collection('messages').orderBy('at', descending: true).limit(60).get());
+      return _docs(await _db.collection('messages').orderBy('at', descending: true).limit(300).get());
     } catch (_) {
       return [];
     }
@@ -491,7 +499,13 @@ class Cloud extends ChangeNotifier {
 
   Future<bool> reply(String id, String text) async {
     try {
-      await _db.collection('messages').doc(id).update({'reply': text.trim(), 'replyAt': _now});
+      await _db.collection('messages').doc(id).update({
+        'reply': text.trim(),
+        'replyAt': _now,
+        'replies': FieldValue.arrayUnion([
+          {'text': text.trim(), 'at': _now}
+        ]),
+      });
       return true;
     } catch (_) {
       return false;
@@ -633,9 +647,35 @@ class Cloud extends ChangeNotifier {
   /// Redraws the screens that listen to the cloud.
   void touch() => notifyListeners();
 
-  Future<bool> setPlus(String userUid, bool on) async {
+  /// Fresh from the server (after the developer changed my subscription, for example).
+  Future<void> refreshProfile() async {
+    if (!signedIn) return;
     try {
-      await _db.collection('users').doc(userUid).update({'plus': on, if (on) 'plusAt': _now else 'plusEnded': _now});
+      final snap = await _db.collection('users').doc(uid).get();
+      if (snap.exists) {
+        profile = snap.data()!;
+        _cacheProfile();
+        notifyListeners();
+      }
+    } catch (_) {}
+  }
+
+  /// Readers who were subscribers and are not any more.
+  Future<List<Doc>> formerSubscribers() async {
+    try {
+      final q = await _db.collection('users').where('plus', isEqualTo: false).limit(200).get();
+      return [
+        for (final d in q.docs) {...d.data(), 'uid': d.id}
+      ];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// [kind]: «هدية» (granted by the developer) or «مدفوع» (paid).
+  Future<bool> setPlus(String userUid, bool on, {String kind = 'هدية'}) async {
+    try {
+      await _db.collection('users').doc(userUid).update({'plus': on, if (on) 'plusKind': kind, if (on) 'plusAt': _now else 'plusEnded': _now});
       return true;
     } catch (_) {
       return false;

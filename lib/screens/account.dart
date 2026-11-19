@@ -74,7 +74,7 @@ class AccountScreen extends StatelessWidget {
           _tile(context, Icons.workspace_premium_outlined, 'منتقيات+', 'الشروح والكتاب باسمك',
               () => Navigator.of(context).push(MaterialPageRoute(fullscreenDialog: true, builder: (_) => const PlusScreen()))),
           _tile(context, Icons.lightbulb_outline_rounded, 'اقترح بيتاً أو قصيدة', '', () => suggest(context, 'اقتراح بيت أو قصيدة:\n')),
-          _tile(context, Icons.mark_email_unread_outlined, 'راسل المطوّر', '٣ رسائل في اليوم', () => push(context, const MessageDevScreen())),
+          _tile(context, Icons.mark_email_unread_outlined, 'راسل المطوّر', 'رسالة في اليوم، وعشرون للمشتركين', () => push(context, const MessageDevScreen())),
         ]),
         const SizedBox(height: 14),
         _group(context, [

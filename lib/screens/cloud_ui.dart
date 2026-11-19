@@ -260,6 +260,16 @@ class _FollowingScreenState extends State<FollowingScreen> {
 class UserScreen extends StatelessWidget {
   final Doc user;
   const UserScreen({super.key, required this.user});
+
+  Future<void> _plus(BuildContext context, bool on, String kind) async {
+    final ok = await Cloud.i.setPlus('${user['uid']}', on, kind: kind);
+    if (ok) {
+      user['plus'] = on;
+      if (on) user['plusKind'] = kind;
+      Cloud.i.touch();
+    }
+    if (context.mounted) toast(context, !ok ? 'تعذّر' : (on ? 'صار مشتركاً ($kind)' : 'أُلغي اشتراكه'));
+  }
   @override
   Widget build(BuildContext context) {
     final id = '${user['publicId']}', name = '${user['name'] ?? 'قارئ'}';
@@ -288,7 +298,7 @@ class UserScreen extends StatelessWidget {
                 if (user['plus'] == true || user['banned'] == true) ...[
                   const SizedBox(height: 6),
                   Wrap(spacing: 6, children: [
-                    if (user['plus'] == true) const Tag('مشترك'),
+                    if (user['plus'] == true) Tag('مشترك · ${user['plusKind'] ?? 'هدية'}'),
                     if (user['banned'] == true) const Tag('محظور عن النشر'),
                   ]),
                 ],
@@ -314,18 +324,12 @@ class UserScreen extends StatelessWidget {
                       },
                       child: Text(user['banned'] == true ? 'ارفع الحظر' : 'احظره عن النشر'),
                     ),
-                    OutlinedButton(
-                      onPressed: () async {
-                        final on = user['plus'] != true;
-                        final ok = await Cloud.i.setPlus('${user['uid']}', on);
-                        if (ok) {
-                          user['plus'] = on;
-                          Cloud.i.touch();
-                        }
-                        if (context.mounted) toast(context, !ok ? 'تعذّر' : (on ? 'صار مشتركاً' : 'أُلغي اشتراكه'));
-                      },
-                      child: Text(user['plus'] == true ? 'ألغِ اشتراكه' : 'اجعله مشتركاً'),
-                    ),
+                    if (user['plus'] == true)
+                      OutlinedButton(onPressed: () => _plus(context, false, ''), child: const Text('ألغِ اشتراكه'))
+                    else ...[
+                      OutlinedButton(onPressed: () => _plus(context, true, 'هدية'), child: const Text('اشتراك هدية منّي')),
+                      OutlinedButton(onPressed: () => _plus(context, true, 'مدفوع'), child: const Text('اشتراك مدفوع')),
+                    ],
                   ]),
                 ],
               ]),
@@ -676,6 +680,92 @@ class _SentTestsScreenState extends State<SentTestsScreen> {
 
 // ------------------------------------------------------------ messages to the developer
 
+/// One conversation as bubbles: (from the developer?, text, time).
+List<(bool, String, int)> _thread(List<Doc> msgs) {
+  final out = <(bool, String, int)>[];
+  for (final m in msgs) {
+    out.add((false, '${m['text']}', _n(m['at'])));
+    final r = m['replies'];
+    if (r is List && r.isNotEmpty) {
+      for (final x in r) {
+        out.add((true, '${(x as Map)['text']}', _n(x['at'])));
+      }
+    } else if ('${m['reply'] ?? ''}'.isNotEmpty) {
+      out.add((true, '${m['reply']}', _n(m['replyAt'])));
+    }
+  }
+  out.sort((a, b) => a.$3.compareTo(b.$3));
+  return out;
+}
+
+class _Bubbles extends StatelessWidget {
+  final List<(bool, String, int)> items;
+
+  /// True when the developer is the one looking.
+  final bool dev;
+  const _Bubbles(this.items, {this.dev = false});
+  @override
+  Widget build(BuildContext context) => ListView(
+        reverse: true,
+        padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+        children: [
+          for (final (fromDev, text, at) in items.reversed)
+            Align(
+              alignment: fromDev == dev ? AlignmentDirectional.centerStart : AlignmentDirectional.centerEnd,
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 420),
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
+                decoration: BoxDecoration(
+                  color: fromDev == dev ? C.accent(context) : C.card(context),
+                  border: fromDev == dev ? null : Border.all(color: C.line(context)),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                  if (fromDev && !dev) Text('المطوّر', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: C.accent(context))),
+                  SelectableText(text, style: TextStyle(fontSize: 16.5, height: 1.6, color: fromDev == dev ? Colors.white : C.ink(context))),
+                  Text(ago(at), style: TextStyle(fontSize: 11, color: fromDev == dev ? Colors.white70 : C.muted(context))),
+                ]),
+              ),
+            ),
+        ],
+      );
+}
+
+class _ChatInput extends StatelessWidget {
+  final TextEditingController ctl;
+  final bool busy;
+  final String hint;
+  final VoidCallback onSend;
+  const _ChatInput({required this.ctl, required this.busy, required this.hint, required this.onSend});
+  @override
+  Widget build(BuildContext context) => SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+            Expanded(
+              child: TextField(
+                controller: ctl,
+                minLines: 1,
+                maxLines: 5,
+                decoration: InputDecoration(
+                  hintText: hint,
+                  filled: true,
+                  fillColor: C.card(context),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(22), borderSide: BorderSide(color: C.line(context))),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            IconButton.filled(onPressed: busy ? null : onSend, icon: const Icon(Icons.send_rounded)),
+          ]),
+        ),
+      );
+}
+
+/// The reader's conversation with the developer.
 class MessageDevScreen extends StatefulWidget {
   const MessageDevScreen({super.key});
   @override
@@ -684,88 +774,71 @@ class MessageDevScreen extends StatefulWidget {
 
 class _MessageDevScreenState extends State<MessageDevScreen> {
   final c = TextEditingController();
-  Future<List<Doc>> job = Cloud.i.myMessages();
+  List<Doc>? msgs;
   bool busy = false;
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('راسل المطوّر')),
-        body: ListView(padding: const EdgeInsets.fromLTRB(16, 0, 16, 40), children: [
-          Text('ثلاث رسائل في اليوم مجاناً، وبلا حد للمشتركين. يصلك الرد هنا داخل التطبيق.', style: TextStyle(color: C.muted(context), height: 1.6)),
-          const SizedBox(height: 12),
-          TextField(
-            controller: c,
-            minLines: 4,
-            maxLines: 8,
-            decoration: InputDecoration(
-              hintText: 'اكتب رسالتك',
-              filled: true,
-              fillColor: C.card(context),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
-            ),
-          ),
-          const SizedBox(height: 10),
-          FilledButton.icon(
-            onPressed: busy
-                ? null
-                : () async {
-                    if (!await needAccount(context, 'لتصلك ردود المطوّر في حسابك.')) return;
-                    setState(() => busy = true);
-                    final err = await Cloud.i.sendMessage(c.text);
-                    if (!mounted) return;
-                    setState(() {
-                      busy = false;
-                      if (err == null) {
-                        c.clear();
-                        job = Cloud.i.myMessages();
-                      }
-                    });
-                    toast(context, err ?? 'وصلت رسالتك');
-                  },
-            icon: const Icon(Icons.send_rounded),
-            label: const Text('أرسل'),
-          ),
-          _section(context, 'رسائلك'),
-          FutureBuilder<List<Doc>>(
-            future: job,
-            builder: (context, snap) {
-              final list = snap.data ?? [];
-              if (snap.connectionState != ConnectionState.done) return const LinearProgressIndicator();
-              if (list.isEmpty) return Text('لا رسائل بعد.', style: TextStyle(color: C.muted(context)));
-              return Column(children: [for (final m in list) _MessageCard(m)]);
-            },
-          ),
-        ]),
-      );
-}
+  void initState() {
+    super.initState();
+    _load();
+  }
 
-class _MessageCard extends StatelessWidget {
-  final Doc m;
-  final Widget? actions;
-  const _MessageCard(this.m, {this.actions});
+  Future<void> _load() async {
+    await Cloud.i.refreshProfile();
+    final m = await Cloud.i.myMessages();
+    if (mounted) setState(() => msgs = m);
+  }
+
+  Future<void> _send() async {
+    if (!await needAccount(context, 'لتصلك ردود المطوّر في حسابك.')) return;
+    setState(() => busy = true);
+    final err = await Cloud.i.sendMessage(c.text);
+    if (err == null) {
+      c.clear();
+      await _load();
+    }
+    if (!mounted) return;
+    setState(() => busy = false);
+    if (err != null) toast(context, err);
+  }
+
   @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: SoftCard(
-          padding: const EdgeInsets.all(14),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              Expanded(child: Text(actions == null ? 'أنت' : '${m['name']} · ${m['publicId']}', style: TextStyle(fontWeight: FontWeight.w700, color: C.ink(context)))),
-              Text(ago(m['at']), style: TextStyle(fontSize: 12, color: C.muted(context))),
+  Widget build(BuildContext context) => ListenableBuilder(
+        listenable: Cloud.i,
+        builder: (context, _) {
+          final k = Cloud.i;
+          final left = k.messagesLeft < 0 ? 0 : k.messagesLeft;
+          return Scaffold(
+            appBar: AppBar(title: const Text('راسل المطوّر'), actions: [
+              IconButton(tooltip: 'تحديث', onPressed: _load, icon: const Icon(Icons.refresh_rounded)),
             ]),
-            const SizedBox(height: 4),
-            SelectableText('${m['text']}', style: TextStyle(fontSize: 16, height: 1.6, color: C.ink(context))),
-            if ('${m['reply'] ?? ''}'.isNotEmpty)
-              Container(
-                width: double.infinity,
-                margin: const EdgeInsets.only(top: 8),
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(color: C.soft(context), borderRadius: BorderRadius.circular(12)),
-                child: Text('ردّ المطوّر: ${m['reply']}', style: TextStyle(height: 1.6, color: C.ink(context))),
+            body: Column(children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Text(
+                  !k.signedIn
+                      ? 'رسالة واحدة في اليوم مجاناً، وعشرون للمشتركين. يصلك الرد هنا.'
+                      : k.isDev
+                          ? 'أنت المطوّر. رسائل القرّاء في «خانة المطوّر».'
+                          : k.plus
+                              ? 'أنت مشترك: بقي لك اليوم ${Ar.num(left)} من ٢٠ رسالة.'
+                              : 'المجاني رسالة واحدة في اليوم (بقي ${Ar.num(left)})، وللمشتركين عشرون. يصلك الرد هنا.',
+                  style: TextStyle(color: C.muted(context), height: 1.6),
+                ),
               ),
-            if (actions != null) actions!,
-          ]),
-        ),
+              Expanded(
+                child: !k.signedIn
+                    ? const EmptyNote(Icons.forum_outlined, 'اكتب رسالتك في الأسفل. سنطلب منك الدخول بحسابك ليصلك الرد.')
+                    : msgs == null
+                        ? const Center(child: CircularProgressIndicator())
+                        : msgs!.isEmpty
+                            ? const EmptyNote(Icons.forum_outlined, 'لا رسائل بعد. اكتب رسالتك في الأسفل.')
+                            : _Bubbles(_thread(msgs!)),
+              ),
+              _ChatInput(ctl: c, busy: busy, hint: 'اكتب رسالتك', onSend: _send),
+            ]),
+          );
+        },
       );
 }
 
@@ -801,56 +874,161 @@ class _DevListState extends State<_DevList> {
       );
 }
 
-Future<String?> _ask(BuildContext context, String title, [String initial = '']) {
-  final t = TextEditingController(text: initial);
-  return showDialog<String>(
-    context: context,
-    builder: (d) => AlertDialog(
-      title: Text(title),
-      content: TextField(controller: t, minLines: 2, maxLines: 6, autofocus: true),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(d), child: const Text('إلغاء')),
-        FilledButton(onPressed: () => Navigator.pop(d, t.text), child: const Text('حفظ')),
-      ],
-    ),
-  );
-}
-
 Future<void> _openUser(BuildContext context, String publicId) async {
   final u = await Cloud.i.findUser(publicId);
   if (u != null && context.mounted) push(context, UserScreen(user: u));
 }
 
-class DevMessagesScreen extends StatelessWidget {
+/// The developer: one row for each reader, newest first.
+class DevMessagesScreen extends StatefulWidget {
   const DevMessagesScreen({super.key});
   @override
-  Widget build(BuildContext context) => _DevList(
-        title: 'الرسائل',
-        empty: 'لا رسائل بعد.',
-        icon: Icons.mark_email_unread_outlined,
-        load: Cloud.i.allMessages,
-        item: (context, m, reload) => _MessageCard(
-          m,
-          actions: Row(children: [
-            TextButton(
-              onPressed: () async {
-                final r = await _ask(context, 'ردّك على ${m['name']}', '${m['reply'] ?? ''}');
-                if (r != null && await Cloud.i.reply('${m['id']}', r)) reload();
-              },
-              child: const Text('ردّ'),
+  State<DevMessagesScreen> createState() => _DevMessagesScreenState();
+}
+
+class _DevMessagesScreenState extends State<DevMessagesScreen> {
+  List<Doc>? all;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final m = await Cloud.i.allMessages();
+    if (mounted) setState(() => all = m);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final by = <String, List<Doc>>{};
+    for (final m in all ?? <Doc>[]) {
+      by.putIfAbsent('${m['uid']}', () => []).add(m);
+    }
+    // Each list is newest first, as the server returned it.
+    final chats = by.values.toList()..sort((a, b) => _n(b.first['at']).compareTo(_n(a.first['at'])));
+    bool waiting(List<Doc> c) => _thread(c).last.$1 == false;
+    final nWait = chats.where(waiting).length;
+    return Scaffold(
+      appBar: AppBar(title: const Text('الرسائل'), actions: [IconButton(onPressed: _load, icon: const Icon(Icons.refresh_rounded))]),
+      body: !Cloud.i.isDev
+          ? const EmptyNote(Icons.lock_outline_rounded, 'ادخل بحساب المطوّر من «صفحتك الشخصية» لتظهر الرسائل.')
+          : all == null
+              ? const Center(child: CircularProgressIndicator())
+              : chats.isEmpty
+                  ? const EmptyNote(Icons.mark_email_unread_outlined, 'لا رسائل بعد.')
+                  : ListView(padding: const EdgeInsets.fromLTRB(16, 0, 16, 40), children: [
+                      Text('${Ar.num(chats.length)} محادثة · ${Ar.num(nWait)} تنتظر ردّك', style: TextStyle(color: C.muted(context))),
+                      const SizedBox(height: 8),
+                      for (final c in chats)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: SoftCard(
+                            padding: const EdgeInsets.all(14),
+                            onTap: () async {
+                              await Navigator.of(context).push(MaterialPageRoute(builder: (_) => DevChatScreen(msgs: c)));
+                              _load();
+                            },
+                            child: Row(children: [
+                              const RoundIcon(Icons.person_outline_rounded, size: 46),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                  Row(children: [
+                                    Expanded(child: Text('${c.first['name']}', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 16.5, fontWeight: FontWeight.w700, color: C.ink(context)))),
+                                    Text(ago(c.first['at']), style: TextStyle(fontSize: 12, color: C.muted(context))),
+                                  ]),
+                                  Text(_thread(c).last.$2, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: C.muted(context))),
+                                  Text('رقمه: ${c.first['publicId']} · ${Ar.num(c.length)} رسالة', style: TextStyle(fontSize: 12, color: C.muted(context))),
+                                ]),
+                              ),
+                              if (waiting(c)) ...[const SizedBox(width: 8), const Tag('ينتظر ردّك')],
+                            ]),
+                          ),
+                        ),
+                    ]),
+    );
+  }
+}
+
+/// The developer's conversation with one reader.
+class DevChatScreen extends StatefulWidget {
+  final List<Doc> msgs;
+  const DevChatScreen({super.key, required this.msgs});
+  @override
+  State<DevChatScreen> createState() => _DevChatScreenState();
+}
+
+class _DevChatScreenState extends State<DevChatScreen> {
+  final c = TextEditingController();
+  bool busy = false;
+
+  Future<void> _send() async {
+    final text = c.text.trim();
+    if (text.isEmpty) return;
+    setState(() => busy = true);
+    // The reply hangs on the reader's latest message (the list is newest first).
+    final last = widget.msgs.first;
+    final ok = await Cloud.i.reply('${last['id']}', text);
+    if (!mounted) return;
+    setState(() {
+      busy = false;
+      if (ok) {
+        last['replies'] = [
+          ...(last['replies'] as List? ?? []),
+          {'text': text, 'at': DateTime.now().millisecondsSinceEpoch}
+        ];
+        c.clear();
+      }
+    });
+    if (!ok) toast(context, 'تعذّر الإرسال');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final first = widget.msgs.first;
+    return Scaffold(
+      appBar: AppBar(
+        title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('${first['name']}'),
+          Text('رقمه: ${first['publicId']}', style: TextStyle(fontSize: 12.5, color: C.muted(context))),
+        ]),
+        actions: [
+          IconButton(tooltip: 'صفحته', onPressed: () => _openUser(context, '${first['publicId']}'), icon: const Icon(Icons.badge_outlined)),
+          IconButton(
+            tooltip: 'احذف المحادثة',
+            icon: const Icon(Icons.delete_outline_rounded),
+            onPressed: () => showDialog(
+              context: context,
+              builder: (d) => AlertDialog(
+                title: const Text('حذف المحادثة كلها؟'),
+                content: const Text('تُحذف رسائله وردودك، ولا يمكن التراجع.'),
+                actions: [
+                  TextButton(onPressed: () => Navigator.pop(d), child: const Text('إلغاء')),
+                  FilledButton(
+                    style: FilledButton.styleFrom(backgroundColor: const Color(0xFFB3261E)),
+                    onPressed: () async {
+                      Navigator.pop(d);
+                      for (final m in widget.msgs) {
+                        await Cloud.i.deleteMessage('${m['id']}');
+                      }
+                      if (context.mounted) Navigator.pop(context);
+                    },
+                    child: const Text('احذف'),
+                  ),
+                ],
+              ),
             ),
-            TextButton(onPressed: () => _openUser(context, '${m['publicId']}'), child: const Text('صفحته')),
-            const Spacer(),
-            IconButton(
-              onPressed: () async {
-                await Cloud.i.deleteMessage('${m['id']}');
-                reload();
-              },
-              icon: const Icon(Icons.delete_outline_rounded),
-            ),
-          ]),
-        ),
-      );
+          ),
+        ],
+      ),
+      body: Column(children: [
+        Expanded(child: _Bubbles(_thread(widget.msgs), dev: true)),
+        _ChatInput(ctl: c, busy: busy, hint: 'اكتب ردّك', onSend: _send),
+      ]),
+    );
+  }
 }
 
 class DevReportsScreen extends StatelessWidget {
@@ -937,22 +1115,96 @@ class DevOrdersScreen extends StatelessWidget {
       );
 }
 
-class SubscribersScreen extends StatelessWidget {
+/// The developer: subscribers, sorted by how they subscribed.
+class SubscribersScreen extends StatefulWidget {
   const SubscribersScreen({super.key});
   @override
-  Widget build(BuildContext context) => _DevList(
-        title: 'المشتركون',
-        empty: 'لا مشتركين بعد. لتجعل أحداً مشتركاً: ابحث برقمه من «من أتابعهم» ثم اضغط «اجعله مشتركاً».',
-        icon: Icons.workspace_premium_outlined,
-        load: Cloud.i.subscribers,
-        item: (context, u, reload) => _row(
-          context,
-          Icons.workspace_premium_outlined,
-          '${u['name']} · ${u['publicId']}',
-          'مشترك ${ago(u['plusAt'])} · آخر دخول: ${u['lastDay'] == Store.today ? 'اليوم' : 'قبل ${Ar.num(Store.today - _n(u['lastDay']))} يوماً'}',
-          () => push(context, UserScreen(user: u)),
-        ),
-      );
+  State<SubscribersScreen> createState() => _SubscribersScreenState();
+}
+
+class _SubscribersScreenState extends State<SubscribersScreen> {
+  List<Doc>? now, former;
+  int tab = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final a = await Cloud.i.subscribers(), b = await Cloud.i.formerSubscribers();
+    if (mounted) {
+      setState(() {
+        now = a;
+        former = b;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final all = now ?? <Doc>[];
+    final paid = all.where((u) => u['plusKind'] == 'مدفوع').toList();
+    final gift = all.where((u) => u['plusKind'] != 'مدفوع').toList();
+    final list = [all, gift, paid, former ?? <Doc>[]][tab];
+    Widget stat(String n, String label) => Expanded(
+          child: Column(children: [
+            Text(n, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: C.accent(context))),
+            Text(label, textAlign: TextAlign.center, style: TextStyle(fontSize: 12.5, color: C.muted(context))),
+          ]),
+        );
+    return Scaffold(
+      appBar: AppBar(title: const Text('المشتركون'), actions: [IconButton(onPressed: _load, icon: const Icon(Icons.refresh_rounded))]),
+      body: !Cloud.i.isDev
+          ? const EmptyNote(Icons.lock_outline_rounded, 'ادخل بحساب المطوّر من «صفحتك الشخصية» لتظهر القائمة.')
+          : now == null
+              ? const Center(child: CircularProgressIndicator())
+              : ListView(padding: const EdgeInsets.fromLTRB(16, 0, 16, 40), children: [
+                  SoftCard(
+                    child: Row(children: [
+                      stat(Ar.num(all.length), 'كل المشتركين'),
+                      stat(Ar.num(gift.length), 'هدية منك'),
+                      stat(Ar.num(paid.length), 'بالمال'),
+                      stat(Ar.num((former ?? []).length), 'انتهى اشتراكهم'),
+                    ]),
+                  ),
+                  const SizedBox(height: 10),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: SegmentedButton<int>(
+                      showSelectedIcon: false,
+                      segments: const [
+                        ButtonSegment(value: 0, label: Text('الكل')),
+                        ButtonSegment(value: 1, label: Text('هدية منك')),
+                        ButtonSegment(value: 2, label: Text('بالمال')),
+                        ButtonSegment(value: 3, label: Text('انتهى')),
+                      ],
+                      selected: {tab},
+                      onSelectionChanged: (v) => setState(() => tab = v.first),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text('لتضيف مشتركاً: افتح صفحته (من رسائله، أو ابحث برقمه في «من أتابعهم») ثم اضغط «اشتراك هدية منّي» أو «اشتراك مدفوع». ولإلغائه اضغط «ألغِ اشتراكه» في صفحته.',
+                      style: TextStyle(color: C.muted(context), height: 1.6)),
+                  const SizedBox(height: 10),
+                  if (list.isEmpty) const EmptyNote(Icons.workspace_premium_outlined, 'لا أحد في هذه القائمة.'),
+                  for (final u in list)
+                    _row(
+                      context,
+                      Icons.workspace_premium_outlined,
+                      '${u['name']} · ${u['publicId']}',
+                      tab == 3
+                          ? 'انتهى اشتراكه ${ago(u['plusEnded'])} · كان ${u['plusKind'] ?? 'هدية'}'
+                          : '${u['plusKind'] ?? 'هدية'} · اشترك ${ago(u['plusAt'])} · آخر دخول: ${u['lastDay'] == Store.today ? 'اليوم' : 'قبل ${Ar.num(Store.today - _n(u['lastDay']))} يوماً'}',
+                      () async {
+                        await Navigator.of(context).push(MaterialPageRoute(builder: (_) => UserScreen(user: u)));
+                        _load();
+                      },
+                    ),
+                ]),
+    );
+  }
 }
 
 class StatsScreen extends StatefulWidget {
