@@ -164,6 +164,20 @@ class MatnScreen extends StatelessWidget {
             ],
             ShuruhSection(matn: matn),
             if (matn.ready) const SectionTitle('أبيات المنظومة'),
+            if (matn.ready)
+              Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(color: C.soft(context), borderRadius: BorderRadius.circular(14)),
+                child: Row(children: [
+                  const Icon(Icons.check_circle_rounded, color: Color(0xFF2F6B4F)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text('إذا حفظت بيتاً فاضغط الدائرة بجانبه فتصير خضراء «حفظتُه»، فيُحسب في تقدّمك ويدخل في المراجعة.',
+                        style: TextStyle(fontSize: 14, height: 1.5, color: C.ink(context))),
+                  ),
+                ]),
+              ),
           ];
           return Scaffold(
             appBar: AppBar(title: Text(matn.title)),
@@ -216,11 +230,22 @@ class MatnScreen extends StatelessWidget {
           ),
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Expanded(child: VerseLines(matn.lines[i], size: 22, number: i + 1)),
-          if (Store.i.developer) VerifyButton('m:${matn.id}:${i + 1}', what: 'هذا البيت'),
-          IconButton(
-            tooltip: done ? 'محفوظ' : 'علّمه محفوظاً',
-            onPressed: () => Store.i.setMemorized(matn.id, i + 1, !done),
-            icon: Icon(done ? Icons.check_circle_rounded : Icons.radio_button_unchecked, color: done ? const Color(0xFF2F6B4F) : C.muted(context)),
+          if (Store.i.developer)
+            Column(mainAxisSize: MainAxisSize.min, children: [
+              VerifyButton('m:${matn.id}:${i + 1}', what: 'هذا البيت'),
+              Text('توثيق', style: TextStyle(fontSize: 11, color: Colors.orange.shade800)),
+            ]),
+          InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () => Store.i.setMemorized(matn.id, i + 1, !done),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Icon(done ? Icons.check_circle_rounded : Icons.radio_button_unchecked, size: 28, color: done ? const Color(0xFF2F6B4F) : C.muted(context)),
+                const SizedBox(height: 2),
+                Text(done ? 'حفظتُه' : 'حفظتَه؟', style: TextStyle(fontSize: 11.5, color: done ? const Color(0xFF2F6B4F) : C.muted(context))),
+              ]),
+            ),
           ),
         ]),
         if (note != null)
