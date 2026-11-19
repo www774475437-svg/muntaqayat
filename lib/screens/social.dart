@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 
+export 'cloud_ui.dart';
+
 import '../data.dart';
-import '../services/device.dart';
+import '../services/cloud.dart';
 import '../ui.dart';
+import 'cloud_ui.dart';
 import 'lists.dart';
 import 'marks.dart';
 import 'mutun.dart';
@@ -43,138 +46,11 @@ Widget _row(BuildContext context, IconData icon, String title, String sub, VoidC
       ),
     );
 
-// ------------------------------------------------------------ profile
-
-class ProfileScreen extends StatelessWidget {
-  const ProfileScreen({super.key});
-  @override
-  Widget build(BuildContext context) {
-    final s = Store.i;
-    final memo = s.memorized.values.fold<int>(0, (a, b) => a + b.length);
-    return Scaffold(
-      appBar: AppBar(title: const Text('صفحتك الشخصية')),
-      body: ListView(padding: const EdgeInsets.fromLTRB(16, 0, 16, 40), children: [
-        SoftCard(
-          child: Column(children: [
-            const RoundIcon(Icons.person_rounded, size: 72),
-            const SizedBox(height: 8),
-            Text('اسمك يظهر هنا', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: C.ink(context))),
-            const SizedBox(height: 4),
-            Text('رقمك الشخصي: ٧ أرقام ثابتة لا تتغير', style: TextStyle(color: C.muted(context))),
-            const SizedBox(height: 14),
-            Row(children: [
-              _stat(context, Ar.num(s.likes.length), 'إعجاب'),
-              _stat(context, '٠', 'اقتباس'),
-              _stat(context, Ar.num(memo), 'بيتاً حفظه'),
-              _stat(context, Ar.num(s.days.length), 'يوماً'),
-            ]),
-            const SizedBox(height: 14),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: () => needsServer(context, 'تسجيل الدخول برقم شخصي من سبعة أرقام، وصفحة فيها اقتباساتك وما حفظت وأيامك المتتالية وتاريخ تسجيلك.'),
-                icon: const Icon(Icons.login_rounded),
-                label: const Text('أنشئ حسابك'),
-              ),
-            ),
-          ]),
-        ),
-        _section(context, 'في صفحتك'),
-        _row(context, Icons.format_quote_rounded, 'اقتباساتي', 'ما نشرته من أبيات (عشرة في اليوم)', () => needsServer(context)),
-        _row(context, Icons.bookmark_border_rounded, 'المحفوظات', 'ما حفظته من أبيات وقصائد', () => needsServer(context)),
-        _row(context, Icons.people_outline_rounded, 'من أتابعهم', 'ابحث عن أي شخص برقمه الشخصي', () => _findById(context)),
-        _row(context, Icons.local_fire_department_outlined, 'الأيام المتتالية', 'شارة لكل من يداوم على القراءة', () => needsServer(context)),
-        _row(context, Icons.event_outlined, 'تاريخ التسجيل', '', () => needsServer(context)),
-        const SizedBox(height: 8),
-        Text('تُحدَّث أرقام صفحتك كل ست ساعات دفعة واحدة، لا لحظة بلحظة.', style: TextStyle(color: C.muted(context), fontSize: 13.5)),
-      ]),
-    );
-  }
-
-  Widget _stat(BuildContext context, String n, String label) => Expanded(
-        child: Column(children: [
-          Text(n, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: C.accent(context))),
-          Text(label, style: TextStyle(fontSize: 12.5, color: C.muted(context))),
-        ]),
-      );
-
-  void _findById(BuildContext context) {
-    final c = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (d) => AlertDialog(
-        title: const Text('ابحث برقم شخصي'),
-        content: TextField(
-          controller: c,
-          keyboardType: TextInputType.number,
-          maxLength: 7,
-          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-          decoration: const InputDecoration(hintText: 'مثل: 1234567'),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(d), child: const Text('إلغاء')),
-          FilledButton(
-            onPressed: () {
-              Navigator.pop(d);
-              needsServer(context, 'تفتح صفحة صاحب الرقم: اسمه واقتباساته، وتتابعه أو تبلّغ عنه.');
-            },
-            child: const Text('بحث'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// «الاقتباسات»: people's published verses.
-class QuotesScreen extends StatelessWidget {
-  const QuotesScreen({super.key});
-  @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('الاقتباسات')),
-        body: ListView(padding: const EdgeInsets.fromLTRB(16, 0, 16, 40), children: [
-          Text('أبيات ينشرها القرّاء في صفحاتهم، تظهر هنا فوراً، ويُعجب بها الناس ويشاركونها. اضغط اسم صاحبها لترى اقتباساته.',
-              style: TextStyle(color: C.muted(context), height: 1.6)),
-          const SizedBox(height: 14),
-          for (final p in Library.dailyPicks(3, salt: 11))
-            Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: SoftCard(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Row(children: [
-                    const RoundIcon(Icons.person_outline_rounded, size: 36),
-                    const SizedBox(width: 8),
-                    Expanded(child: Text('مثال: اسم القارئ', style: TextStyle(fontWeight: FontWeight.w700, color: C.ink(context)))),
-                    IconButton(
-                      tooltip: 'إبلاغ',
-                      onPressed: () => needsServer(context, 'يصل البلاغ إلى المطوّر ليحظر الأسماء والمنشورات المسيئة.'),
-                      icon: Icon(Icons.flag_outlined, color: C.muted(context)),
-                    ),
-                  ]),
-                  VerseLines(p.firstVerse, size: 20),
-                  Row(children: [
-                    IconButton(onPressed: () => needsServer(context), icon: const Icon(Icons.favorite_border)),
-                    IconButton(onPressed: () => needsServer(context), icon: const Icon(Icons.repeat_rounded)),
-                    const Spacer(),
-                    Text(p.poet, style: TextStyle(color: C.muted(context))),
-                  ]),
-                ]),
-              ),
-            ),
-          OutlinedButton.icon(
-            onPressed: () => needsServer(context, 'تنشر حتى عشرة اقتباسات في اليوم.'),
-            icon: const Icon(Icons.add_rounded),
-            label: const Text('انشر اقتباساً'),
-          ),
-        ]),
-      );
-}
-
 // ------------------------------------------------------------ teacher
 
 String testLink(String matn, int from, int to, TestMode mode) => '$siteUrl#/t/$matn/$from-$to/${mode.index}';
 
-const _modeNames = {TestMode.all: 'يكتب الأبيات كلها', TestMode.alternate: 'بيت ظاهر وبيت مخفي', TestMode.half: 'شطر ظاهر وشطر مخفي'};
+const _modeNames = modeNames;
 
 class TeacherScreen extends StatefulWidget {
   const TeacherScreen({super.key});
@@ -231,7 +107,7 @@ class _TeacherScreenState extends State<TeacherScreen> with SingleTickerProvider
                       '١. اختر المنظومة والأبيات وطريقة الاختبار.\n'
                       '٢. اضغط «معاينة» لترى الاختبار كما يراه الطالب.\n'
                       '٣. أرسله برابط (يعمل الآن): يفتحه الطالب فيختبر، ثم يرسل لك نتيجته ملوّنة كما كتبها.\n'
-                      '٤. أو أرسله بالرقم الشخصي لطلابك (حتى ٣٠) فيصلهم «لديك اختبار» — يعمل بعد ربط الحسابات.',
+                      '٤. أو أرسله بالرقم الشخصي لطلابك (حتى ٣٠) فيصلهم «لديك اختبار» في «اختباراتي»، وتصلك نتائجهم في «نتائج طلابي».',
                       style: TextStyle(fontSize: 14.5, height: 1.7, color: C.ink(context)),
                     ),
                   ),
@@ -324,14 +200,35 @@ class _TeacherScreenState extends State<TeacherScreen> with SingleTickerProvider
                   FilledButton.tonalIcon(
                     onPressed: picked.isEmpty || m == null
                         ? () => toast(context, 'اختر المنظومة والطلاب أولاً')
-                        : () => needsServer(context, 'يصل الاختبار إلى ${Ar.num(picked.length)} طالب فوراً. وإلى أن تُربط الحسابات أرسل لهم الرابط.'),
+                        : () async {
+                            if (!await needAccount(context, 'إرسال الاختبار بالأرقام يحتاج حساباً.')) return;
+                            final (err, n) = await Cloud.i.sendTest(ids: picked.toList(), matn: m.id, title: m.title, from: from, to: to, mode: mode.index);
+                            if (!context.mounted) return;
+                            if (err != null) {
+                              toast(context, err);
+                              return;
+                            }
+                            _log('رقم');
+                            toast(context, 'وصل الاختبار إلى ${Ar.num(n)} طالب');
+                          },
                     icon: const Icon(Icons.send_rounded),
                     label: const Text('أرسل إلى أرقامهم'),
                   ),
                   TextButton.icon(
-                    onPressed: () => needsServer(context, 'المجاني اختبار واحد بالأرقام في اليوم، ويصل طلبك إلى المطوّر فيتواصل معك.'),
+                    onPressed: () async {
+                      if (!await needAccount(context)) return;
+                      final err = await Cloud.i.sendMessage('أطلب اختباراً آخر بالأرقام اليوم.', kind: 'test');
+                      if (context.mounted) toast(context, err ?? 'وصل طلبك إلى المطوّر، وسيردّ عليك في «راسل المطوّر»');
+                    },
                     icon: const Icon(Icons.add_task_rounded),
                     label: const Text('طلب اختبار آخر اليوم'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      if (await needAccount(context) && context.mounted) push(context, const SentTestsScreen());
+                    },
+                    icon: const Icon(Icons.fact_check_outlined),
+                    label: const Text('نتائج طلابي'),
                   ),
                 ]),
                 // ---------------- my students
@@ -581,162 +478,77 @@ class TestLinkScreen extends StatelessWidget {
       );
 }
 
-/// What the student sees: «لديك اختبار».
-class StudentTestsScreen extends StatelessWidget {
-  const StudentTestsScreen({super.key});
-  @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('اختباراتي')),
-        body: ListView(padding: const EdgeInsets.fromLTRB(16, 0, 16, 40), children: [
-          const EmptyNote(Icons.assignment_outlined, 'لا اختبارات الآن. حين يرسل لك معلّمك اختباراً يظهر هنا «لديك اختبار».'),
-          SoftCard(
-            padding: const EdgeInsets.all(14),
-            child: Text(
-              'للطالب:\n'
-              '١. أعطِ معلّمك رقمك الشخصي من صفحتك.\n'
-              '٢. حين يصلك الاختبار افتحه واكتب ما حفظت في الخانات.\n'
-              '٣. اضغط «تحقّق» فتظهر نتيجتك، وتصل معلّمك كما كتبتها تماماً.',
-              style: TextStyle(fontSize: 15, height: 1.7, color: C.ink(context)),
-            ),
-          ),
-        ]),
-      );
-}
-
-// ------------------------------------------------------------ messages to the developer
-
-class MessageDevScreen extends StatelessWidget {
-  const MessageDevScreen({super.key});
-  @override
-  Widget build(BuildContext context) {
-    final c = TextEditingController();
-    return Scaffold(
-      appBar: AppBar(title: const Text('راسل المطوّر')),
-      body: ListView(padding: const EdgeInsets.fromLTRB(16, 0, 16, 40), children: [
-        Text('ثلاث رسائل في اليوم مجاناً، وبلا حد للمشتركين. يصلك الرد هنا داخل التطبيق.', style: TextStyle(color: C.muted(context), height: 1.6)),
-        const SizedBox(height: 12),
-        TextField(
-          controller: c,
-          minLines: 4,
-          maxLines: 8,
-          decoration: InputDecoration(
-            hintText: 'اكتب رسالتك',
-            filled: true,
-            fillColor: C.card(context),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
-          ),
-        ),
-        const SizedBox(height: 10),
-        FilledButton.icon(
-          onPressed: () => needsServer(context),
-          icon: const Icon(Icons.send_rounded),
-          label: const Text('أرسل'),
-        ),
-      ]),
-    );
-  }
-}
-
 // ------------------------------------------------------------ developer hub
 
 class DeveloperHub extends StatelessWidget {
   const DeveloperHub({super.key});
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-        listenable: Store.i,
+        listenable: Listenable.merge([Store.i, Cloud.i]),
         builder: (context, _) => Scaffold(
           appBar: AppBar(title: const Text('خانة المطوّر')),
           body: ListView(padding: const EdgeInsets.fromLTRB(16, 0, 16, 40), children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: SoftCard(
+                padding: const EdgeInsets.all(14),
+                child: Cloud.i.isDev
+                    ? Row(children: [
+                        const Icon(Icons.verified_user_rounded, color: bookGreen),
+                        const SizedBox(width: 10),
+                        Expanded(child: Text('أنت داخل بحساب المطوّر. ما توثّقه أو تخفيه أو تحذفه يصل إلى كل المستخدمين.', style: TextStyle(height: 1.6, color: C.ink(context)))),
+                      ])
+                    : Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                        Text('ادخل بحساب جوجل ${Cloud.devEmail} ليتعرّف عليك الخادم، فيصل توثيقك وإخفاؤك إلى الجميع وتظهر لك الرسائل والبلاغات.',
+                            style: TextStyle(height: 1.6, color: C.ink(context))),
+                        const SizedBox(height: 8),
+                        FilledButton.icon(
+                          onPressed: () async {
+                            if (Cloud.i.signedIn) await Cloud.i.signOut();
+                            if (context.mounted) await needAccount(context);
+                          },
+                          icon: const Icon(Icons.login_rounded),
+                          label: const Text('ادخل بحساب المطوّر'),
+                        ),
+                      ]),
+              ),
+            ),
             _row(context, Icons.verified_outlined, 'الموثّقة وغير الموثّقة', 'وثّق بالعلامة الزرقاء، أو أخفِ، ثم احذف', () => push(context, const MarksScreen())),
             _row(context, Icons.insights_rounded, 'الإحصائيات', 'من حمّل التطبيق ومن دخله', () => push(context, const StatsScreen())),
             _row(context, Icons.workspace_premium_outlined, 'المشتركون', 'قائمتهم ومدة اشتراكهم ومزاياهم', () => push(context, const SubscribersScreen())),
-            _row(context, Icons.auto_stories_outlined, 'طلبات تصميم الكتب', 'من دفع ٢٠ دولاراً للتصميم', () => needsServer(context, 'يظهر هنا كل من دفع، فتراسله داخل التطبيق أو تراه رقمه.')),
-            _row(context, Icons.mark_email_unread_outlined, 'الرسائل', 'رسائل المستخدمين وطلبات الاختبارات', () => needsServer(context)),
-            _row(context, Icons.flag_outlined, 'البلاغات', 'الأسماء والمنشورات المبلّغ عنها، والحظر', () => needsServer(context)),
+            _row(context, Icons.auto_stories_outlined, 'طلبات تصميم الكتب', 'من دفع ٢٠ دولاراً للتصميم', () => push(context, const DevOrdersScreen())),
+            _row(context, Icons.mark_email_unread_outlined, 'الرسائل', 'رسائل المستخدمين وطلبات الاختبارات', () => push(context, const DevMessagesScreen())),
+            _row(context, Icons.flag_outlined, 'البلاغات', 'الأسماء والمنشورات المبلّغ عنها، والحظر', () => push(context, const DevReportsScreen())),
+            _row(context, Icons.link_rounded, 'رابط الدفع لتصميم الكتاب', Store.i.payLink.isEmpty ? 'لم يُضف بعد: زر الدفع يفتح المعاينة' : Store.i.payLink, () {
+              final t = TextEditingController(text: Store.i.payLink);
+              showDialog(
+                context: context,
+                builder: (d) => AlertDialog(
+                  title: const Text('رابط الدفع'),
+                  content: TextField(controller: t, keyboardType: TextInputType.url, textDirection: TextDirection.ltr, decoration: const InputDecoration(hintText: 'https://')),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(d), child: const Text('إلغاء')),
+                    FilledButton(
+                      onPressed: () {
+                        Store.i.setPayLink(t.text);
+                        Navigator.pop(d);
+                      },
+                      child: const Text('حفظ'),
+                    ),
+                  ],
+                ),
+              );
+            }),
             const Divider(height: 28),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               value: Store.i.plusOn,
               onChanged: Store.i.setPlusOn,
               title: const Text('إظهار «منتقيات+» (الاشتراك)', style: TextStyle(fontSize: 17)),
-              subtitle: const Text('إذا أطفأته اختفى عن غير المشتركين فقط، ويبقى للمشتركين مزاياهم. (يعمّ الجميع بعد ربط فايربيس)'),
+              subtitle: const Text('إذا أطفأته اختفى عن غير المشتركين فقط، ويبقى للمشتركين مزاياهم. (يعمّ الجميع حين تكون داخلاً بحساب المطوّر)'),
             ),
           ]),
         ),
       );
 }
 
-class StatsScreen extends StatelessWidget {
-  const StatsScreen({super.key});
-  @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('الإحصائيات')),
-        body: ListView(padding: const EdgeInsets.fromLTRB(16, 0, 16, 40), children: [
-          FutureBuilder<(int, int, int)?>(
-            future: Device.downloads(),
-            builder: (context, snap) {
-              final d = snap.data;
-              return SoftCard(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('تحميلات ملف التطبيق (APK)', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: C.ink(context))),
-                  const SizedBox(height: 8),
-                  if (snap.connectionState != ConnectionState.done)
-                    const LinearProgressIndicator()
-                  else if (d == null)
-                    Text('تظهر في تطبيق الجوال (لا في الموقع)، وتحتاج اتصالاً بالإنترنت.', style: TextStyle(color: C.muted(context)))
-                  else ...[
-                    Text('كل التحميلات: ${Ar.num(d.$1)}', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: C.accent(context))),
-                    Text('تحميلات آخر نسخة (${Ar.num(d.$3)}): ${Ar.num(d.$2)}', style: TextStyle(color: C.ink(context))),
-                  ],
-                ]),
-              );
-            },
-          ),
-          const SizedBox(height: 10),
-          SoftCard(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('من دخل التطبيق والموقع', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: C.ink(context))),
-              const SizedBox(height: 6),
-              Text('اليوم، وهذا الأسبوع، والشهر، والمستخدمون الجدد، والمشتركون. تُجمع كل نصف ساعة في ملخّص واحد فتقرؤه أنت بقراءة واحدة مهما كثر المستخدمون.',
-                  style: TextStyle(color: C.muted(context), height: 1.6)),
-              const SizedBox(height: 8),
-              OutlinedButton(onPressed: () => needsServer(context), child: const Text('يُفعَّل مع فايربيس')),
-            ]),
-          ),
-        ]),
-      );
-}
-
-class SubscribersScreen extends StatelessWidget {
-  const SubscribersScreen({super.key});
-  @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('المشتركون')),
-        body: ListView(padding: const EdgeInsets.fromLTRB(16, 0, 16, 40), children: [
-          Text('لا يرى هذه الخانة غيرك.', style: TextStyle(color: C.muted(context))),
-          const SizedBox(height: 10),
-          SoftCard(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('لكل مشترك هنا:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: C.ink(context))),
-              const SizedBox(height: 6),
-              for (final t in const [
-                'اسمه ورقمه الشخصي، وزر «راسله» داخل التطبيق',
-                'كم شهراً اشترك، وهل كانت متتالية',
-                'هل اشترك من قبل، ومتى انتهى اشتراكه',
-                'زر «امنحه ميزة» تعطيه به مزايا إضافية',
-              ])
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Icon(Icons.check_rounded, size: 18, color: C.accent(context)),
-                    const SizedBox(width: 6),
-                    Expanded(child: Text(t, style: TextStyle(color: C.ink(context), height: 1.5))),
-                  ]),
-                ),
-            ]),
-          ),
-          const SizedBox(height: 14),
-          const EmptyNote(Icons.workspace_premium_outlined, 'لا مشتركين بعد. تظهر القائمة حين يُفتح الاشتراك ويُربط فايربيس.'),
-        ]),
-      );
-}

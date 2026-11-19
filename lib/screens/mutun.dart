@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../data.dart';
+import '../services/cloud.dart';
 import '../ui.dart';
 import 'lists.dart';
 import 'matn_tools.dart';
@@ -496,7 +497,9 @@ class WritingTestScreen extends StatefulWidget {
   final Matn matn;
   final List<int> verses;
   final TestMode mode;
-  const WritingTestScreen({super.key, required this.matn, required this.verses, required this.mode});
+  /// A test sent by a teacher to my personal number: the result goes back to him.
+  final String? cloudTest;
+  const WritingTestScreen({super.key, required this.matn, required this.verses, required this.mode, this.cloudTest});
   @override
   State<WritingTestScreen> createState() => _WritingTestScreenState();
 }
@@ -618,6 +621,11 @@ class _WritingTestScreenState extends State<WritingTestScreen> {
               FocusScope.of(context).unfocus();
               setState(() => checked = true);
               final (r, t) = _score;
+              if (widget.cloudTest != null) {
+                Cloud.i.submitResult(widget.cloudTest!, r, t).then((ok) {
+                  if (context.mounted) toast(context, ok ? 'وصلت نتيجتك إلى معلّمك' : 'تعذّر إرسال النتيجة. أرسلها له بزر «أرسل النتيجة».');
+                });
+              }
               if (t > 0 && widget.verses.length >= widget.matn.lines.length) {
                 Store.i.setBest(widget.matn.id, (r * 10 / t).floor());
                 if (certificateReady(widget.matn)) {

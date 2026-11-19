@@ -7,7 +7,9 @@ import 'package:share_plus/share_plus.dart';
 
 import '../data.dart';
 import '../main.dart';
+import '../services/cloud.dart';
 import '../ui.dart';
+import 'cloud_ui.dart';
 import 'extras.dart';
 import 'plus.dart';
 import 'lists.dart';
@@ -340,7 +342,12 @@ class _PoemScreenState extends State<PoemScreen> {
             title: const Text('اقتبسه في صفحتي'),
             onTap: () {
               Navigator.pop(c);
-              soonSheet(context, 'الاقتباس في صفحتك', 'تنشر البيت في صفحتك الشخصية وقسم «الاقتباسات» (عشرة اقتباسات في اليوم). تُفعَّل مع الحسابات قريباً بإذن الله.');
+              () async {
+                final i = p.lines.indexWhere((l) => l[0] == line[0]);
+                if (i < 0 || !await needAccount(context, 'تنشر البيت في صفحتك وقسم «الاقتباسات» (عشرة في اليوم).')) return;
+                final err = await Cloud.i.publishQuote(p, i);
+                if (context.mounted) toast(context, err ?? 'نُشر في «الاقتباسات»');
+              }();
             },
           ),
           ListTile(

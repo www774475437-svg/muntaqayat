@@ -14,6 +14,7 @@ import 'screens/social.dart' show TestLinkScreen;
 import 'screens/poem.dart';
 import 'screens/search.dart';
 import 'screens/today.dart';
+import 'services/cloud.dart';
 import 'services/device.dart';
 import 'ui.dart';
 
@@ -23,6 +24,7 @@ Future<void> main() async {
   Library.refresh();
   runApp(const MuntaqayatApp());
   Device.init();
+  Cloud.i.init();
   Device.checkUpdate();
 }
 

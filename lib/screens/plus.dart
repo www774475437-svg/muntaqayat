@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 
+import 'package:url_launcher/url_launcher.dart';
+
 import '../data.dart';
+import '../services/cloud.dart';
+import 'cloud_ui.dart';
 import '../ui.dart';
 
 void soonSheet(BuildContext context, String title, String text) {
@@ -164,7 +168,16 @@ class BookDesignCard extends StatelessWidget {
             Expanded(
               child: FilledButton.icon(
                 // Until the payment link is added, the button opens the preview.
-                onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DesignPreviewScreen(fromPay: true))),
+                onPressed: () async {
+                  final link = Store.i.payLink;
+                  if (link.isEmpty) {
+                    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DesignPreviewScreen(fromPay: true)));
+                    return;
+                  }
+                  if (!await needAccount(context, 'ليتواصل معك المطوّر بعد الدفع.')) return;
+                  await Cloud.i.orderDesign('طلب تصميم كتاب');
+                  launchUrl(Uri.parse(link), mode: LaunchMode.externalApplication);
+                },
                 icon: const Icon(Icons.shopping_bag_outlined),
                 label: const Text('اطلب التصميم'),
               ),

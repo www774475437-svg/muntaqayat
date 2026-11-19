@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import '../data.dart';
 import '../main.dart';
+import '../services/cloud.dart';
 import '../ui.dart';
 import 'lists.dart';
 import 'social.dart';
@@ -435,7 +436,10 @@ class _ChallengeScreenState extends State<ChallengeScreen> {
   void _next() {
     if (stage == Majlis.stages.length - 1) {
       final sum = points.fold(0, (a, b) => a + b);
-      if (widget.day != null) Majlis.record(widget.day!, sum, poemAt(0).id);
+      if (widget.day != null) {
+        Majlis.record(widget.day!, sum, poemAt(0).id);
+        Cloud.i.pushBoard();
+      }
       Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => ResultScreen(picks: widget.picks, points: List.of(points), daily: widget.day != null)));
       return;
     }
@@ -735,6 +739,8 @@ class LeaderboardScreen extends StatefulWidget {
 
 class _LeaderboardScreenState extends State<LeaderboardScreen> {
   int range = 0;
+  late Future<List<Doc>> job = Cloud.i.board(0);
+  void _load({bool refresh = false}) => setState(() => job = Cloud.i.board(range, refresh: refresh));
   @override
   Widget build(BuildContext context) {
     final mine = [Majlis.sum(Majlis.weekStart), Majlis.sum(Majlis.monthStart), Majlis.total][range];
@@ -750,31 +756,68 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
               ButtonSegment(value: 2, label: Text('منذ البداية')),
             ],
             selected: {range},
-            onSelectionChanged: (v) => setState(() => range = v.first),
+            onSelectionChanged: (v) {
+              range = v.first;
+              _load();
+            },
           ),
         ),
         const SizedBox(height: 18),
-        // The podium.
-        Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-          _step(context, 2, '—', null, 70),
-          _step(context, 1, name, mine, 104),
-          _step(context, 3, '—', null, 52),
-        ]),
-        const SizedBox(height: 16),
-        SoftCard(
-          padding: const EdgeInsets.all(14),
-          child: Row(children: [
-            Text('١', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Majlis.gold)),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(name, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: C.ink(context))),
-                Text('${Majlis.rank(Majlis.total).$1} · ${Ar.num(Majlis.streak)} يوماً متتالياً', style: TextStyle(fontSize: 13.5, color: C.muted(context))),
+        FutureBuilder<List<Doc>>(
+          future: job,
+          builder: (context, snap) {
+            var list = snap.data ?? <Doc>[];
+            if (list.isEmpty) {
+              list = [
+                {'uid': Cloud.i.uid, 'name': name, 'pts': mine, 'streak': Majlis.streak}
+              ];
+            }
+            String nm(int i) => i < list.length ? '${list[i]['name'] ?? 'قارئ'}' : '—';
+            int? pt(int i) => i < list.length ? ((list[i]['pts'] ?? 0) as num).toInt() : null;
+            return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              if (snap.connectionState != ConnectionState.done) const LinearProgressIndicator(),
+              // The podium.
+              Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                _step(context, 2, nm(1), pt(1), 70),
+                _step(context, 1, nm(0), pt(0), 104),
+                _step(context, 3, nm(2), pt(2), 52),
               ]),
-            ),
-            Text(Ar.num(mine), style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: C.accent(context))),
-          ]),
+              const SizedBox(height: 16),
+              for (var i = 0; i < list.length; i++)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: SoftCard(
+                    padding: const EdgeInsets.all(14),
+                    child: Row(children: [
+                      SizedBox(width: 30, child: Text(Ar.num(i + 1), style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: i < 3 ? Majlis.gold : C.muted(context)))),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text(list[i]['uid'] == Cloud.i.uid && Cloud.i.signedIn ? '${nm(i)} (أنت)' : nm(i),
+                              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: C.ink(context))),
+                          Text('${Majlis.rank(pt(i) ?? 0).$1} · ${Ar.num(((list[i]['streak'] ?? 0) as num).toInt())} يوماً متتالياً', style: TextStyle(fontSize: 13.5, color: C.muted(context))),
+                        ]),
+                      ),
+                      Text(Ar.num(pt(i) ?? 0), style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: C.accent(context))),
+                    ]),
+                  ),
+                ),
+            ]);
+          },
         ),
+        if (!Cloud.i.signedIn) ...[
+          const SizedBox(height: 6),
+          FilledButton.icon(
+            onPressed: () async {
+              if (await needAccount(context, 'ليظهر اسمك ونقاطك بين القرّاء.') && mounted) {
+                await Cloud.i.pushBoard();
+                _load(refresh: true);
+              }
+            },
+            icon: const Icon(Icons.login_rounded),
+            label: const Text('ادخل بحسابك ليظهر اسمك في اللوحة'),
+          ),
+        ],
         const SizedBox(height: 10),
         OutlinedButton.icon(
           onPressed: () {
@@ -790,7 +833,13 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                     onPressed: () {
                       Majlis.setName(c.text);
                       Navigator.pop(d);
-                      setState(() {});
+                      if (Cloud.i.signedIn) {
+                        Cloud.i.setName(c.text).then((_) {
+                          if (mounted) _load();
+                        });
+                      } else {
+                        setState(() {});
+                      }
                     },
                     child: const Text('حفظ'),
                   ),
@@ -809,11 +858,9 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             const SizedBox(height: 4),
             Text(
               'لكل مرحلة ٣ نقاط إن أصبت من أول محاولة، ثم نقطتان، ثم نقطة. أقصى اليوم ١٥ نقطة، وأقصى الأسبوع ١٠٥. يبدأ الأسبوع يوم السبت.\n\n'
-              'ترتيب القرّاء كلهم يظهر هنا بعد ربط الحسابات: يرسل كل جوال نتيجته مرة واحدة في اليوم، ويقرأ اللوحة مرة واحدة في اليوم. وحتى ذلك الحين تُحفظ نقاطك في جوالك ولا تضيع.',
+              'يظهر هنا أعلى عشرين قارئاً ممن دخلوا بحساباتهم. يرسل كل جوال نتيجته بعد تحدي اليوم، ويقرأ اللوحة مرة واحدة في اليوم، فما تراه من ترتيب غيرك هو ترتيب أول فتحك لها اليوم.',
               style: TextStyle(height: 1.7, color: C.muted(context)),
             ),
-            const SizedBox(height: 6),
-            TextButton(onPressed: () => needsServer(context, 'لوحة الصدارة بين القرّاء.'), child: const Text('متى تُفتح اللوحة للجميع؟')),
           ]),
         ),
       ]),

@@ -330,6 +330,9 @@ class Store extends ChangeNotifier {
   int repeat = 3;
   Map<String, String> myNotes = {}; // the reader's own note on a selection (by id)
   Map<String, dynamic> majlis = {}; // daily challenge: points, days, weeks, title
+  /// Set by the cloud service: sends the developer's marks and settings to everyone.
+  static void Function()? cloudPush;
+  String payLink = '';
   bool plusOn = true; // developer switch: show «منتقيات+» to non-subscribers
   bool teacher = false; // «خانة المعلّم» turned on in settings
   List<String> students = []; // personal numbers the teacher added before
@@ -362,6 +365,7 @@ class Store extends ChangeNotifier {
     certName = _p.getString('certName') ?? '';
     repeat = _p.getInt('repeat') ?? 3;
     plusOn = _p.getBool('plusOn') ?? true;
+    payLink = _p.getString('payLink') ?? '';
     try {
       myNotes = Map<String, String>.from(jsonDecode(_p.getString('myNotes') ?? '{}') as Map);
       majlis = jsonDecode(_p.getString('majlis') ?? '{}') as Map<String, dynamic>;
@@ -568,6 +572,46 @@ class Store extends ChangeNotifier {
     plusOn = v;
     _p.setBool('plusOn', v);
     notifyListeners();
+    cloudPush?.call();
+  }
+
+  void setPayLink(String v) {
+    payLink = v.trim();
+    _p.setString('payLink', payLink);
+    notifyListeners();
+    cloudPush?.call();
+  }
+
+  /// What the developer set for everyone (marks, subscription switch, explanations).
+  void applyCloud({List<String>? verified, List<String>? hidden, List<String>? deleted, bool? plus, String? payLink, Map<String, dynamic>? shuruh}) {
+    if (verified != null) {
+      this.verified = verified.toSet();
+      _p.setStringList('verified', verified);
+    }
+    if (hidden != null) {
+      this.hidden = hidden.toSet();
+      _p.setStringList('hidden', hidden);
+    }
+    if (deleted != null) {
+      this.deleted = deleted.toSet();
+      _p.setStringList('deleted', deleted);
+    }
+    if (plus != null) {
+      plusOn = plus;
+      _p.setBool('plusOn', plus);
+    }
+    if (payLink != null) {
+      this.payLink = payLink;
+      _p.setString('payLink', payLink);
+    }
+    if (shuruh != null) {
+      this.shuruh = {
+        for (final e in shuruh.entries) e.key: [for (final x in e.value as List) Map<String, String>.from(x as Map)]
+      };
+      _p.setString('shuruh', jsonEncode(this.shuruh));
+    }
+    Library.refresh();
+    notifyListeners();
   }
 
   void setTeacher(bool v) {
@@ -595,6 +639,7 @@ class Store extends ChangeNotifier {
     _p.setStringList('hidden', hidden.toList());
     Library.refresh();
     notifyListeners();
+    cloudPush?.call();
   }
 
   /// Removes a hidden verse for good (it leaves the hidden list too).
@@ -607,6 +652,7 @@ class Store extends ChangeNotifier {
     _p.setStringList('deleted', deleted.toList());
     Library.refresh();
     notifyListeners();
+    cloudPush?.call();
   }
 
   void markSeen(Iterable<String> keys, {bool reset = false}) {
@@ -633,6 +679,7 @@ class Store extends ChangeNotifier {
     verified.contains(key) ? verified.remove(key) : verified.add(key);
     _p.setStringList('verified', verified.toList());
     notifyListeners();
+    cloudPush?.call();
   }
 
   List<Map<String, String>> shuruhOf(String matn) => shuruh[matn] ?? const [];
@@ -640,12 +687,14 @@ class Store extends ChangeNotifier {
     shuruh.putIfAbsent(matn, () => []).add({'title': title, 'url': url});
     _p.setString('shuruh', jsonEncode(shuruh));
     notifyListeners();
+    cloudPush?.call();
   }
 
   void removeSharh(String matn, int i) {
     shuruh[matn]?.removeAt(i);
     _p.setString('shuruh', jsonEncode(shuruh));
     notifyListeners();
+    cloudPush?.call();
   }
 
   void setWird(int n) {
