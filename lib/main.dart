@@ -26,6 +26,11 @@ Future<void> main() async {
   Device.checkUpdate();
 }
 
+/// Shared between the shell and the laptop side panel.
+final navKey = GlobalKey<NavigatorState>();
+final shellTab = ValueNotifier<int>(0);
+final wideMode = ValueNotifier<bool>(false);
+
 class MuntaqayatApp extends StatelessWidget {
   const MuntaqayatApp({super.key});
 
@@ -36,6 +41,7 @@ class MuntaqayatApp extends StatelessWidget {
       builder: (context, _) => MaterialApp(
         title: 'منتقيات الشعر',
         debugShowCheckedModeBanner: false,
+        navigatorKey: navKey,
         builder: (context, child) => WideFrame(child: child!),
         locale: const Locale('ar'),
         supportedLocales: const [Locale('ar')],
@@ -93,7 +99,27 @@ class _ShellState extends State<Shell> with TickerProviderStateMixin {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    tab = shellTab.value;
+    shellTab.addListener(_fromSide);
+    wideMode.addListener(_rebuild);
+  }
+
+  void _rebuild() => setState(() {});
+  void _fromSide() {
+    if (shellTab.value != tab) {
+      setState(() {
+        from = tab;
+        tab = shellTab.value;
+      });
+    }
+  }
+
+  @override
   void dispose() {
+    shellTab.removeListener(_fromSide);
+    wideMode.removeListener(_rebuild);
     _slide.dispose();
     super.dispose();
   }
@@ -109,6 +135,7 @@ class _ShellState extends State<Shell> with TickerProviderStateMixin {
       from = tab;
       tab = i;
     });
+    shellTab.value = i;
     _slide.forward(from: 0);
   }
 
@@ -137,6 +164,7 @@ class _ShellState extends State<Shell> with TickerProviderStateMixin {
             child: IndexedStack(index: tab, children: pages),
           ),
         ),
+        if (!wideMode.value)
         Positioned(
           left: 16,
           right: 16,
@@ -313,7 +341,11 @@ class WideFrame extends StatelessWidget {
   Widget build(BuildContext context) {
     final mq = MediaQuery.of(context);
     final w = mq.size.width;
-    if (w < 900) return child;
+    final wide = w >= 900;
+    if (wideMode.value != wide) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => wideMode.value = wide);
+    }
+    if (!wide) return child;
     final col = (w * 0.56).clamp(560.0, 880.0);
     final verse = Library.poemOfDay();
     final dark = Theme.of(context).brightness == Brightness.dark;
@@ -340,7 +372,9 @@ class WideFrame extends StatelessWidget {
                 const SizedBox(height: 6),
                 Text('مختارات من عيون الشعر العربي، مرتبة على الأبواب والشعراء والعصور، مع متون طالب العلم.',
                     style: TextStyle(fontFamily: uiFont, fontSize: 17, height: 1.7, fontWeight: FontWeight.normal, color: C.muted(context), decoration: TextDecoration.none)),
-                const SizedBox(height: 30),
+                const SizedBox(height: 22),
+                const SideNav(),
+                const SizedBox(height: 26),
                 Text('بيت اليوم', style: TextStyle(fontFamily: uiFont, fontSize: 15, fontWeight: FontWeight.w700, color: C.accent(context), decoration: TextDecoration.none)),
                 const SizedBox(height: 8),
                 for (final h in verse.firstVerse)
@@ -368,4 +402,49 @@ class WideFrame extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The tabs and the search, inside the side panel on wide screens.
+class SideNav extends StatelessWidget {
+  const SideNav({super.key});
+  static const items = [
+    (Icons.wb_sunny_outlined, Icons.wb_sunny, 'اليوم'),
+    (Icons.grid_view_outlined, Icons.grid_view_rounded, 'تصفّح'),
+    (Icons.account_circle_outlined, Icons.account_circle, 'حسابك'),
+  ];
+  @override
+  Widget build(BuildContext context) => ValueListenableBuilder<int>(
+        valueListenable: shellTab,
+        builder: (context, tab, _) => ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 320),
+          child: Column(children: [
+            for (var i = 0; i < items.length; i++)
+              _tile(context, tab == i ? items[i].$2 : items[i].$1, items[i].$3, tab == i, () {
+                navKey.currentState?.popUntil((r) => r.isFirst);
+                shellTab.value = i;
+              }),
+            _tile(context, Icons.search_rounded, 'بحث', false, () => navKey.currentState?.push(MaterialPageRoute(builder: (_) => const SearchScreen()))),
+          ]),
+        ),
+      );
+
+  Widget _tile(BuildContext context, IconData icon, String label, bool on, VoidCallback onTap) => Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Material(
+          color: on ? C.soft(context) : C.bar(context).withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(18),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(18),
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+              child: Row(children: [
+                Icon(icon, color: on ? C.accent(context) : C.ink(context), size: 26),
+                const SizedBox(width: 14),
+                Text(label, style: TextStyle(fontFamily: uiFont, fontSize: 17, fontWeight: FontWeight.w700, color: on ? C.accent(context) : C.ink(context))),
+              ]),
+            ),
+          ),
+        ),
+      );
 }
