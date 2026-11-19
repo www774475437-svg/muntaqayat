@@ -79,6 +79,35 @@ class PoetScreen extends StatelessWidget {
             _stat(context, Ar.num(chapters.length), 'باباً'),
           ]),
         ),
+        if ((poet?.bio ?? '').isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+            child: SelectableText(poet!.bio, style: TextStyle(fontSize: 16.5, height: 1.9, color: C.ink(context))),
+          ),
+        if ((poet?.sources ?? const []).isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: Container(
+              decoration: BoxDecoration(color: C.card(context), borderRadius: BorderRadius.circular(18), border: Border.all(color: C.line(context))),
+              clipBehavior: Clip.antiAlias,
+              child: Theme(
+                data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                child: ExpansionTile(
+                  title: Text('المصادر', style: TextStyle(fontSize: 15.5, color: C.muted(context))),
+                  childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+                  expandedCrossAxisAlignment: CrossAxisAlignment.start,
+                  expandedAlignment: AlignmentDirectional.centerStart,
+                  children: [
+                    for (final src in poet!.sources)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Text(src, style: TextStyle(fontSize: 14.5, height: 1.6, color: C.muted(context))),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
         if (name != 'بلا نسبة')
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),

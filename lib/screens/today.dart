@@ -5,6 +5,7 @@ import '../data.dart';
 import '../main.dart';
 import '../ui.dart';
 import 'lists.dart';
+import 'majlis.dart';
 import 'plus.dart';
 import 'poem.dart';
 import '../services/device.dart';
@@ -91,6 +92,7 @@ class TodayScreen extends StatelessWidget {
             IconButton(onPressed: () => shareSheet(context, day, day.firstVerse), icon: Icon(Icons.ios_share_rounded, color: C.ink(context))),
           ]),
         ),
+        const MajlisCard(),
         if (season() case final se?) ...[
           SectionTitle(se.$1, onMore: () => openList(context, se.$1, se.$2)),
           _row(context, se.$2.take(8).toList()),
@@ -111,6 +113,11 @@ class TodayScreen extends StatelessWidget {
                   if (poet.death.isNotEmpty) 'ت ${poet.death}',
                   Ar.selections(poet.count),
                 ].join(' · '), style: TextStyle(fontSize: 14.5, color: C.muted(context))),
+                if (poet.bio.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(poet.bio, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 14.5, height: 1.6, color: C.ink(context))),
+                  ),
               ]),
             ),
             Icon(Icons.chevron_left_rounded, color: C.muted(context)),

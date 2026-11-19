@@ -4,6 +4,7 @@ import '../data.dart';
 import '../main.dart';
 import '../ui.dart';
 import 'lists.dart';
+import 'majlis.dart';
 import 'games.dart';
 import 'mutun.dart';
 import 'shawahid.dart';
@@ -104,6 +105,15 @@ class BrowseScreen extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: _pick(context, Icons.mosque_outlined, 'ديوان العلماء والصحابة', 'ابن القيم، ابن تيمية، الشافعي، الخنساء، حسان…',
               () => push(context, const ChaptersScreen(section: 2))),
+        ),
+        const SizedBox(height: 12),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(children: [
+            Expanded(child: _pick(context, Icons.auto_awesome_outlined, 'مجلس الشعر', 'تحدّي اليوم وديوانك', () => push(context, const MajlisScreen()))),
+            const SizedBox(width: 12),
+            Expanded(child: _pick(context, Icons.emoji_events_outlined, 'لوحة الصدارة', 'الأسبوع والشهر', () => push(context, const LeaderboardScreen()))),
+          ]),
         ),
         const SizedBox(height: 12),
         Padding(

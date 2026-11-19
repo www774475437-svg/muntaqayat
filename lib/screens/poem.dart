@@ -172,6 +172,19 @@ class _PoemScreenState extends State<PoemScreen> {
                   padding: const EdgeInsets.only(top: 6),
                   child: Text(p.poetNote, style: TextStyle(fontSize: 14, color: C.accent(context))),
                 ),
+              if (Store.i.noteOf(p.id).isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 10),
+                  child: SoftCard(
+                    padding: const EdgeInsets.all(12),
+                    onTap: () => _note(context),
+                    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Icon(Icons.edit_note_rounded, color: C.accent(context)),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(Store.i.noteOf(p.id), style: TextStyle(fontSize: 15, height: 1.6, color: C.ink(context)))),
+                    ]),
+                  ),
+                ),
               Divider(height: 30, color: C.line(context)),
             ]),
           ),
@@ -319,43 +332,115 @@ class _PoemScreenState extends State<PoemScreen> {
     );
   }
 
+  /// The ⋯ menu: a card that opens in place, under the button.
   void _more(BuildContext context) {
+    HapticFeedback.selectionClick();
+    final liked = Store.i.liked(p.id);
+    final note = Store.i.noteOf(p.id);
+    final cols = Store.i.collections.keys.toList();
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'إغلاق',
+      barrierColor: Colors.black.withValues(alpha: 0.18),
+      transitionDuration: const Duration(milliseconds: 260),
+      pageBuilder: (_, __, ___) => const SizedBox.shrink(),
+      transitionBuilder: (c, anim, _, __) {
+        final t = Curves.easeOutBack.transform(anim.value);
+        Widget row(IconData icon, String text, VoidCallback onTap, {Color? color, bool faint = false}) => InkWell(
+              onTap: () {
+                Navigator.pop(c);
+                onTap();
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 13),
+                child: Row(children: [
+                  Icon(icon, size: 24, color: color ?? (faint ? C.muted(c) : C.ink(c))),
+                  const SizedBox(width: 14),
+                  Expanded(child: Text(text, style: TextStyle(fontSize: 17, height: 1.35, color: color ?? (faint ? C.muted(c) : C.ink(c))))),
+                ]),
+              ),
+            );
+        Widget line() => Divider(height: 14, indent: 20, endIndent: 20, color: C.line(c));
+        return SafeArea(
+          child: Align(
+            alignment: AlignmentDirectional.topEnd,
+            child: Padding(
+              padding: const EdgeInsetsDirectional.only(top: 62, end: 14, start: 60),
+              child: Opacity(
+                opacity: anim.value.clamp(0.0, 1.0),
+                child: Transform.scale(
+                  scale: 0.7 + 0.3 * t,
+                  alignment: AlignmentDirectional.topEnd.resolve(Directionality.of(c)),
+                  child: Material(
+                    color: C.bar(c),
+                    elevation: 18,
+                    shadowColor: Colors.black38,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30), side: BorderSide(color: C.line(c))),
+                    clipBehavior: Clip.antiAlias,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 330),
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        child: Column(mainAxisSize: MainAxisSize.min, children: [
+                          row(Icons.copy_all_rounded, 'نسخ المقطع كاملاً', () => copySheet(context, p.lines)),
+                          row(Icons.check_circle_outline_rounded, 'تحديد الأبيات', () => toast(context, 'اضغط مطوّلاً على البيت ثم اسحب لتحديد ما تريد')),
+                          row(Icons.image_outlined, 'مشاركة صورة', () => shareSheet(context, p, p.firstVerse)),
+                          row(Icons.link_rounded, 'مشاركة الرابط', () => Share.share('${formatVerses(p.lines)}\n\n${poemLink(p)}')),
+                          line(),
+                          row(Icons.edit_note_rounded, note.isEmpty ? 'إضافة ملاحظة على المقطع' : 'ملاحظتك على المقطع', () => _note(context)),
+                          if (cols.isEmpty)
+                            row(Icons.create_new_folder_outlined, 'لا مجموعات بعد. أنشئ واحدة', () => collectionSheet(context, p), faint: true)
+                          else
+                            row(Icons.bookmark_add_outlined, 'حفظ في مجموعة', () => collectionSheet(context, p)),
+                          row(Icons.school_outlined, 'احفظه غيباً', () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => MemorizeScreen(poem: p)))),
+                          line(),
+                          if (liked)
+                            row(Icons.remove_circle_outline_rounded, 'إزالة من الإعجاب', () => Store.i.toggleLike(p.id), color: const Color(0xFFD9534F))
+                          else
+                            row(Icons.favorite_border_rounded, 'أعجبني', () => Store.i.toggleLike(p.id)),
+                          line(),
+                          row(Icons.feedback_outlined, 'أبلغ عن مشكلة', () => suggest(context, 'مشكلة في المقطع رقم ${p.id} (${p.poet}):\n')),
+                        ]),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _note(BuildContext context) {
+    final c = TextEditingController(text: Store.i.noteOf(p.id));
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       showDragHandle: true,
-      builder: (c) => SafeArea(
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          ListTile(
-            leading: const Icon(Icons.copy_all_rounded),
-            title: const Text('نسخ المقطع كاملاً'),
-            onTap: () {
-              Navigator.pop(c);
-              copySheet(context, p.lines);
-            },
+      builder: (b) => Padding(
+        padding: EdgeInsets.fromLTRB(18, 0, 18, 18 + MediaQuery.viewInsetsOf(b).bottom),
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Text('ملاحظتك على المقطع', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: C.ink(b))),
+          const SizedBox(height: 4),
+          Text('لا يراها غيرك، وتبقى في جوالك.', style: TextStyle(color: C.muted(b))),
+          const SizedBox(height: 10),
+          TextField(
+            controller: c,
+            autofocus: true,
+            minLines: 3,
+            maxLines: 7,
+            decoration: InputDecoration(filled: true, fillColor: C.card(b), border: OutlineInputBorder(borderRadius: BorderRadius.circular(14))),
           ),
-          ListTile(
-            leading: const Icon(Icons.bookmark_add_outlined),
-            title: const Text('حفظ في مجموعة'),
-            onTap: () {
-              Navigator.pop(c);
-              collectionSheet(context, p);
+          const SizedBox(height: 10),
+          FilledButton(
+            onPressed: () {
+              Store.i.setNote(p.id, c.text);
+              Navigator.pop(b);
             },
-          ),
-          ListTile(
-            leading: const Icon(Icons.link_rounded),
-            title: const Text('مشاركة الرابط'),
-            onTap: () {
-              Navigator.pop(c);
-              Share.share('${formatVerses(p.lines)}\n\n${poemLink(p)}');
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.edit_note_rounded),
-            title: const Text('اقترح تصحيحاً لهذا المقطع'),
-            onTap: () {
-              Navigator.pop(c);
-              suggest(context, 'تصحيح للمقطع رقم ${p.id} (${p.poet}):\n');
-            },
+            child: const Text('حفظ'),
           ),
         ]),
       ),

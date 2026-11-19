@@ -61,8 +61,12 @@ class Poet {
   final String era;
   final String death;
   final int count;
+  final String bio;
+  final List<String> sources; // book names only, no links
   Poet.fromJson(Map<String, dynamic> j)
       : name = j['name'] as String,
+        bio = (j['bio'] as String?) ?? '',
+        sources = [for (final x in (j['sources'] as List? ?? [])) x as String],
         era = (j['era'] as String?) ?? '',
         death = (j['death'] as String?) ?? '',
         count = j['count'] as int;
@@ -287,6 +291,8 @@ class Store extends ChangeNotifier {
   Map<String, int> best = {}; // matn → best writing-test score out of 10 (whole matn)
   String certName = '';
   int repeat = 3;
+  Map<String, String> myNotes = {}; // the reader's own note on a selection (by id)
+  Map<String, dynamic> majlis = {}; // daily challenge: points, days, weeks, title
   bool plusOn = true; // developer switch: show «منتقيات+» to non-subscribers
   bool teacher = false; // «خانة المعلّم» turned on in settings
   List<String> students = []; // personal numbers the teacher added before
@@ -312,6 +318,10 @@ class Store extends ChangeNotifier {
     certName = _p.getString('certName') ?? '';
     repeat = _p.getInt('repeat') ?? 3;
     plusOn = _p.getBool('plusOn') ?? true;
+    try {
+      myNotes = Map<String, String>.from(jsonDecode(_p.getString('myNotes') ?? '{}') as Map);
+      majlis = jsonDecode(_p.getString('majlis') ?? '{}') as Map<String, dynamic>;
+    } catch (_) {}
     teacher = _p.getBool('teacher') ?? false;
     students = _p.getStringList('students') ?? [];
     try {
@@ -495,6 +505,18 @@ class Store extends ChangeNotifier {
   void setRepeat(int n) {
     repeat = n;
     _p.setInt('repeat', n);
+    notifyListeners();
+  }
+
+  String noteOf(int id) => myNotes['$id'] ?? '';
+  void setNote(int id, String text) {
+    text.trim().isEmpty ? myNotes.remove('$id') : myNotes['$id'] = text.trim();
+    _p.setString('myNotes', jsonEncode(myNotes));
+    notifyListeners();
+  }
+
+  void saveMajlis() {
+    _p.setString('majlis', jsonEncode(majlis));
     notifyListeners();
   }
 
