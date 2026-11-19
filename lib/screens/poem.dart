@@ -20,7 +20,7 @@ String poemLink(Poem p) => '$siteUrl#/p/${p.id}';
 
 /// The copy layout used in the channel: each verse on two lines (the second
 /// indented), «..» between verses, and «،.🪶» at the very end.
-String formatVerses(List<List<String>> lines) {
+String formatVerses(List<List<String>> lines, {bool mark = true}) {
   const rlm = '\u200F';
   final verses = [
     for (final l in lines)
@@ -28,7 +28,7 @@ String formatVerses(List<List<String>> lines) {
   ];
   var text = verses.join('\n..\n').trimRight();
   text = text.replaceFirst(RegExp(r'[،,.\s]+$'), '');
-  return '$text،.🪶';
+  return mark ? '$text،.🪶' : text;
 }
 
 /// For WhatsApp: no hidden direction marks or indentation, a blank line
@@ -39,8 +39,8 @@ String formatWhatsApp(List<List<String>> lines) {
   return '$text،.🪶';
 }
 
-void copyVerses(BuildContext context, List<List<String>> lines, {bool whatsapp = false}) {
-  Clipboard.setData(ClipboardData(text: whatsapp ? formatWhatsApp(lines) : formatVerses(lines)));
+void copyVerses(BuildContext context, List<List<String>> lines, {bool whatsapp = false, bool mark = true}) {
+  Clipboard.setData(ClipboardData(text: whatsapp ? formatWhatsApp(lines) : formatVerses(lines, mark: mark)));
   final what = lines.length > 1 ? Ar.verses(lines.length) : 'البيت';
   toast(context, 'تمّ نسخ $what${whatsapp ? ' لواتساب' : ''}');
 }
@@ -72,6 +72,17 @@ void copySheet(BuildContext context, List<List<String>> lines) {
             copyVerses(context, lines, whatsapp: true);
           },
         ),
+        // Only subscribers may remove the closing mark «،.🪶» inside the app.
+        if (Store.plusUser)
+          ListTile(
+            leading: const Icon(Icons.auto_awesome_rounded),
+            title: const Text('نسخ بلا العلامة'),
+            subtitle: const Text('للمشترك فقط: بدون «،.🪶» في آخر النص'),
+            onTap: () {
+              Navigator.pop(c);
+              copyVerses(context, lines, mark: false);
+            },
+          ),
         const SizedBox(height: 8),
       ]),
     ),
