@@ -44,7 +44,10 @@ class MuntaqayatApp extends StatelessWidget {
         title: 'منتقيات الشعر',
         debugShowCheckedModeBanner: false,
         navigatorKey: navKey,
-        builder: (context, child) => WideFrame(child: child!),
+        builder: (context, child) => ListenableBuilder(
+          listenable: Cloud.i,
+          builder: (context, _) => Cloud.i.deviceBanned ? const BlockedScreen() : WideFrame(child: child!),
+        ),
         locale: const Locale('ar'),
         supportedLocales: const [Locale('ar')],
         localizationsDelegates: const [

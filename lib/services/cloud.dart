@@ -79,6 +79,7 @@ class Cloud extends ChangeNotifier {
     user = u;
     if (u == null) {
       profile = {};
+      Store.plusUser = false;
       notifyListeners();
       return;
     }
@@ -87,7 +88,8 @@ class Cloud extends ChangeNotifier {
       if (!Store.i.developer) Store.i.setDeveloper(true);
       await pullConfig(force: true);
     }
-    unawaited(dailySync());
+    await _restore();
+    unawaited(syncSoon());
     notifyListeners();
   }
 
@@ -133,6 +135,7 @@ class Cloud extends ChangeNotifier {
     final cached = _p.getString('profile:$uid');
     if (cached != null) {
       profile = Map<String, dynamic>.from(jsonDecode(cached) as Map);
+      Store.plusUser = plus || isDev;
       notifyListeners();
       // Refreshed from the server at most every six hours.
       if (_now - (_p.getInt('profileAt:$uid') ?? 0) < 6 * 3600 * 1000) return;
@@ -150,6 +153,7 @@ class Cloud extends ChangeNotifier {
   }
 
   void _cacheProfile() {
+    Store.plusUser = plus || isDev;
     _p.setString('profile:$uid', jsonEncode(profile));
     _p.setInt('profileAt:$uid', _now);
   }
@@ -223,9 +227,24 @@ class Cloud extends ChangeNotifier {
     return n;
   }
 
-  Future<void> dailySync() async {
+  /// A phone id made once (a reinstall makes a new one).
+  String get deviceId {
+    var d = _p.getString('device');
+    if (d == null) {
+      d = '$_now${Random().nextInt(1 << 30)}';
+      _p.setString('device', d);
+    }
+    return d;
+  }
+
+  /// Everything is kept on the phone first, then sent to the account at most
+  /// four times a day (one slot every six hours), all at once.
+  Future<void> syncSoon({bool force = false}) async {
     if (!signedIn || profile.isEmpty) return;
-    if (_p.getInt('syncDay:$uid') == Store.today) return;
+    // Never overwrite the saved copy before it was brought back to this phone.
+    if (_p.getBool('restored:$uid') != true && '${profile['saveId'] ?? ''}'.isNotEmpty) return;
+    final slot = '${Store.today}:${DateTime.now().hour ~/ 6}';
+    if (!force && _p.getString('syncSlot:$uid') == slot) return;
     final s = Store.i;
     final data = <String, dynamic>{
       'lastDay': Store.today,
@@ -234,12 +253,58 @@ class Cloud extends ChangeNotifier {
       'days': s.days.length,
       'points': _sum(0),
       'streak': _streak,
+      'poets': s.followed.length,
+      'device': deviceId,
     };
     try {
+      // The full copy (likes, collections, memorised verses, levels) in one private document.
+      final save = {'teacher': uid, 'students': <String>[], 'kind': 'save', 'data': jsonEncode(s.exportAll()), 'at': _now};
+      var id = '${profile['saveId'] ?? ''}';
+      if (id.isEmpty) {
+        id = (await _db.collection('tests').add(save)).id;
+        data['saveId'] = id;
+      } else {
+        await _db.collection('tests').doc(id).update({'data': save['data'], 'at': _now});
+      }
       await _db.collection('users').doc(uid).update(data);
       profile.addAll(data);
       _cacheProfile();
-      _p.setInt('syncDay:$uid', Store.today);
+      _p.setString('syncSlot:$uid', slot);
+      _p.setBool('restored:$uid', true);
+    } catch (_) {}
+  }
+
+  Future<void> dailySync() => syncSoon();
+
+  /// On a new phone: bring back what the account saved, once.
+  Future<void> _restore() async {
+    if (!signedIn || _p.getBool('restored:$uid') == true) return;
+    final id = '${profile['saveId'] ?? ''}';
+    try {
+      if (id.isEmpty) {
+        // Maybe the cached profile is old: look once.
+        final snap = await _db.collection('users').doc(uid).get();
+        if (snap.exists) profile = snap.data()!;
+        _cacheProfile();
+      }
+      final sid = '${profile['saveId'] ?? ''}';
+      if (sid.isNotEmpty) {
+        final doc = await _db.collection('tests').doc(sid).get();
+        final raw = doc.data()?['data'];
+        if (raw is String) {
+          final m = Map<String, dynamic>.from(jsonDecode(raw) as Map);
+          var cloudXp = 0;
+          try {
+            final days = (jsonDecode('${m['majlis'] ?? '{}'}') as Map)['days'] as Map? ?? {};
+            for (final v in days.values) {
+              cloudXp += ((v as List)[0] as num).toInt();
+            }
+          } catch (_) {}
+          final localEmpty = Store.i.likes.isEmpty && Store.i.collections.isEmpty && _sum(0) == 0;
+          if (localEmpty || cloudXp > _sum(0)) await Store.i.importAll(m);
+        }
+      }
+      _p.setBool('restored:$uid', true);
     } catch (_) {}
   }
 
@@ -275,7 +340,7 @@ class Cloud extends ChangeNotifier {
       try {
         final q = await _db.collection('board').orderBy(field, descending: true).limit(20).get();
         list = [
-          for (final d in q.docs) {'uid': d.id, 'name': d.data()['name'], 'publicId': d.data()['publicId'], 'pts': d.data()[field], 'streak': d.data()['streak']}
+          for (final d in q.docs) {'uid': d.id, 'name': d.data()['name'], 'publicId': d.data()['publicId'], 'pts': d.data()[field], 'total': d.data()['total'], 'streak': d.data()['streak']}
         ];
         _p.setString(key, jsonEncode(list));
         _p.setInt('$key:day', Store.today);
@@ -287,7 +352,7 @@ class Cloud extends ChangeNotifier {
     if (signedIn) {
       final mine = [_sum(_weekStart), _sum(_monthStart), _sum(0)][range];
       list.removeWhere((x) => x['uid'] == uid);
-      if (mine > 0) list.add({'uid': uid, 'name': name, 'publicId': publicId, 'pts': mine, 'streak': _streak});
+      if (mine > 0) list.add({'uid': uid, 'name': name, 'publicId': publicId, 'pts': mine, 'total': _sum(0), 'streak': _streak});
     }
     list.sort((a, b) => ((b['pts'] ?? 0) as num).compareTo((a['pts'] ?? 0) as num));
     return list;
@@ -312,6 +377,10 @@ class Cloud extends ChangeNotifier {
         return;
       }
       final a = app.data() ?? {}, m = marks.data() ?? {};
+      if (app.exists) {
+        _p.setStringList('bannedDevices', List<String>.from(a['bannedDevices'] as List? ?? []));
+        _p.setString('mods', a['mods'] is String ? a['mods'] as String : '{}');
+      }
       Store.i.applyCloud(
         verified: marks.exists ? List<String>.from(m['verified'] as List? ?? []) : null,
         hidden: marks.exists ? List<String>.from(m['hidden'] as List? ?? []) : null,
@@ -319,6 +388,7 @@ class Cloud extends ChangeNotifier {
         plus: a['plusOn'] as bool?,
         payLink: a['payLink'] as String?,
         shuruh: a['shuruh'] is String ? jsonDecode(a['shuruh'] as String) as Map<String, dynamic> : null,
+        features: a['features'] is Map ? Map<String, dynamic>.from(a['features'] as Map) : null,
       );
     } catch (_) {}
   }
@@ -340,7 +410,15 @@ class Cloud extends ChangeNotifier {
         'deleted': s.deleted.toList(),
         'at': _now,
       });
-      await _db.collection('config').doc('app').set({'plusOn': s.plusOn, 'payLink': s.payLink, 'shuruh': jsonEncode(s.shuruh), 'at': _now});
+      await _db.collection('config').doc('app').set({
+        'plusOn': s.plusOn,
+        'payLink': s.payLink,
+        'shuruh': jsonEncode(s.shuruh),
+        'features': s.features,
+        'bannedDevices': bannedDevices,
+        'mods': jsonEncode(mods),
+        'at': _now,
+      });
       _p.setBool('cfgDirty', false);
       _p.setInt('cfgAt', _now);
     } catch (_) {}
@@ -376,7 +454,7 @@ class Cloud extends ChangeNotifier {
 
   Future<String?> publishQuote(Poem p, int verse) async {
     if (!signedIn) return 'ادخل بحسابك أولاً.';
-    if (banned) return 'حسابك موقوف عن النشر.';
+    if (!canPost) return banned ? 'حسابك محظور عن النشر.${blockReason.isEmpty ? '' : '\nالسبب: $blockReason'}' : 'حسابك موقوف مؤقتاً عن النشر.${blockReason.isEmpty ? '' : '\nالسبب: $blockReason'}';
     if (quotesLeft <= 0) return 'نشرت عشرة اقتباسات اليوم. عُد غداً.';
     final l = p.lines[verse];
     try {
@@ -467,7 +545,12 @@ class Cloud extends ChangeNotifier {
     if (!signedIn) return 'ادخل بحسابك أولاً.';
     if (text.trim().isEmpty) return 'اكتب رسالتك أولاً.';
     final counter = kind == 'message' ? 'msg' : 'msg$kind';
-    if (!isDev && _count(counter) >= (kind == 'message' ? messagesLimit : 1)) {
+    if (grants['noMsg'] == true) return 'أُوقفت مراسلتك للمطوّر.';
+    // Counted on the account itself, whatever phone it is opened from.
+    final now = DateTime.now(), dayStart = DateTime(now.year, now.month, now.day).millisecondsSinceEpoch;
+    final sent = (await myMessages()).where((m) => (m['kind'] ?? 'message') == kind && ((m['at'] ?? 0) as num) >= dayStart).length;
+    _p.setInt('$counter:${Store.today}', sent);
+    if (!isDev && sent >= (kind == 'message' ? messagesLimit : 1)) {
       return plus ? 'أرسلت عشرين رسالة اليوم. عُد غداً.' : 'المجاني رسالة واحدة في اليوم. عُد غداً، أو اشترك لتراسل عشرين مرة في اليوم.';
     }
     try {
@@ -534,11 +617,54 @@ class Cloud extends ChangeNotifier {
   }
 
   Map<String, String> get following => Map<String, String>.from(jsonDecode(_p.getString('following') ?? '{}') as Map);
-  void follow(String id, String name, bool on) {
+  void follow(String id, String name, bool on, {String ofUid = ''}) {
     final f = following;
     on ? f[id] = name : f.remove(id);
     _p.setString('following', jsonEncode(f));
     notifyListeners();
+    if (signedIn && ofUid.isNotEmpty) {
+      _db.collection('users').doc(uid).update({
+        'following': on ? FieldValue.arrayUnion([ofUid]) : FieldValue.arrayRemove([ofUid])
+      }).then((_) {
+        final l = [...(profile['following'] as List? ?? [])];
+        on ? l.add(ofUid) : l.remove(ofUid);
+        profile['following'] = l.toSet().toList();
+        _cacheProfile();
+      }).catchError((_) {});
+    }
+  }
+
+  /// How many readers follow this account.
+  Future<int> followersCount(String ofUid) async {
+    try {
+      return (await _db.collection('users').where('following', arrayContains: ofUid).count().get()).count ?? 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  Future<List<Doc>> followers(String ofUid) async {
+    try {
+      final q = await _db.collection('users').where('following', arrayContains: ofUid).limit(100).get();
+      return [
+        for (final d in q.docs) {...d.data(), 'uid': d.id}
+      ];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<List<Doc>> usersByUid(List<String> uids) async {
+    final out = <Doc>[];
+    try {
+      for (var i = 0; i < uids.length && i < 90; i += 30) {
+        final q = await _db.collection('users').where(FieldPath.documentId, whereIn: uids.sublist(i, min(i + 30, uids.length))).get();
+        out.addAll([
+          for (final d in q.docs) {...d.data(), 'uid': d.id}
+        ]);
+      }
+    } catch (_) {}
+    return out;
   }
 
   // ------------------------------------------------------------ teacher tests by personal number
@@ -579,7 +705,7 @@ class Cloud extends ChangeNotifier {
   Future<List<Doc>> myTests() async {
     if (!signedIn) return [];
     try {
-      return _docs(await _db.collection('tests').where('students', arrayContains: uid).limit(30).get());
+      return _docs(await _db.collection('tests').where('students', arrayContains: uid).limit(40).get()).where((t) => t['kind'] == null).toList();
     } catch (_) {
       return [];
     }
@@ -589,7 +715,7 @@ class Cloud extends ChangeNotifier {
   Future<List<Doc>> sentTests() async {
     if (!signedIn) return [];
     try {
-      return _docs(await _db.collection('tests').where('teacher', isEqualTo: uid).limit(30).get());
+      return _docs(await _db.collection('tests').where('teacher', isEqualTo: uid).limit(40).get()).where((t) => t['kind'] == null).toList();
     } catch (_) {
       return [];
     }
@@ -699,6 +825,122 @@ class Cloud extends ChangeNotifier {
       ];
     } catch (_) {
       return null;
+    }
+  }
+
+  // ------------------------------------------------------------ warnings, suspension and bans
+
+  Map<String, dynamic> get grants => Map<String, dynamic>.from(profile['grants'] as Map? ?? {});
+  bool get suspended => ((grants['until'] ?? 0) as num) > _now;
+  bool get canPost => !banned && !suspended;
+  String get blockReason => '${grants['reason'] ?? ''}';
+  List<Map> get warns => [for (final w in grants['warns'] as List? ?? []) w as Map];
+  List<String> get bannedDevices => _p.getStringList('bannedDevices') ?? [];
+  bool get deviceBanned => ready && bannedDevices.contains(deviceId);
+
+  /// Supervisors: email → what they may do («حظر», «رسائل», «مراجعة», «توثيق»).
+  Map<String, dynamic> get mods => Map<String, dynamic>.from(jsonDecode(_p.getString('mods') ?? '{}') as Map);
+  bool can(String what) => isDev || (signedIn && ((mods[user!.email] as List?)?.contains(what) ?? false));
+  void setMod(String email, List<String>? perms) {
+    final m = mods;
+    perms == null ? m.remove(email) : m[email.trim().toLowerCase()] = perms;
+    _p.setString('mods', jsonEncode(m));
+    notifyListeners();
+    _schedulePush();
+  }
+
+  void banDevice(String device, bool on) {
+    if (device.isEmpty) return;
+    final l = bannedDevices;
+    on ? l.add(device) : l.remove(device);
+    _p.setStringList('bannedDevices', l.toSet().toList());
+    notifyListeners();
+    _schedulePush();
+  }
+
+  Future<bool> _mod(String userUid, Map<String, dynamic> data) async {
+    try {
+      await _db.collection('users').doc(userUid).update(data);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// A written warning: it reaches the reader in his messages.
+  Future<bool> warnUser(String userUid, String text) => _mod(userUid, {
+        'grants.warns': FieldValue.arrayUnion([
+          {'text': text, 'at': _now}
+        ]),
+        'grants.nWarn': FieldValue.increment(1),
+        'grants.inbox': FieldValue.arrayUnion([
+          {'text': 'إنذار: $text', 'at': _now}
+        ]),
+      });
+  Future<bool> suspendUser(String userUid, int days, String reason) =>
+      _mod(userUid, {'grants.until': days <= 0 ? 0 : _now + days * 86400000, 'grants.reason': reason, 'grants.at': _now});
+  Future<bool> banUser(String userUid, bool on, String reason) =>
+      _mod(userUid, {'banned': on, 'grants.reason': reason, 'grants.at': _now, if (!on) 'grants.until': 0});
+  Future<bool> setNoMsg(String userUid, bool on) => _mod(userUid, {'grants.noMsg': on});
+
+  /// The developer writes first: it lands in the reader's messages.
+  Future<bool> inboxSend(String userUid, String text) => _mod(userUid, {
+        'grants.inbox': FieldValue.arrayUnion([
+          {'text': text.trim(), 'at': _now}
+        ])
+      });
+
+  /// 0 banned, 1 suspended now, 2 warned.
+  Future<List<Doc>> flagged(int kind) async {
+    try {
+      final u = _db.collection('users');
+      final q = await [
+        u.where('banned', isEqualTo: true),
+        u.where('grants.until', isGreaterThan: _now),
+        u.where('grants.nWarn', isGreaterThan: 0),
+      ][kind]
+          .limit(200)
+          .get();
+      return [
+        for (final d in q.docs) {...d.data(), 'uid': d.id}
+      ];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  // ------------------------------------------------------------ duels
+
+  /// Creates a duel: both play the same five verses. Returns its id.
+  Future<String?> newDuel(Doc opponent, List<(Poem, int)> picks) async {
+    if (!signedIn) return null;
+    try {
+      final ref = await _db.collection('tests').add({
+        'teacher': uid,
+        'teacherName': name,
+        'students': ['${opponent['uid']}'],
+        'oppName': '${opponent['name'] ?? 'قارئ'}',
+        'kind': 'duel',
+        'picks': [
+          for (final x in picks) '${x.$1.id}:${x.$2}'
+        ],
+        'results': <String, dynamic>{},
+        'at': _now,
+      });
+      return ref.id;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<List<Doc>> duels() async {
+    if (!signedIn) return [];
+    try {
+      final a = await _db.collection('tests').where('teacher', isEqualTo: uid).limit(40).get();
+      final b = await _db.collection('tests').where('students', arrayContains: uid).limit(40).get();
+      return [..._docs(a), ..._docs(b)].where((t) => t['kind'] == 'duel').toList()..sort((x, y) => ((y['at'] ?? 0) as num).compareTo((x['at'] ?? 0) as num));
+    } catch (_) {
+      return [];
     }
   }
 }

@@ -9,6 +9,7 @@ import '../main.dart';
 import '../services/cloud.dart';
 import '../ui.dart';
 import 'lists.dart';
+import 'majlis_plus.dart';
 import 'social.dart';
 
 /// «مجلس الشعر»: the daily challenge. One selection a day, five stages,
@@ -16,10 +17,68 @@ import 'social.dart';
 class Majlis {
   static const gold = Color(0xFFB08A3E), green = Color(0xFF2F6B4F), red = Color(0xFFB3261E);
   static const stages = ['اللمحة', 'أكمل الشطر', 'القافية', 'في أي باب؟', 'من القائل؟'];
-  static const maxPoints = 15;
+  static const maxPoints = 100; // one round
+  static const roundsPerDay = 10;
 
-  /// Ranks by all-time points.
-  static const ranks = [(0, 'مستمع'), (30, 'راوٍ'), (120, 'حافظ'), (300, 'أديب'), (600, 'علّامة'), (1200, 'شيخ المجلس')];
+  /// Points needed to reach a level (1…100): 100, 300, 600, 1000 … 505,000.
+  static int need(int level) => 50 * level * (level + 1);
+  static int levelOf(int xp) {
+    var n = 0;
+    while (n < 100 && need(n + 1) <= xp) {
+      n++;
+    }
+    return n;
+  }
+
+  /// A rank for every ten levels.
+  static const rankNames = ['مبتدئ', 'برونزي', 'فضي', 'ذهبي', 'بلاتيني', 'ماسي', 'راوٍ', 'حافظ', 'أديب', 'علّامة', 'شيخ المجلس', 'أمير المجلس'];
+  static const rankColors = [
+    Color(0xFF8A8A8A), Color(0xFFA9714B), Color(0xFF8E9AA6), gold, Color(0xFF4F9DA6), Color(0xFF5B7FD1),
+    green, Color(0xFF7A4FA3), Color(0xFFB3541E), red, Color(0xFF6B4A2F), Color(0xFFD4A017), //
+  ];
+  static int rankIndex(int level) => level == 0 ? 0 : min(level ~/ 10 + 1, 11);
+
+  static Map<String, dynamic> get st => (Store.i.majlis['st'] as Map<String, dynamic>?) ?? {};
+  static int get roundsToday => (((Store.i.majlis['rounds'] as Map?)?['${Store.today}']) as num?)?.toInt() ?? 0;
+  static bool get friday => DateTime.now().weekday == DateTime.friday && Store.i.feature('friday');
+
+  /// (id, title, reward) of the three daily tasks.
+  static const tasks = [('r3', 'العب ثلاث جولات', 30), ('p1', 'أتمّ جولة بلا خطأ', 40), ('r10', 'أتمّ الجولات العشر', 100)];
+  static Map<String, dynamic> get _tasksToday {
+    final t = Store.i.majlis['tasks'];
+    return t is Map && t['day'] == Store.today ? Map<String, dynamic>.from(t) : {'day': Store.today, 'done': <String>[], 'perfect': 0};
+  }
+
+  static bool taskDone(String id) => (_tasksToday['done'] as List).contains(id);
+
+  /// The poet of the week: the same for everyone, a new one every Saturday.
+  static List<String>? _weeklyNames;
+  static String get weeklyPoet {
+    if (_weeklyNames == null) {
+      final count = <String, int>{};
+      for (final p in pool) {
+        count[p.poet] = (count[p.poet] ?? 0) + p.lines.where((l) => l.length == 2).length;
+      }
+      _weeklyNames = (count.entries.where((e) => e.value >= 8).map((e) => e.key).toList()..sort());
+    }
+    return _weeklyNames!.isEmpty ? '' : _weeklyNames![(weekStart ~/ 7) % _weeklyNames!.length];
+  }
+
+  static bool get weeklyDone => Store.i.majlis['weekly'] == weekStart;
+
+  /// The verses the reader missed, newest first.
+  static List<(Poem, int)> get mistakes => [
+        for (final k in ((Store.i.majlis['miss'] as List?) ?? []).reversed)
+          if (Library.byId[int.tryParse('$k'.split(':').first)] != null && int.parse('$k'.split(':').last) < Library.byId[int.parse('$k'.split(':').first)]!.lines.length)
+            (Library.byId[int.parse('$k'.split(':').first)]!, int.parse('$k'.split(':').last))
+      ];
+  static void markMiss((Poem, int) x, bool wrong) {
+    final l = [...((Store.i.majlis['miss'] as List?) ?? [])];
+    final k = '${x.$1.id}:${x.$2}';
+    l.remove(k);
+    if (wrong) l.add(k);
+    Store.i.majlis['miss'] = l.length > 300 ? l.sublist(l.length - 300) : l;
+  }
 
   static List<Poem> get pool => Library.poems.where((p) => p.poet != 'بلا نسبة' && p.lines.isNotEmpty && p.lines.first.length == 2).toList();
 
@@ -28,20 +87,20 @@ class Majlis {
 
   /// Five verses never asked before, each from a different selection (and poet when possible).
   /// When every verse in the app has been asked, a new round starts.
-  static List<(Poem, int)> pick([int n = 5]) {
+  static List<(Poem, int)> pick([int n = 5, String? poet]) {
     final rnd = Random();
     List<(Poem, int)> free() {
       final seen = Store.i.seen.toSet();
       return [
         for (final p in pool)
           for (var i = 0; i < p.lines.length; i++)
-            if (p.lines[i].length == 2 && !p.gone(i + 1) && clean(p.lines[i][1]).split(' ').length >= 2 && !seen.contains('${p.id}:$i')) (p, i)
+            if ((poet == null || p.poet == poet) && p.lines[i].length == 2 && !p.gone(i + 1) && clean(p.lines[i][1]).split(' ').length >= 2 && (poet != null || !seen.contains('${p.id}:$i'))) (p, i)
       ];
     }
 
     var c = free();
     var reset = false;
-    if (c.length < n) {
+    if (c.length < n && poet == null) {
       Store.i.seen = [];
       reset = true;
       c = free();
@@ -49,17 +108,18 @@ class Majlis {
     c.shuffle(rnd);
     final out = <(Poem, int)>[];
     final poems = <int>{}, poets = <String>{};
-    for (final pass in [0, 1]) {
+    for (final pass in [0, 1, 2]) {
       for (final x in c) {
         if (out.length == n) break;
-        if (poems.contains(x.$1.id)) continue;
-        if (pass == 0 && poets.contains(x.$1.poet)) continue;
+        if (out.contains(x)) continue;
+        if (pass < 2 && poems.contains(x.$1.id)) continue;
+        if (pass == 0 && poet == null && poets.contains(x.$1.poet)) continue;
         out.add(x);
         poems.add(x.$1.id);
         poets.add(x.$1.poet);
       }
     }
-    Store.i.markSeen([for (final x in out) '${x.$1.id}:${x.$2}'], reset: reset);
+    if (poet == null) Store.i.markSeen([for (final x in out) '${x.$1.id}:${x.$2}'], reset: reset);
     return out;
   }
 
@@ -90,11 +150,48 @@ class Majlis {
     return v == null ? null : [for (final x in v as List) (x as num).toInt()];
   }
 
-  static void record(int day, int points, int poemId) {
+  /// Adds a finished round to the day. Returns the titles of the daily tasks it completed.
+  static List<String> record(int day, int points, int poemId, {bool perfect = false, Iterable<String> poets = const [], bool weekly = false}) {
+    int n(dynamic v) => (v as num?)?.toInt() ?? 0;
+    final m = Store.i.majlis;
+    final r = Map<String, dynamic>.from(m['rounds'] as Map? ?? {})..removeWhere((k, _) => (int.tryParse(k) ?? 0) < day - 40);
+    r['$day'] = n(r['$day']) + 1;
+    m['rounds'] = r;
+    final s = Map<String, dynamic>.from(st);
+    s['rounds'] = n(s['rounds']) + 1;
+    if (perfect) s['perfect'] = n(s['perfect']) + 1;
+    if (r['$day'] == roundsPerDay) s['fullDays'] = n(s['fullDays']) + 1;
+    if (weekly) {
+      s['weekly'] = n(s['weekly']) + 1;
+      m['weekly'] = weekStart;
+    }
+    if (DateTime.now().weekday == DateTime.friday) s['friday'] = n(s['friday']) + 1;
+    s['poets'] = {...(s['poets'] as List? ?? []), ...poets}.toList();
+    m['st'] = s;
+    // daily tasks
+    var bonus = 0;
+    final finished = <String>[];
+    if (Store.i.feature('tasks')) {
+      final t = _tasksToday;
+      final done = List<String>.from(t['done'] as List);
+      final perfectToday = n(t['perfect']) + (perfect ? 1 : 0);
+      final ok = {'r3': n(r['$day']) >= 3, 'p1': perfectToday >= 1, 'r10': n(r['$day']) >= roundsPerDay};
+      for (final (id, title, reward) in tasks) {
+        if (ok[id] == true && !done.contains(id)) {
+          done.add(id);
+          bonus += reward;
+          finished.add('$title (+${Ar.num(reward)})');
+        }
+      }
+      m['tasks'] = {'day': day, 'done': done, 'perfect': perfectToday};
+    }
     final d = Map<String, dynamic>.from(_days);
-    d['$day'] = [points, poemId];
-    Store.i.majlis['days'] = d;
+    final old = d['$day'] as List?;
+    d['$day'] = [n(old?[0]) + points + bonus, old == null ? poemId : n(old[1])];
+    m['days'] = d;
+    s['bestStreak'] = max(n(s['bestStreak']), streak);
     Store.i.saveMajlis();
+    return finished;
   }
 
   static int sum(int fromDay) {
@@ -126,18 +223,10 @@ class Majlis {
     return n;
   }
 
+  /// (rank and level, points of the next level).
   static (String, int?) rank(int points) {
-    var name = ranks.first.$2;
-    int? next;
-    for (final r in ranks) {
-      if (points >= r.$1) {
-        name = r.$2;
-      } else {
-        next = r.$1;
-        break;
-      }
-    }
-    return (name, next);
+    final l = levelOf(points);
+    return ('${rankNames[rankIndex(l)]} · المستوى ${Ar.num(l)}', l >= 100 ? null : need(l + 1));
   }
 
   static String get name => (Store.i.majlis['name'] as String?) ?? '';
@@ -166,11 +255,13 @@ class MajlisCard extends StatelessWidget {
             Text('مجلس الشعر', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700, color: C.ink(context))),
             const SizedBox(height: 2),
             Text(
-              done == null ? 'تحدّي اليوم ينتظرك: خمس مراحل بخمسة أبيات.' : 'أتممت تحدّي اليوم: ${Ar.num(done[0])} من ${Ar.num(Majlis.maxPoints)}. يتجدد غداً.',
+              Majlis.roundsToday >= Majlis.roundsPerDay
+                  ? 'أتممت جولات اليوم العشر. تتجدد غداً.'
+                  : (done == null ? 'عشر جولات تنتظرك اليوم: خمس مراحل بخمسة أبيات.' : 'لعبت ${Ar.num(Majlis.roundsToday)} من ١٠ جولات اليوم.'),
               style: TextStyle(fontSize: 14.5, height: 1.5, color: C.muted(context)),
             ),
             const SizedBox(height: 2),
-            Text('لقبك: $rank · ${Ar.num(Majlis.total)} نقطة', style: TextStyle(fontSize: 13.5, color: C.accent(context))),
+            Text('$rank · ${Ar.num(Majlis.total)} نقطة', style: TextStyle(fontSize: 13.5, color: C.accent(context))),
           ]),
         ),
         Icon(Icons.chevron_left_rounded, color: C.muted(context)),
@@ -197,104 +288,161 @@ class Leaf extends StatelessWidget {
         ),
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           Text(letter ?? 'م', style: TextStyle(fontFamily: verseFont, fontSize: size * 0.46, height: 1, color: const Color(0xFF8C4A2F), fontWeight: FontWeight.w700)),
-          if (points != null) Text('${Ar.num(points!)}/${Ar.num(Majlis.maxPoints)}', style: TextStyle(fontSize: size * 0.17, color: const Color(0xFF6E5A2E))),
+          if (points != null) ShapeBadge(size: size * 0.36, fraction: points! / 300, seed: points!, color: const Color(0xFF8C4A2F)),
         ]),
       );
 }
 
 class MajlisScreen extends StatelessWidget {
   const MajlisScreen({super.key});
+
+  void _play(BuildContext context) {
+    if (Majlis.roundsToday >= Majlis.roundsPerDay) {
+      toast(context, 'أتممت جولات اليوم العشر. تتجدد غداً، ولك جولة التدريب متى شئت.');
+      return;
+    }
+    push(context, ChallengeScreen(picks: Majlis.pick(), day: Store.today));
+  }
+
+  Widget _tile(BuildContext context, IconData icon, String title, String sub, VoidCallback onTap, {Color? color}) => SoftCard(
+        padding: const EdgeInsets.all(12),
+        onTap: onTap,
+        child: Column(children: [
+          Icon(icon, color: color ?? C.accent(context), size: 28),
+          const SizedBox(height: 4),
+          Text(title, textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w700, color: C.ink(context))),
+          Text(sub, textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12.5, color: C.muted(context))),
+        ]),
+      );
+
   @override
   Widget build(BuildContext context) => ListenableBuilder(
         listenable: Store.i,
         builder: (context, _) {
           final today = Store.today;
-          final done = Majlis.played(today);
           final total = Majlis.total;
-          final (rank, next) = Majlis.rank(total);
-          final prev = Majlis.ranks.lastWhere((r) => total >= r.$1).$1;
+          final level = Majlis.levelOf(total);
+          final prev = Majlis.need(level), next = level >= 100 ? null : Majlis.need(level + 1);
+          final rounds = Majlis.roundsToday;
           final days = [for (var d = today; d > today - 60; d--) if (Majlis.played(d) != null) d];
+          final got = achievements().where((a) => a.done).length;
+          final sp = min(Majlis.streak, 15) * 2;
+          final f = Store.i.feature;
           return Scaffold(
-            appBar: AppBar(title: const Text('مجلس الشعر')),
+            appBar: AppBar(title: const Text('مجلس الشعر'), actions: [
+              IconButton(tooltip: 'التعليمات', onPressed: () => push(context, const GuideScreen()), icon: const Icon(Icons.help_outline_rounded)),
+            ]),
             body: ListView(padding: const EdgeInsets.fromLTRB(16, 0, 16, 40), children: [
               SoftCard(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Row(children: [
-                    Icon(Icons.workspace_premium_rounded, color: Majlis.gold, size: 30),
-                    const SizedBox(width: 8),
-                    Text(rank, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: C.ink(context))),
-                    const Spacer(),
-                    Text('${Ar.num(total)} نقطة', style: TextStyle(fontSize: 16, color: C.accent(context), fontWeight: FontWeight.w700)),
+                    Container(
+                      width: 58,
+                      height: 58,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Majlis.rankColors[Majlis.rankIndex(level)], width: 3),
+                        color: Majlis.rankColors[Majlis.rankIndex(level)].withValues(alpha: 0.12),
+                      ),
+                      child: Text(Ar.num(level), style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Majlis.rankColors[Majlis.rankIndex(level)])),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(Majlis.rankNames[Majlis.rankIndex(level)], style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: C.ink(context))),
+                        Text('المستوى ${Ar.num(level)} من ١٠٠ · ${Ar.num(total)} نقطة', style: TextStyle(color: C.muted(context))),
+                      ]),
+                    ),
                   ]),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 12),
                   LinearProgressIndicator(
                     value: next == null ? 1 : (total - prev) / (next - prev),
-                    minHeight: 8,
+                    minHeight: 9,
                     borderRadius: BorderRadius.circular(6),
-                    color: Majlis.gold,
+                    color: Majlis.rankColors[Majlis.rankIndex(level)],
                   ),
                   const SizedBox(height: 6),
-                  Text(
-                    next == null ? 'بلغت أعلى الألقاب.' : 'بقي ${Ar.num(next - total)} نقطة للقب «${Majlis.rank(next).$1}»',
-                    style: TextStyle(color: C.muted(context)),
-                  ),
+                  Text(next == null ? 'بلغت المستوى المئة: أمير المجلس.' : 'بقي ${Ar.num(next - total)} نقطة للمستوى ${Ar.num(level + 1)}', style: TextStyle(color: C.muted(context))),
                   const SizedBox(height: 6),
                   Row(children: [
                     Icon(Icons.local_fire_department_rounded, size: 20, color: Colors.orange.shade700),
                     const SizedBox(width: 4),
-                    Text('${Ar.num(Majlis.streak)} يوماً متتالياً', style: TextStyle(color: C.ink(context))),
+                    Expanded(child: Text('${Ar.num(Majlis.streak)} يوماً متتالياً${sp > 0 ? ' · مكافأة +${Ar.num(sp)}٪' : ''}', style: TextStyle(color: C.ink(context)))),
+                    if (Majlis.friday) const Tag('الجمعة: النقاط مضاعفة'),
                   ]),
                 ]),
               ),
               const SizedBox(height: 12),
               SoftCard(
-                onTap: done == null ? () => push(context, ChallengeScreen(picks: Majlis.todayPicks(), day: today)) : null,
-                child: Row(children: [
-                  Leaf(size: 56, letter: done == null ? '؟' : null, points: done?[0]),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text('تحدّي اليوم', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: C.ink(context))),
-                      Text(
-                        done == null ? 'خمس مراحل، ولكل مرحلة بيت جديد لشاعر آخر، وثلاث محاولات. لا يتكرر بيت حتى تنتهي أبيات التطبيق.' : 'أتممته اليوم، وورقته في ديوانك. يتجدد غداً.',
-                        style: TextStyle(fontSize: 14.5, height: 1.5, color: C.muted(context)),
+                onTap: () => _play(context),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text('جولات اليوم', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: C.ink(context))),
+                        Text(
+                          rounds >= Majlis.roundsPerDay ? 'أتممت العشر. تتجدد غداً.' : 'لعبت ${Ar.num(rounds)} من ١٠. كل جولة خمس مراحل بخمسة أبيات جديدة، ومئة نقطة.',
+                          style: TextStyle(fontSize: 14.5, height: 1.5, color: C.muted(context)),
+                        ),
+                      ]),
+                    ),
+                    if (rounds < Majlis.roundsPerDay) FilledButton(onPressed: () => _play(context), child: Text(rounds == 0 ? 'ابدأ' : 'العب')),
+                  ]),
+                  const SizedBox(height: 10),
+                  Row(children: [
+                    for (var i = 0; i < Majlis.roundsPerDay; i++)
+                      Expanded(
+                        child: Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 2),
+                          height: 8,
+                          decoration: BoxDecoration(borderRadius: BorderRadius.circular(4), color: i < rounds ? Majlis.gold : C.line(context)),
+                        ),
                       ),
-                    ]),
-                  ),
-                  if (done == null) FilledButton(onPressed: () => push(context, ChallengeScreen(picks: Majlis.todayPicks(), day: today)), child: const Text('ابدأ')),
+                  ]),
                 ]),
               ),
+              if (f('tasks')) ...[
+                const SizedBox(height: 10),
+                SoftCard(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('مهام اليوم', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: C.ink(context))),
+                    for (final (id, title, reward) in Majlis.tasks)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Row(children: [
+                          Icon(Majlis.taskDone(id) ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded, size: 20, color: Majlis.taskDone(id) ? Majlis.green : C.muted(context)),
+                          const SizedBox(width: 8),
+                          Expanded(child: Text(title, style: TextStyle(color: C.ink(context)))),
+                          Text('+${Ar.num(reward)}', style: TextStyle(fontWeight: FontWeight.w700, color: Majlis.gold)),
+                        ]),
+                      ),
+                  ]),
+                ),
+              ],
               const SizedBox(height: 10),
-              Row(children: [
-                Expanded(
-                  child: SoftCard(
-                    padding: const EdgeInsets.all(14),
-                    onTap: () => push(context, const LeaderboardScreen()),
-                    child: Column(children: [
-                      Icon(Icons.emoji_events_outlined, color: Majlis.gold, size: 30),
-                      const SizedBox(height: 4),
-                      Text('لوحة الصدارة', style: TextStyle(fontWeight: FontWeight.w700, color: C.ink(context))),
-                      Text('أسبوعك: ${Ar.num(Majlis.sum(Majlis.weekStart))}', style: TextStyle(fontSize: 13, color: C.muted(context))),
-                    ]),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: SoftCard(
-                    padding: const EdgeInsets.all(14),
-                    onTap: () => push(context, ChallengeScreen(picks: Majlis.pick())),
-                    child: Column(children: [
-                      Icon(Icons.fitness_center_rounded, color: C.accent(context), size: 30),
-                      const SizedBox(height: 4),
-                      Text('جولة تدريب', style: TextStyle(fontWeight: FontWeight.w700, color: C.ink(context))),
-                      Text('بلا نقاط، متى شئت', style: TextStyle(fontSize: 13, color: C.muted(context))),
-                    ]),
-                  ),
-                ),
+              GridView.count(crossAxisCount: 3, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), mainAxisSpacing: 10, crossAxisSpacing: 10, childAspectRatio: 1.05, children: [
+                ...[
+                  _tile(context, Icons.emoji_events_outlined, 'الصدارة', 'أسبوعك: ${Ar.num(Majlis.sum(Majlis.weekStart))}', () => push(context, const LeaderboardScreen()), color: Majlis.gold),
+                  if (f('weekly') && Majlis.weeklyPoet.isNotEmpty)
+                    _tile(context, Icons.star_outline_rounded, 'شاعر الأسبوع', Majlis.weeklyDone ? 'أتممتها' : Majlis.weeklyPoet, () {
+                      if (Majlis.weeklyDone) {
+                        toast(context, 'أتممت جولة «${Majlis.weeklyPoet}» هذا الأسبوع. شاعر جديد يوم السبت.');
+                      } else {
+                        push(context, ChallengeScreen(picks: Majlis.pick(5, Majlis.weeklyPoet), day: today, weekly: true));
+                      }
+                    }, color: Majlis.gold),
+                  _tile(context, Icons.military_tech_outlined, 'الأوسمة', '${Ar.num(got)} وساماً', () => push(context, const AchievementsScreen())),
+                  if (f('duel')) _tile(context, Icons.sports_kabaddi_rounded, 'المبارزات', 'تحدَّ صديقاً', () => push(context, const DuelsScreen())),
+                  _tile(context, Icons.refresh_rounded, 'أخطائي', '${Ar.num(Majlis.mistakes.length)} بيتاً', () => push(context, const MistakesScreen())),
+                  _tile(context, Icons.fitness_center_rounded, 'تدريب', 'بلا نقاط', () => push(context, ChallengeScreen(picks: Majlis.pick()))),
+                  _tile(context, Icons.menu_book_outlined, 'التعليمات', 'كيف تُحسب النقاط', () => push(context, const GuideScreen())),
+                ],
               ]),
               const SectionTitle('ديوانك'),
               if (days.isEmpty)
-                Text('كل يوم تتمّ فيه التحدي تُضاف ورقة إلى ديوانك، فيها بيت ذلك اليوم.', style: TextStyle(color: C.muted(context), height: 1.6))
+                Text('كل يوم تلعب فيه تُضاف ورقة إلى ديوانك، فيها بيت ذلك اليوم.', style: TextStyle(color: C.muted(context), height: 1.6))
               else
                 Wrap(spacing: 10, runSpacing: 10, children: [
                   for (final d in days)
@@ -321,7 +469,9 @@ class MajlisScreen extends StatelessWidget {
 class ChallengeScreen extends StatefulWidget {
   final List<(Poem, int)> picks; // one verse per stage
   final int? day; // null = practice round
-  const ChallengeScreen({super.key, required this.picks, this.day});
+  final bool weekly; // the poet of the week: double points
+  final String? duel; // a duel with a friend: the result goes to the server
+  const ChallengeScreen({super.key, required this.picks, this.day, this.weekly = false, this.duel});
   @override
   State<ChallengeScreen> createState() => _ChallengeScreenState();
 }
@@ -335,7 +485,8 @@ class _ChallengeScreenState extends State<ChallengeScreen> {
   }
 
   int stage = 0;
-  int tries = 3;
+  int tries = 3; // three in the first stage only; one in the others
+  DateTime started = DateTime.now();
   bool hinted = false;
   final points = <int>[]; // per stage
   String? wrong; // last wrong choice
@@ -383,6 +534,8 @@ class _ChallengeScreenState extends State<ChallengeScreen> {
   void initState() {
     super.initState();
     shuffled = [for (var i = 0; i < words.length; i++) i]..shuffle(rnd);
+    // The glance gets shorter as the level rises.
+    seconds = max(3, 6 - Majlis.levelOf(Majlis.total) ~/ 20);
     _startGlance();
   }
 
@@ -416,8 +569,15 @@ class _ChallengeScreenState extends State<ChallengeScreen> {
 
   void _win() {
     HapticFeedback.mediumImpact();
-    final got = hinted && tries == 3 ? 2 : tries;
+    final int got;
+    if (stage == 0) {
+      got = hinted && tries == 3 ? 14 : const [8, 14, 20][tries - 1];
+    } else {
+      final fast = DateTime.now().difference(started).inSeconds < 7;
+      got = (hinted ? 11 : 18) + (fast ? 2 : 0);
+    }
     points.add(got);
+    if (widget.day != null) Majlis.markMiss(widget.picks[stage % widget.picks.length], false);
     _next();
   }
 
@@ -427,25 +587,61 @@ class _ChallengeScreenState extends State<ChallengeScreen> {
       tries--;
       wrong = choice;
       if (tries == 0) {
-        points.add(0);
+        // A miss in the one-attempt stages takes five points off the round.
+        points.add(stage == 0 ? 0 : -5);
+        if (widget.day != null) Majlis.markMiss(widget.picks[stage % widget.picks.length], true);
       }
     });
-    if (tries == 0) Future.delayed(const Duration(milliseconds: 1400), () => mounted ? _next() : null);
+    if (tries == 0) {
+      Future.delayed(const Duration(milliseconds: 1400), () {
+        if (mounted) _next();
+      });
+    }
   }
 
   void _next() {
     if (stage == Majlis.stages.length - 1) {
-      final sum = points.fold(0, (a, b) => a + b);
+      final base = max(0, points.fold(0, (a, b) => a + b));
+      var earned = base;
+      final notes = <String>[];
+      int? newLevel;
       if (widget.day != null) {
-        Majlis.record(widget.day!, sum, poemAt(0).id);
+        final before = Majlis.levelOf(Majlis.total);
+        final sp = min(Majlis.streak, 15) * 2;
+        var mult = 1 + sp / 100;
+        if (sp > 0) notes.add('مكافأة المواظبة +${Ar.num(sp)}٪');
+        if (Majlis.friday) {
+          mult *= 2;
+          notes.add('جولة الجمعة: النقاط مضاعفة');
+        }
+        if (widget.weekly) {
+          mult *= 2;
+          notes.add('شاعر الأسبوع: النقاط مضاعفة');
+        }
+        earned = (base * mult).round();
+        final tasks = Majlis.record(
+          widget.day!,
+          earned,
+          poemAt(0).id,
+          perfect: points.first == 20 && points.skip(1).every((p) => p >= 18),
+          poets: [for (var i = 0; i < points.length; i++) if (points[i] > 0) poemAt(i).poet],
+          weekly: widget.weekly,
+        );
+        notes.addAll([for (final t in tasks) 'مهمة اليوم: $t']);
+        final after = Majlis.levelOf(Majlis.total);
+        if (after > before) newLevel = after;
         Cloud.i.pushBoard();
+        Cloud.i.syncSoon();
       }
-      Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => ResultScreen(picks: widget.picks, points: List.of(points), daily: widget.day != null)));
+      if (widget.duel != null) Cloud.i.submitResult(widget.duel!, base, Majlis.maxPoints);
+      Navigator.of(context).pushReplacement(MaterialPageRoute(
+          builder: (_) => ResultScreen(picks: widget.picks, points: List.of(points), daily: widget.day != null, base: base, earned: earned, notes: notes, newLevel: newLevel, duel: widget.duel != null)));
       return;
     }
     setState(() {
       stage++;
-      tries = 3;
+      tries = 1;
+      started = DateTime.now();
       hinted = false;
       wrong = null;
       removed.clear();
@@ -473,7 +669,7 @@ class _ChallengeScreenState extends State<ChallengeScreen> {
     };
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.day == null ? 'جولة تدريب' : 'تحدّي اليوم'),
+        title: Text(widget.duel != null ? 'مبارزة' : (widget.weekly ? 'شاعر الأسبوع' : (widget.day == null ? 'جولة تدريب' : 'جولة اليوم'))),
         actions: [
           Padding(
             padding: const EdgeInsetsDirectional.only(end: 16),
@@ -516,7 +712,9 @@ class _ChallengeScreenState extends State<ChallengeScreen> {
         const SizedBox(height: 14),
       ]);
 
-  Widget _tries(BuildContext context) => Row(mainAxisSize: MainAxisSize.min, children: [
+  Widget _tries(BuildContext context) => stage != 0
+      ? Text(tries == 0 ? 'لم تُصب: نقصت ٥ نقاط' : 'محاولة واحدة · الخطأ ينقص ٥ نقاط', style: TextStyle(fontSize: 13, color: tries == 0 ? Majlis.red : C.muted(context)))
+      : Row(mainAxisSize: MainAxisSize.min, children: [
         for (var i = 0; i < 3; i++)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 2),
@@ -678,31 +876,57 @@ class _ChallengeScreenState extends State<ChallengeScreen> {
 class ResultScreen extends StatelessWidget {
   final List<(Poem, int)> picks;
   final List<int> points;
-  final bool daily;
-  const ResultScreen({super.key, required this.picks, required this.points, required this.daily});
+  final bool daily, duel;
+  final int base, earned;
+  final List<String> notes;
+  final int? newLevel;
+  const ResultScreen({super.key, required this.picks, required this.points, required this.daily, required this.base, required this.earned, this.notes = const [], this.newLevel, this.duel = false});
   @override
   Widget build(BuildContext context) {
-    final sum = points.fold(0, (a, b) => a + b);
+    final seed = picks.fold(0, (a, x) => a + x.$1.id * 7 + x.$2);
     return Scaffold(
-      appBar: AppBar(title: Text(daily ? 'ورقة اليوم' : 'نتيجة التدريب')),
+      appBar: AppBar(title: Text(duel ? 'نتيجة المبارزة' : (daily ? 'نتيجة الجولة' : 'نتيجة التدريب'))),
       body: ListView(padding: const EdgeInsets.fromLTRB(18, 8, 18, 40), children: [
         Center(
           child: TweenAnimationBuilder<double>(
-            tween: Tween(begin: 0, end: 1),
-            duration: const Duration(milliseconds: 700),
-            curve: Curves.elasticOut,
-            builder: (_, t, child) => Transform.scale(scale: t, child: child),
-            child: Leaf(size: 110, letter: Library.poetByName[picks.first.$1.poet]?.initial, points: sum),
+            tween: Tween(begin: 0, end: base / Majlis.maxPoints),
+            duration: const Duration(milliseconds: 1400),
+            curve: Curves.easeOutCubic,
+            builder: (_, t, __) => ShapeBadge(size: 170, fraction: t, seed: seed),
           ),
         ),
         const SizedBox(height: 14),
         Center(
           child: Text(
-            sum == Majlis.maxPoints ? 'أحسنت! الدرجة كاملة' : (sum >= 10 ? 'أحسنت' : (sum >= 5 ? 'لا بأس، وغداً أفضل' : 'حاول غداً')),
+            base >= 100 ? 'اكتمل الشكل! جولة تامّة' : (base >= 70 ? 'أحسنت' : (base >= 40 ? 'لا بأس، والقادمة أفضل' : 'حاول مرة أخرى')),
             style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: C.ink(context)),
           ),
         ),
-        Center(child: Text(daily ? 'أُضيفت الورقة إلى ديوانك، ونقاطها إلى رصيدك.' : 'جولة تدريب: لا تُحسب في النقاط.', style: TextStyle(color: C.muted(context)))),
+        Center(
+          child: Text(
+            duel
+                ? 'وصلت نتيجتك. ترى نتيجة صاحبك في «المبارزات».'
+                : (daily ? 'أُضيفت ${Ar.num(earned)} نقطة إلى مستواك.' : 'جولة تدريب: لا تُحسب في النقاط.'),
+            style: TextStyle(color: C.muted(context)),
+          ),
+        ),
+        if (newLevel != null) ...[
+          const SizedBox(height: 12),
+          SoftCard(
+            child: Row(children: [
+              const Icon(Icons.keyboard_double_arrow_up_rounded, color: Majlis.gold, size: 34),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text('صعدت إلى المستوى ${Ar.num(newLevel!)} · ${Majlis.rankNames[Majlis.rankIndex(newLevel!)]}',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: C.ink(context))),
+              ),
+            ]),
+          ),
+        ],
+        if (notes.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          Wrap(alignment: WrapAlignment.center, spacing: 6, runSpacing: 6, children: [for (final n in notes) Tag(n)]),
+        ],
         const SizedBox(height: 14),
         for (var i = 0; i < points.length && i < picks.length; i++)
           Padding(
@@ -715,7 +939,7 @@ class ResultScreen extends StatelessWidget {
                   Icon(points[i] > 0 ? Icons.check_circle_rounded : Icons.cancel_rounded, color: points[i] > 0 ? Majlis.green : Majlis.red, size: 20),
                   const SizedBox(width: 8),
                   Expanded(child: Text(Majlis.stages[i], style: TextStyle(fontWeight: FontWeight.w700, color: C.ink(context)))),
-                  Text(points[i] == 3 ? 'من أول محاولة' : (points[i] == 0 ? 'لم تُصب' : '${Ar.num(points[i])} من ٣'), style: TextStyle(color: C.muted(context))),
+                  Text(points[i] >= 20 ? 'تامّة' : (points[i] > 0 ? 'أصبت' : (points[i] < 0 ? 'لم تُصب (−٥)' : 'لم تُصب')), style: TextStyle(color: C.muted(context))),
                 ]),
                 VerseLines(picks[i].$1.lines[picks[i].$2], size: 19),
                 Text('${picks[i].$1.poet} · ${picks[i].$1.chapterName}', style: TextStyle(fontSize: 13, color: C.accent(context))),
@@ -752,7 +976,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           child: SegmentedButton<int>(
             segments: const [
               ButtonSegment(value: 0, label: Text('هذا الأسبوع')),
-              ButtonSegment(value: 1, label: Text('هذا الشهر')),
+              ButtonSegment(value: 1, label: Text('موسم الشهر')),
               ButtonSegment(value: 2, label: Text('منذ البداية')),
             ],
             selected: {range},
@@ -795,7 +1019,12 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                           Text(list[i]['uid'] == Cloud.i.uid && Cloud.i.signedIn ? '${nm(i)} (أنت)' : nm(i),
                               style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: C.ink(context))),
-                          Text('${Majlis.rank(pt(i) ?? 0).$1} · ${Ar.num(((list[i]['streak'] ?? 0) as num).toInt())} يوماً متتالياً', style: TextStyle(fontSize: 13.5, color: C.muted(context))),
+                          const SizedBox(height: 2),
+                          Row(children: [
+                            RankBadge(((list[i]['total'] ?? list[i]['pts'] ?? 0) as num).toInt(), small: true),
+                            const SizedBox(width: 6),
+                            Text('${Ar.num(((list[i]['streak'] ?? 0) as num).toInt())} يوماً', style: TextStyle(fontSize: 12.5, color: C.muted(context))),
+                          ]),
                         ]),
                       ),
                       Text(Ar.num(pt(i) ?? 0), style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: C.accent(context))),

@@ -67,6 +67,10 @@ class _AmthalScreenState extends State<AmthalScreen> {
             ),
           ),
         ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+          child: Text('النص غير مشكول كما في المصدر، وما لم يُذكر قائله كُتب تحته «لم يُنسب في المصدر».', style: TextStyle(fontSize: 12.5, color: C.muted(context))),
+        ),
         SizedBox(
           height: 42,
           child: ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 12), children: [
@@ -105,7 +109,8 @@ class _AmthalScreenState extends State<AmthalScreen> {
                     Expanded(
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         VerseLines(line, size: 20),
-                        if ((x[0] as String).isNotEmpty) Text(x[0] as String, style: TextStyle(fontSize: 13.5, color: C.accent(context))),
+                        Text((x[0] as String).isNotEmpty ? x[0] as String : 'لم يُنسب في المصدر', style: TextStyle(fontSize: 13.5, color: (x[0] as String).isNotEmpty ? C.accent(context) : C.muted(context))),
+                        if (x.length > 3 && '${x[3]}'.isNotEmpty) Text('${x[3]}', style: TextStyle(fontSize: 12, color: C.muted(context))),
                       ]),
                     ),
                     IconButton(onPressed: () => copySheet(context, [line]), icon: Icon(Icons.copy_rounded, size: 19, color: C.muted(context))),

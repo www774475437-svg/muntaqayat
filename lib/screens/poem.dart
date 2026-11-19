@@ -564,7 +564,9 @@ void collectionSheet(BuildContext context, Poem p) {
             title: const Text('مجموعة جديدة'),
             onTap: () async {
               final name = await askName(c, 'اسم المجموعة', 'مثلاً: أبيات الحكمة');
-              if (name != null) {
+              if (name != null && !Store.i.canCreateCollection) {
+                if (context.mounted) toast(context, 'المجاني مجموعتان، وفي كل واحدة ٦٠٠ مقطع. المشترك بلا حد.');
+              } else if (name != null) {
                 Store.i.createCollection(name);
                 Store.i.toggleIn(name, p.id);
               }

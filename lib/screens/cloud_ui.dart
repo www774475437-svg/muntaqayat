@@ -6,6 +6,8 @@ import '../services/cloud.dart';
 import '../services/device.dart';
 import '../ui.dart';
 import 'lists.dart';
+import 'majlis.dart';
+import 'majlis_plus.dart';
 import 'mutun.dart';
 import 'poem.dart';
 
@@ -115,9 +117,22 @@ class ProfileScreen extends StatelessWidget {
                     )
                   else
                     Text('رقمك الشخصي: ٧ أرقام ثابتة لا تتغير', style: TextStyle(color: C.muted(context))),
-                  if (c.isDev) ...[
-                    const SizedBox(height: 6),
-                    const Tag('حساب المطوّر'),
+                  const SizedBox(height: 6),
+                  Wrap(spacing: 6, runSpacing: 6, alignment: WrapAlignment.center, children: [
+                    RankBadge(Majlis.total),
+                    if (c.isDev) const Tag('حساب المطوّر'),
+                    if (c.plus) const Tag('مشترك'),
+                  ]),
+                  if (c.signedIn) ...[
+                    const SizedBox(height: 12),
+                    Row(children: [
+                      _count(context, FutureBuilder<int>(future: c.followersCount(c.uid), builder: (_, s) => Text(Ar.num(s.data ?? 0), style: _numStyle(context))), 'المتابِعون',
+                          () => push(context, FollowListScreen(title: 'المتابِعون', load: () => c.followers(c.uid)))),
+                      _count(context, Text(Ar.num((c.profile['following'] as List? ?? []).length), style: _numStyle(context)), 'يتابع',
+                          () => push(context, FollowListScreen(title: 'يتابع', load: () => c.usersByUid(List<String>.from(c.profile['following'] as List? ?? []))))),
+                      _count(context, Text(Ar.num(s.followed.length), style: _numStyle(context)), 'الشعراء', () => push(context, const MyPoetsScreen())),
+                    ]),
+                    const Divider(height: 22),
                   ],
                   const SizedBox(height: 14),
                   Row(children: [
@@ -139,6 +154,17 @@ class ProfileScreen extends StatelessWidget {
                   ),
                 ]),
               ),
+              if (c.banned || c.suspended || c.warns.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                SoftCard(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(c.banned ? 'حسابك محظور عن النشر' : (c.suspended ? 'حسابك موقوف مؤقتاً عن النشر' : 'وصلك إنذار'), style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: Color(0xFFB3261E))),
+                    if ((c.banned || c.suspended) && c.blockReason.isNotEmpty) Text('السبب: ${c.blockReason}', style: TextStyle(height: 1.6, color: C.ink(context))),
+                    for (final w in c.warns.reversed.take(3)) Text('• ${w['text']} (${ago(w['at'])})', style: TextStyle(height: 1.6, color: C.ink(context))),
+                    TextButton(onPressed: () => push(context, const MessageDevScreen()), child: const Text('راسل المطوّر للمراجعة')),
+                  ]),
+                ),
+              ],
               _section(context, 'في صفحتك'),
               _row(context, Icons.format_quote_rounded, 'اقتباساتي', 'ما نشرته من أبيات (عشرة في اليوم)', () async {
                 if (await needAccount(context) && context.mounted) push(context, QuotesScreen(of: c.uid, title: 'اقتباساتي'));
@@ -164,6 +190,18 @@ class ProfileScreen extends StatelessWidget {
             ]),
           );
         },
+      );
+
+  TextStyle _numStyle(BuildContext context) => TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: C.ink(context));
+  Widget _count(BuildContext context, Widget n, String label, VoidCallback onTap) => Expanded(
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Column(children: [n, Text(label, style: TextStyle(fontSize: 13, color: C.muted(context)))]),
+          ),
+        ),
       );
 
   Widget _stat(BuildContext context, String n, String label) => Expanded(
@@ -257,88 +295,430 @@ class _FollowingScreenState extends State<FollowingScreen> {
 }
 
 /// Another reader's page.
-class UserScreen extends StatelessWidget {
+class UserScreen extends StatefulWidget {
   final Doc user;
   const UserScreen({super.key, required this.user});
+  @override
+  State<UserScreen> createState() => _UserScreenState();
+}
 
-  Future<void> _plus(BuildContext context, bool on, String kind) async {
-    final ok = await Cloud.i.setPlus('${user['uid']}', on, kind: kind);
+class _UserScreenState extends State<UserScreen> {
+  Doc get user => widget.user;
+  String get uid => '${user['uid']}';
+  late final Future<int> followers = Cloud.i.followersCount(uid);
+
+  Future<void> _plus(bool on, String kind) async {
+    final ok = await Cloud.i.setPlus(uid, on, kind: kind);
     if (ok) {
-      user['plus'] = on;
-      if (on) user['plusKind'] = kind;
-      Cloud.i.touch();
+      setState(() {
+        user['plus'] = on;
+        if (on) user['plusKind'] = kind;
+      });
     }
-    if (context.mounted) toast(context, !ok ? 'تعذّر' : (on ? 'صار مشتركاً ($kind)' : 'أُلغي اشتراكه'));
+    if (mounted) toast(context, !ok ? 'تعذّر' : (on ? 'صار مشتركاً ($kind)' : 'أُلغي اشتراكه'));
   }
+
+  Future<String?> _reason(String title, {String hint = 'السبب (يراه صاحب الحساب)'}) {
+    final t = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (d) => AlertDialog(
+        title: Text(title),
+        content: TextField(controller: t, minLines: 2, maxLines: 5, autofocus: true, decoration: InputDecoration(hintText: hint)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(d), child: const Text('إلغاء')),
+          FilledButton(onPressed: () => Navigator.pop(d, t.text.trim()), child: const Text('تأكيد')),
+        ],
+      ),
+    );
+  }
+
+  Map get g => (user['grants'] as Map?) ?? {};
+  void _g(String k, dynamic v) => setState(() => user['grants'] = {...g, k: v});
+
+  Widget _moderation(BuildContext context) {
+    final c = Cloud.i;
+    final banned = user['banned'] == true;
+    final until = _n(g['until']);
+    final suspended = until > DateTime.now().millisecondsSinceEpoch;
+    final device = '${user['device'] ?? ''}';
+    final devBanned = c.bannedDevices.contains(device);
+    final warns = [for (final w in g['warns'] as List? ?? []) w as Map];
+    Widget b(String t, VoidCallback f) => OutlinedButton(onPressed: f, child: Text(t));
+    return SoftCard(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('الإشراف', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: C.ink(context))),
+        const SizedBox(height: 4),
+        Text(
+          banned
+              ? 'محظور الحساب ${ago(g['at'])}${'${g['reason'] ?? ''}'.isEmpty ? '' : ' · السبب: ${g['reason']}'}'
+              : suspended
+                  ? 'موقوف مؤقتاً: بقي ${Ar.num(((until - DateTime.now().millisecondsSinceEpoch) / 86400000).ceil())} يوماً${'${g['reason'] ?? ''}'.isEmpty ? '' : ' · السبب: ${g['reason']}'}'
+                  : 'لا حظر عليه.',
+          style: TextStyle(height: 1.6, color: banned || suspended ? const Color(0xFFB3261E) : C.muted(context)),
+        ),
+        if (devBanned) const Text('هاتفه محظور.', style: TextStyle(color: Color(0xFFB3261E))),
+        if (g['noMsg'] == true) const Text('مراسلته للمطوّر موقوفة.', style: TextStyle(color: Color(0xFFB3261E))),
+        for (final w in warns.reversed.take(5)) Text('• إنذار ${ago(w['at'])}: ${w['text']}', style: TextStyle(height: 1.6, color: C.ink(context))),
+        const SizedBox(height: 8),
+        Wrap(spacing: 8, runSpacing: 4, children: [
+          if (c.can('حظر')) ...[
+            b('إنذار', () async {
+              final r = await _reason('إنذار مكتوب', hint: 'خالفتَ في كذا…');
+              if (r == null || r.isEmpty) return;
+              final ok = await c.warnUser(uid, r);
+              if (ok) _g('warns', [...warns, {'text': r, 'at': DateTime.now().millisecondsSinceEpoch}]);
+              if (context.mounted) toast(context, ok ? 'وصله الإنذار' : 'تعذّر');
+            }),
+            if (!suspended)
+              for (final d in const [3, 7, 30])
+                b('إيقاف ${Ar.num(d)} أيام', () async {
+                  final r = await _reason('إيقاف مؤقت ${Ar.num(d)} أيام');
+                  if (r == null) return;
+                  final ok = await c.suspendUser(uid, d, r);
+                  if (ok) {
+                    _g('until', DateTime.now().millisecondsSinceEpoch + d * 86400000);
+                    _g('reason', r);
+                  }
+                  if (context.mounted) toast(context, ok ? 'أُوقف مؤقتاً' : 'تعذّر');
+                })
+            else
+              b('ارفع الإيقاف', () async {
+                if (await c.suspendUser(uid, 0, '')) _g('until', 0);
+              }),
+            b(banned ? 'ارفع حظر الحساب' : 'احظر الحساب', () async {
+              final r = banned ? '' : await _reason('حظر الحساب');
+              if (r == null) return;
+              final ok = await c.banUser(uid, !banned, r);
+              if (ok) {
+                setState(() => user['banned'] = !banned);
+                _g('reason', r);
+                _g('at', DateTime.now().millisecondsSinceEpoch);
+              }
+              if (context.mounted) toast(context, !ok ? 'تعذّر' : (banned ? 'رُفع الحظر' : 'حُظر الحساب'));
+            }),
+            if (device.isNotEmpty && c.isDev)
+              b(devBanned ? 'ارفع حظر الهاتف' : 'احظر هاتفه', () {
+                c.banDevice(device, !devBanned);
+                setState(() {});
+              }),
+            b(g['noMsg'] == true ? 'اسمح بمراسلتي' : 'امنع مراسلتي', () async {
+              final on = g['noMsg'] != true;
+              if (await c.setNoMsg(uid, on)) _g('noMsg', on);
+            }),
+          ],
+          if (c.isDev) ...[
+            if (user['plus'] == true && user['plusKind'] == 'مدفوع')
+              const Padding(padding: EdgeInsets.symmetric(vertical: 10), child: Text('اشتراكه مدفوع: لا يُلغى.'))
+            else if (user['plus'] == true)
+              b('ألغِ اشتراك الهدية', () => _plus(false, ''))
+            else ...[
+              b('اشتراك هدية منّي', () => _plus(true, 'هدية')),
+              b('اشتراك مدفوع', () => _plus(true, 'مدفوع')),
+            ],
+          ],
+        ]),
+      ]),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final id = '${user['publicId']}', name = '${user['name'] ?? 'قارئ'}';
     return ListenableBuilder(
       listenable: Cloud.i,
       builder: (context, _) {
-        final following = Cloud.i.following.containsKey(id);
+        final c = Cloud.i;
+        final following = c.following.containsKey(id);
+        final mine = uid == c.uid;
         return Scaffold(
           appBar: AppBar(title: Text(name), actions: [
-            IconButton(
-              tooltip: 'إبلاغ',
-              icon: const Icon(Icons.flag_outlined),
-              onPressed: () async {
-                final ok = await Cloud.i.report('اسم', id, name, ofUid: '${user['uid']}');
-                if (context.mounted) toast(context, ok ? 'وصل بلاغك إلى المطوّر' : 'تعذّر الإرسال');
-              },
-            ),
+            if (!mine)
+              IconButton(
+                tooltip: 'إبلاغ',
+                icon: const Icon(Icons.flag_outlined),
+                onPressed: () async {
+                  final ok = await c.report('اسم', id, name, ofUid: uid);
+                  if (context.mounted) toast(context, ok ? 'وصل بلاغك إلى المطوّر' : 'تعذّر الإرسال');
+                },
+              ),
           ]),
           body: ListView(padding: const EdgeInsets.fromLTRB(16, 0, 16, 40), children: [
             SoftCard(
               child: Column(children: [
-                const RoundIcon(Icons.person_rounded, size: 64),
+                Container(
+                  padding: const EdgeInsets.all(3),
+                  decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Majlis.rankColors[Majlis.rankIndex(Majlis.levelOf(_n(user['points'])))], width: 3)),
+                  child: const RoundIcon(Icons.person_rounded, size: 64),
+                ),
                 const SizedBox(height: 6),
                 Text(name, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: C.ink(context))),
                 Text('رقمه الشخصي: $id', style: TextStyle(color: C.muted(context))),
-                if (user['plus'] == true || user['banned'] == true) ...[
-                  const SizedBox(height: 6),
-                  Wrap(spacing: 6, children: [
-                    if (user['plus'] == true) Tag('مشترك · ${user['plusKind'] ?? 'هدية'}'),
-                    if (user['banned'] == true) const Tag('محظور عن النشر'),
-                  ]),
-                ],
+                const SizedBox(height: 6),
+                Wrap(spacing: 6, runSpacing: 6, alignment: WrapAlignment.center, children: [
+                  RankBadge(_n(user['points'])),
+                  if (user['plus'] == true) Tag('مشترك${c.isDev ? ' · ${user['plusKind'] ?? 'هدية'}' : ''}'),
+                  if (user['banned'] == true) const Tag('محظور عن النشر'),
+                ]),
+                const SizedBox(height: 12),
+                Row(children: [
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => push(context, FollowListScreen(title: 'متابِعو $name', load: () => c.followers(uid))),
+                      child: Column(children: [
+                        FutureBuilder<int>(future: followers, builder: (_, s) => Text(Ar.num(s.data ?? 0), style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: C.ink(context)))),
+                        Text('المتابِعون', style: TextStyle(fontSize: 13, color: C.muted(context))),
+                      ]),
+                    ),
+                  ),
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => push(context, FollowListScreen(title: 'يتابعهم $name', load: () => c.usersByUid(List<String>.from(user['following'] as List? ?? [])))),
+                      child: Column(children: [
+                        Text(Ar.num((user['following'] as List? ?? []).length), style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: C.ink(context))),
+                        Text('يتابع', style: TextStyle(fontSize: 13, color: C.muted(context))),
+                      ]),
+                    ),
+                  ),
+                  Expanded(
+                    child: Column(children: [
+                      Text(Ar.num(_n(user['poets'])), style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: C.ink(context))),
+                      Text('الشعراء', style: TextStyle(fontSize: 13, color: C.muted(context))),
+                    ]),
+                  ),
+                ]),
                 const SizedBox(height: 10),
                 Text('${Ar.num(_n(user['points']))} نقطة · حفظ ${Ar.verses(_n(user['memo']))} · ${Ar.num(_n(user['streak']))} يوماً متتالياً',
-                    textAlign: TextAlign.center, style: TextStyle(color: C.ink(context))),
-                const SizedBox(height: 10),
-                following
-                    ? OutlinedButton(onPressed: () => Cloud.i.follow(id, name, false), child: const Text('ألغِ المتابعة'))
-                    : FilledButton(onPressed: () => Cloud.i.follow(id, name, true), child: const Text('تابعه')),
-                if (Cloud.i.isDev) ...[
-                  const SizedBox(height: 6),
-                  Wrap(spacing: 8, children: [
-                    OutlinedButton(
-                      onPressed: () async {
-                        final on = user['banned'] != true;
-                        final ok = await Cloud.i.setBanned('${user['uid']}', on);
-                        if (ok) {
-                          user['banned'] = on;
-                          Cloud.i.touch();
-                        }
-                        if (context.mounted) toast(context, !ok ? 'تعذّر' : (on ? 'حُظر عن النشر' : 'رُفع الحظر'));
-                      },
-                      child: Text(user['banned'] == true ? 'ارفع الحظر' : 'احظره عن النشر'),
-                    ),
-                    if (user['plus'] == true)
-                      OutlinedButton(onPressed: () => _plus(context, false, ''), child: const Text('ألغِ اشتراكه'))
-                    else ...[
-                      OutlinedButton(onPressed: () => _plus(context, true, 'هدية'), child: const Text('اشتراك هدية منّي')),
-                      OutlinedButton(onPressed: () => _plus(context, true, 'مدفوع'), child: const Text('اشتراك مدفوع')),
-                    ],
+                    textAlign: TextAlign.center, style: TextStyle(color: C.muted(context))),
+                if (!mine) ...[
+                  const SizedBox(height: 10),
+                  Wrap(spacing: 8, runSpacing: 4, alignment: WrapAlignment.center, children: [
+                    following
+                        ? OutlinedButton(onPressed: () => c.follow(id, name, false, ofUid: uid), child: const Text('ألغِ المتابعة'))
+                        : FilledButton(onPressed: () => c.follow(id, name, true, ofUid: uid), child: const Text('تابعه')),
+                    if (Store.i.feature('duel'))
+                      OutlinedButton.icon(
+                        onPressed: () async {
+                          final picks = Majlis.pick();
+                          final duel = await c.newDuel(user, picks);
+                          if (!context.mounted) return;
+                          if (duel == null) {
+                            toast(context, 'تعذّر إنشاء المبارزة');
+                            return;
+                          }
+                          push(context, ChallengeScreen(picks: picks, duel: duel));
+                        },
+                        icon: const Icon(Icons.sports_kabaddi_rounded),
+                        label: const Text('بارزه'),
+                      ),
+                    if (c.isDev)
+                      OutlinedButton.icon(
+                        onPressed: () => push(context, DevChatScreen(msgs: const [], user: user)),
+                        icon: const Icon(Icons.forum_outlined),
+                        label: const Text('راسله'),
+                      ),
                   ]),
                 ],
               ]),
             ),
+            if (!mine && (c.isDev || c.can('حظر'))) ...[const SizedBox(height: 10), _moderation(context)],
             _section(context, 'اقتباساته'),
-            QuotesList(of: '${user['uid']}'),
+            QuotesList(of: uid),
           ]),
         );
       },
+    );
+  }
+}
+
+/// A list of readers (followers, following…): every name opens its page.
+class FollowListScreen extends StatelessWidget {
+  final String title;
+  final Future<List<Doc>> Function() load;
+  const FollowListScreen({super.key, required this.title, required this.load});
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AppBar(title: Text(title)),
+        body: FutureBuilder<List<Doc>>(
+          future: load(),
+          builder: (context, snap) {
+            if (snap.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
+            final list = snap.data ?? [];
+            if (list.isEmpty) return const EmptyNote(Icons.people_outline_rounded, 'لا أحد هنا بعد.');
+            return ListView(padding: const EdgeInsets.fromLTRB(16, 0, 16, 40), children: [
+              for (final u in list)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: SoftCard(
+                    padding: const EdgeInsets.all(12),
+                    onTap: () => push(context, UserScreen(user: u)),
+                    child: Row(children: [
+                      const RoundIcon(Icons.person_outline_rounded, size: 44),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text('${u['name'] ?? 'قارئ'}', style: TextStyle(fontSize: 16.5, fontWeight: FontWeight.w700, color: C.ink(context))),
+                          Text('رقمه: ${u['publicId']}', style: TextStyle(fontSize: 12.5, color: C.muted(context))),
+                        ]),
+                      ),
+                      RankBadge(_n(u['points']), small: true),
+                    ]),
+                  ),
+                ),
+            ]);
+          },
+        ),
+      );
+}
+
+/// The poets the reader follows.
+class MyPoetsScreen extends StatelessWidget {
+  const MyPoetsScreen({super.key});
+  @override
+  Widget build(BuildContext context) {
+    final names = Store.i.followed.toList()..sort();
+    return Scaffold(
+      appBar: AppBar(title: const Text('شعرائي')),
+      body: names.isEmpty
+          ? const EmptyNote(Icons.person_search_outlined, 'لم تتابع شاعراً بعد. افتح صفحة أي شاعر واضغط «متابعة».')
+          : ListView(padding: const EdgeInsets.fromLTRB(16, 0, 16, 40), children: [
+              for (final n in names) _row(context, Icons.history_edu_rounded, n, '', () => push(context, PoetScreen(name: n))),
+            ]),
+    );
+  }
+}
+
+/// «المبارزات»: the same five verses for two; the higher score wins.
+class DuelsScreen extends StatefulWidget {
+  const DuelsScreen({super.key});
+  @override
+  State<DuelsScreen> createState() => _DuelsScreenState();
+}
+
+class _DuelsScreenState extends State<DuelsScreen> {
+  Future<List<Doc>> job = Cloud.i.duels();
+
+  List<(Poem, int)> _picks(Doc d) => [
+        for (final k in d['picks'] as List? ?? [])
+          if (Library.byId[int.tryParse('$k'.split(':').first)] != null) (Library.byId[int.parse('$k'.split(':').first)]!, int.parse('$k'.split(':').last))
+      ];
+
+  /// Counts my wins once for the «الغالب» medal.
+  void _countWins(List<Doc> list) {
+    final m = Store.i.majlis;
+    final counted = [...(m['duelsCounted'] as List? ?? [])];
+    var wins = 0;
+    for (final d in list) {
+      final r = d['results'] as Map? ?? {};
+      if (r.length < 2 || counted.contains(d['id'])) continue;
+      final mine = _n((r[Cloud.i.uid] as Map?)?['r']);
+      final other = r.entries.where((e) => e.key != Cloud.i.uid).map((e) => _n((e.value as Map)['r'])).fold(0, (a, b) => a > b ? a : b);
+      counted.add(d['id']);
+      if (mine > other) wins++;
+    }
+    if (counted.length != (m['duelsCounted'] as List? ?? []).length) {
+      m['duelsCounted'] = counted.length > 200 ? counted.sublist(counted.length - 200) : counted;
+      final st = Map<String, dynamic>.from(Majlis.st);
+      st['duelWins'] = _n(st['duelWins']) + wins;
+      m['st'] = st;
+      Store.i.saveMajlis();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AppBar(title: const Text('المبارزات'), actions: [
+          IconButton(onPressed: () => setState(() => job = Cloud.i.duels()), icon: const Icon(Icons.refresh_rounded)),
+        ]),
+        body: !Cloud.i.signedIn
+            ? Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    const Text('المبارزة تحتاج حساباً، لتتحدى صديقك برقمه الشخصي.', textAlign: TextAlign.center),
+                    const SizedBox(height: 10),
+                    FilledButton(
+                      onPressed: () async {
+                        if (await needAccount(context) && mounted) setState(() => job = Cloud.i.duels());
+                      },
+                      child: const Text('ادخل بحساب جوجل'),
+                    ),
+                  ]),
+                ),
+              )
+            : FutureBuilder<List<Doc>>(
+                future: job,
+                builder: (context, snap) {
+                  if (snap.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
+                  final list = snap.data ?? [];
+                  WidgetsBinding.instance.addPostFrameCallback((_) => _countWins(list));
+                  return ListView(padding: const EdgeInsets.fromLTRB(16, 0, 16, 40), children: [
+                    SoftCard(
+                      padding: const EdgeInsets.all(14),
+                      child: Text('لتبارز صديقاً: افتح «من أتابعهم» من صفحتك، ابحث برقمه الشخصي، ثم اضغط «بارزه». تلعبان الأبيات الخمسة نفسها.', style: TextStyle(height: 1.7, color: C.ink(context))),
+                    ),
+                    const SizedBox(height: 6),
+                    TextButton.icon(onPressed: () => push(context, const FollowingScreen()), icon: const Icon(Icons.search_rounded), label: const Text('ابحث برقم شخصي')),
+                    if (list.isEmpty) const EmptyNote(Icons.sports_kabaddi_rounded, 'لا مبارزات بعد.'),
+                    for (final d in list) _card(context, d),
+                  ]);
+                },
+              ),
+      );
+
+  Widget _card(BuildContext context, Doc d) {
+    final me = Cloud.i.uid;
+    final iStarted = d['teacher'] == me;
+    final r = d['results'] as Map? ?? {};
+    final mine = r[me] as Map?;
+    final otherE = r.entries.where((e) => e.key != me).toList();
+    final other = otherE.isEmpty ? null : otherE.first.value as Map;
+    final otherName = iStarted ? '${d['oppName'] ?? 'صاحبك'}' : '${d['teacherName'] ?? 'صاحبك'}';
+    final picks = _picks(d);
+    String verdict() {
+      if (mine == null) return 'دورك: العب لترى النتيجة';
+      if (other == null) return 'لعبتَ. ننتظر $otherName';
+      final a = _n(mine['r']), b = _n(other['r']);
+      return a > b ? 'فزتَ على $otherName' : (a == b ? 'تعادلتما' : 'فاز $otherName');
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: SoftCard(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Expanded(child: Text('مع $otherName', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: C.ink(context)))),
+            Text(ago(d['at']), style: TextStyle(fontSize: 12, color: C.muted(context))),
+          ]),
+          Text(verdict(), style: TextStyle(color: C.accent(context), fontWeight: FontWeight.w700)),
+          const SizedBox(height: 8),
+          Row(children: [
+            Expanded(
+              child: Column(children: [
+                ShapeBadge(size: 64, fraction: mine == null ? 0 : _n(mine['r']) / 100, seed: '${d['id']}'.hashCode),
+                const Text('أنت'),
+              ]),
+            ),
+            Expanded(
+              child: Column(children: [
+                // The other side stays hidden until I have played.
+                ShapeBadge(size: 64, fraction: mine == null || other == null ? 0 : _n(other['r']) / 100, seed: '${d['id']}'.hashCode),
+                Text(otherName, maxLines: 1, overflow: TextOverflow.ellipsis),
+              ]),
+            ),
+          ]),
+          if (mine == null && picks.length == 5) ...[
+            const SizedBox(height: 8),
+            FilledButton(
+              onPressed: () async {
+                await Navigator.of(context).push(MaterialPageRoute(builder: (_) => ChallengeScreen(picks: picks, duel: '${d['id']}')));
+                if (mounted) setState(() => job = Cloud.i.duels());
+              },
+              child: const Text('العب المبارزة'),
+            ),
+          ],
+        ]),
+      ),
     );
   }
 }
@@ -681,8 +1061,11 @@ class _SentTestsScreenState extends State<SentTestsScreen> {
 // ------------------------------------------------------------ messages to the developer
 
 /// One conversation as bubbles: (from the developer?, text, time).
-List<(bool, String, int)> _thread(List<Doc> msgs) {
-  final out = <(bool, String, int)>[];
+List<(bool, String, int)> _thread(List<Doc> msgs, [List inbox = const []]) {
+  final out = <(bool, String, int)>[
+    // What the developer wrote first (and his warnings).
+    for (final x in inbox) (true, '${(x as Map)['text']}', _n(x['at']))
+  ];
   for (final m in msgs) {
     out.add((false, '${m['text']}', _n(m['at'])));
     final r = m['replies'];
@@ -831,9 +1214,9 @@ class _MessageDevScreenState extends State<MessageDevScreen> {
                     ? const EmptyNote(Icons.forum_outlined, 'اكتب رسالتك في الأسفل. سنطلب منك الدخول بحسابك ليصلك الرد.')
                     : msgs == null
                         ? const Center(child: CircularProgressIndicator())
-                        : msgs!.isEmpty
+                        : msgs!.isEmpty && (k.grants['inbox'] as List? ?? []).isEmpty
                             ? const EmptyNote(Icons.forum_outlined, 'لا رسائل بعد. اكتب رسالتك في الأسفل.')
-                            : _Bubbles(_thread(msgs!)),
+                            : _Bubbles(_thread(msgs!, k.grants['inbox'] as List? ?? [])),
               ),
               _ChatInput(ctl: c, busy: busy, hint: 'اكتب رسالتك', onSend: _send),
             ]),
@@ -955,7 +1338,10 @@ class _DevMessagesScreenState extends State<DevMessagesScreen> {
 /// The developer's conversation with one reader.
 class DevChatScreen extends StatefulWidget {
   final List<Doc> msgs;
-  const DevChatScreen({super.key, required this.msgs});
+
+  /// The reader's account, when the developer starts the conversation from his page.
+  final Doc? user;
+  const DevChatScreen({super.key, required this.msgs, this.user});
   @override
   State<DevChatScreen> createState() => _DevChatScreenState();
 }
@@ -963,72 +1349,239 @@ class DevChatScreen extends StatefulWidget {
 class _DevChatScreenState extends State<DevChatScreen> {
   final c = TextEditingController();
   bool busy = false;
+  late Doc? user = widget.user;
+  late List inbox = [...((widget.user?['grants'] as Map?)?['inbox'] as List? ?? [])];
+  String get name => '${user?['name'] ?? (widget.msgs.isEmpty ? 'قارئ' : widget.msgs.first['name'])}';
+  String get publicId => '${user?['publicId'] ?? (widget.msgs.isEmpty ? '' : widget.msgs.first['publicId'])}';
+
+  @override
+  void initState() {
+    super.initState();
+    if (user == null && publicId.isNotEmpty) {
+      Cloud.i.findUser(publicId).then((u) {
+        if (mounted && u != null) {
+          setState(() {
+            user = u;
+            inbox = [...((u['grants'] as Map?)?['inbox'] as List? ?? [])];
+          });
+        }
+      });
+    }
+  }
 
   Future<void> _send() async {
     final text = c.text.trim();
     if (text.isEmpty) return;
     setState(() => busy = true);
-    // The reply hangs on the reader's latest message (the list is newest first).
-    final last = widget.msgs.first;
-    final ok = await Cloud.i.reply('${last['id']}', text);
-    if (!mounted) return;
-    setState(() {
-      busy = false;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    bool ok;
+    if (widget.msgs.isNotEmpty) {
+      // The reply hangs on the reader's latest message (the list is newest first).
+      final last = widget.msgs.first;
+      ok = await Cloud.i.reply('${last['id']}', text);
       if (ok) {
         last['replies'] = [
           ...(last['replies'] as List? ?? []),
-          {'text': text, 'at': DateTime.now().millisecondsSinceEpoch}
+          {'text': text, 'at': now}
         ];
-        c.clear();
       }
+    } else {
+      ok = user != null && await Cloud.i.inboxSend('${user!['uid']}', text);
+      if (ok) inbox.add({'text': text, 'at': now});
+    }
+    if (!mounted) return;
+    setState(() {
+      busy = false;
+      if (ok) c.clear();
     });
     if (!ok) toast(context, 'تعذّر الإرسال');
   }
 
   @override
-  Widget build(BuildContext context) {
-    final first = widget.msgs.first;
-    return Scaffold(
-      appBar: AppBar(
-        title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('${first['name']}'),
-          Text('رقمه: ${first['publicId']}', style: TextStyle(fontSize: 12.5, color: C.muted(context))),
-        ]),
-        actions: [
-          IconButton(tooltip: 'صفحته', onPressed: () => _openUser(context, '${first['publicId']}'), icon: const Icon(Icons.badge_outlined)),
-          IconButton(
-            tooltip: 'احذف المحادثة',
-            icon: const Icon(Icons.delete_outline_rounded),
-            onPressed: () => showDialog(
-              context: context,
-              builder: (d) => AlertDialog(
-                title: const Text('حذف المحادثة كلها؟'),
-                content: const Text('تُحذف رسائله وردودك، ولا يمكن التراجع.'),
-                actions: [
-                  TextButton(onPressed: () => Navigator.pop(d), child: const Text('إلغاء')),
-                  FilledButton(
-                    style: FilledButton.styleFrom(backgroundColor: const Color(0xFFB3261E)),
-                    onPressed: () async {
-                      Navigator.pop(d);
-                      for (final m in widget.msgs) {
-                        await Cloud.i.deleteMessage('${m['id']}');
-                      }
-                      if (context.mounted) Navigator.pop(context);
-                    },
-                    child: const Text('احذف'),
-                  ),
-                ],
-              ),
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AppBar(
+          title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(name),
+            Text('رقمه: $publicId', style: TextStyle(fontSize: 12.5, color: C.muted(context))),
+          ]),
+          actions: [
+            IconButton(
+              tooltip: 'صفحته',
+              onPressed: () => user != null ? push(context, UserScreen(user: user!)) : _openUser(context, publicId),
+              icon: const Icon(Icons.badge_outlined),
             ),
+            if (widget.msgs.isNotEmpty)
+              IconButton(
+                tooltip: 'احذف المحادثة',
+                icon: const Icon(Icons.delete_outline_rounded),
+                onPressed: () => showDialog(
+                  context: context,
+                  builder: (d) => AlertDialog(
+                    title: const Text('حذف المحادثة كلها؟'),
+                    content: const Text('تُحذف رسائله وردودك، ولا يمكن التراجع.'),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(d), child: const Text('إلغاء')),
+                      FilledButton(
+                        style: FilledButton.styleFrom(backgroundColor: const Color(0xFFB3261E)),
+                        onPressed: () async {
+                          Navigator.pop(d);
+                          for (final m in widget.msgs) {
+                            await Cloud.i.deleteMessage('${m['id']}');
+                          }
+                          if (context.mounted) Navigator.pop(context);
+                        },
+                        child: const Text('احذف'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
+        body: Column(children: [
+          Expanded(
+            child: widget.msgs.isEmpty && inbox.isEmpty
+                ? const EmptyNote(Icons.forum_outlined, 'اكتب له أول رسالة. تصله في «راسل المطوّر».')
+                : _Bubbles(_thread(widget.msgs, inbox), dev: true),
           ),
-        ],
-      ),
-      body: Column(children: [
-        Expanded(child: _Bubbles(_thread(widget.msgs), dev: true)),
-        _ChatInput(ctl: c, busy: busy, hint: 'اكتب ردّك', onSend: _send),
-      ]),
-    );
-  }
+          _ChatInput(ctl: c, busy: busy, hint: 'اكتب رسالتك له', onSend: _send),
+        ]),
+      );
+}
+
+/// The developer and supervisors: banned, suspended and warned readers.
+class ModerationScreen extends StatefulWidget {
+  const ModerationScreen({super.key});
+  @override
+  State<ModerationScreen> createState() => _ModerationScreenState();
+}
+
+class _ModerationScreenState extends State<ModerationScreen> {
+  int tab = 0;
+  late Future<List<Doc>> job = Cloud.i.flagged(0);
+  void _load() => setState(() => job = Cloud.i.flagged(tab));
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AppBar(title: const Text('المخالفون'), actions: [IconButton(onPressed: _load, icon: const Icon(Icons.refresh_rounded))]),
+        body: !Cloud.i.can('حظر')
+            ? const EmptyNote(Icons.lock_outline_rounded, 'هذه القائمة للمطوّر ومشرفي الحظر.')
+            : Column(children: [
+                SegmentedButton<int>(
+                  showSelectedIcon: false,
+                  segments: const [
+                    ButtonSegment(value: 0, label: Text('المحظورون')),
+                    ButtonSegment(value: 1, label: Text('الموقوفون مؤقتاً')),
+                    ButtonSegment(value: 2, label: Text('المنذَرون')),
+                  ],
+                  selected: {tab},
+                  onSelectionChanged: (v) {
+                    tab = v.first;
+                    _load();
+                  },
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                  child: Text('افتح أي اسم لترى متى ولماذا، ولتنذره أو توقفه أو تحظر حسابه أو هاتفه، أو ترفع ذلك. والمحظور يستطيع مراسلتك للمراجعة ما لم تمنعه.',
+                      style: TextStyle(fontSize: 13.5, height: 1.6, color: C.muted(context))),
+                ),
+                Expanded(
+                  child: FutureBuilder<List<Doc>>(
+                    future: job,
+                    builder: (context, snap) {
+                      if (snap.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
+                      final list = snap.data ?? [];
+                      if (list.isEmpty) return const EmptyNote(Icons.verified_user_outlined, 'لا أحد في هذه القائمة.');
+                      return ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 40), children: [
+                        for (final u in list)
+                          _row(
+                            context,
+                            tab == 0 ? Icons.block_rounded : (tab == 1 ? Icons.timer_outlined : Icons.warning_amber_rounded),
+                            '${u['name']} · ${u['publicId']}',
+                            tab == 2
+                                ? '${Ar.num(_n((u['grants'] as Map?)?['nWarn']))} إنذاراً · آخرها: ${((u['grants'] as Map?)?['warns'] as List? ?? [{}]).last['text'] ?? ''}'
+                                : '${ago((u['grants'] as Map?)?['at'])} · السبب: ${(u['grants'] as Map?)?['reason'] ?? 'لم يُذكر'}',
+                            () async {
+                              await Navigator.of(context).push(MaterialPageRoute(builder: (_) => UserScreen(user: u)));
+                              _load();
+                            },
+                          ),
+                      ]);
+                    },
+                  ),
+                ),
+              ]),
+      );
+}
+
+/// The developer adds supervisors by email and chooses what each may do.
+class ModsScreen extends StatelessWidget {
+  const ModsScreen({super.key});
+  static const perms = ['حظر', 'رسائل', 'مراجعة', 'توثيق'];
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+        listenable: Cloud.i,
+        builder: (context, _) {
+          final mods = Cloud.i.mods;
+          return Scaffold(
+            appBar: AppBar(title: const Text('المشرفون')),
+            floatingActionButton: FloatingActionButton.extended(
+              onPressed: () {
+                final t = TextEditingController();
+                showDialog(
+                  context: context,
+                  builder: (d) => AlertDialog(
+                    title: const Text('بريد المشرف (حساب جوجل)'),
+                    content: TextField(controller: t, keyboardType: TextInputType.emailAddress, textDirection: TextDirection.ltr, decoration: const InputDecoration(hintText: 'name@gmail.com')),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(d), child: const Text('إلغاء')),
+                      FilledButton(
+                        onPressed: () {
+                          if (t.text.contains('@')) Cloud.i.setMod(t.text, const []);
+                          Navigator.pop(d);
+                        },
+                        child: const Text('أضف'),
+                      ),
+                    ],
+                  ),
+                );
+              },
+              icon: const Icon(Icons.person_add_alt_rounded),
+              label: const Text('أضف مشرفاً'),
+            ),
+            body: ListView(padding: const EdgeInsets.fromLTRB(16, 0, 16, 100), children: [
+              Text('أضف بريد المشرف ثم اختر صلاحياته. تظهر له الأزرار في التطبيق حين يدخل بذلك البريد. تنفيذها على الخادم ينتظر نشر القواعد الجديدة من اللابتوب.',
+                  style: TextStyle(color: C.muted(context), height: 1.6)),
+              const SizedBox(height: 10),
+              if (mods.isEmpty) const EmptyNote(Icons.admin_panel_settings_outlined, 'لا مشرفين بعد.'),
+              for (final e in mods.entries)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: SoftCard(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Row(children: [
+                        Expanded(child: Text(e.key, textDirection: TextDirection.ltr, style: TextStyle(fontWeight: FontWeight.w700, color: C.ink(context)))),
+                        IconButton(onPressed: () => Cloud.i.setMod(e.key, null), icon: const Icon(Icons.delete_outline_rounded)),
+                      ]),
+                      Wrap(spacing: 6, children: [
+                        for (final p in perms)
+                          FilterChip(
+                            label: Text(p),
+                            selected: (e.value as List).contains(p),
+                            onSelected: (on) {
+                              final l = [for (final x in e.value as List) '$x'];
+                              on ? l.add(p) : l.remove(p);
+                              Cloud.i.setMod(e.key, l);
+                            },
+                          ),
+                      ]),
+                    ]),
+                  ),
+                ),
+            ]),
+          );
+        },
+      );
 }
 
 class DevReportsScreen extends StatelessWidget {
@@ -1268,5 +1821,25 @@ class _StatsScreenState extends State<StatsScreen> {
             ]),
           ),
         ]),
+      );
+}
+
+/// Shown instead of the app when the developer banned this phone.
+class BlockedScreen extends StatelessWidget {
+  const BlockedScreen({super.key});
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(28),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              const Icon(Icons.block_rounded, size: 64, color: Color(0xFFB3261E)),
+              const SizedBox(height: 14),
+              const Text('حُظر هذا الجهاز من «منتقيات الشعر»', textAlign: TextAlign.center, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 8),
+              Text('إن رأيت أن الحظر خطأ فراسل المطوّر في تيليجرام: t.me/alhsaar4', textAlign: TextAlign.center, style: TextStyle(height: 1.7, color: C.muted(context))),
+            ]),
+          ),
+        ),
       );
 }

@@ -311,6 +311,37 @@ class Store extends ChangeNotifier {
   int themeMode = 0; // 0 = phone, 1 = light, 2 = dark
   double fontScale = 1.0;
   bool tashkeel = true;
+
+  /// Switches the developer sets for everyone (daily tasks, duel, Friday round, poet of the week…). On unless turned off.
+  Map<String, bool> features = {};
+  bool feature(String k) => features[k] ?? true;
+  void setFeature(String k, bool v) {
+    features[k] = v;
+    _p.setString('features', jsonEncode(features));
+    notifyListeners();
+    cloudPush?.call();
+  }
+
+  /// Set by the cloud service: a subscriber has no limit on collections.
+  static bool plusUser = false;
+  static const freeCollections = 2, freeCollectionSize = 600;
+
+  /// What follows the account from one phone to another.
+  static const _backupKeys = ['likes', 'followed', 'collections', 'memorized', 'memLog', 'reviewed', 'myNotes', 'majlis', 'seen', 'days', 'reads', 'best', 'certName', 'students', 'studentNames', 'testLog'];
+  Map<String, dynamic> exportAll() => {
+        for (final k in _backupKeys)
+          if (_p.get(k) != null) k: _p.get(k)
+      };
+  Future<void> importAll(Map<String, dynamic> m) async {
+    for (final k in _backupKeys) {
+      final v = m[k];
+      if (v is String) await _p.setString(k, v);
+      if (v is List) await _p.setStringList(k, [for (final x in v) '$x']);
+    }
+    await load();
+    Library.refresh();
+    notifyListeners();
+  }
   bool developer = false;
   bool morning = false;
   int morningHour = 7;
@@ -349,6 +380,11 @@ class Store extends ChangeNotifier {
     themeMode = _p.getInt('themeMode') ?? 0;
     fontScale = _p.getDouble('fontScale') ?? 1.0;
     tashkeel = _p.getBool('tashkeel') ?? true;
+    try {
+      features = Map<String, bool>.from(jsonDecode(_p.getString('features') ?? '{}') as Map);
+    } catch (_) {
+      features = {};
+    }
     developer = _p.getBool('developer') ?? false;
     morning = _p.getBool('morning') ?? false;
     morningHour = _p.getInt('morningHour') ?? 7;
@@ -418,7 +454,11 @@ class Store extends ChangeNotifier {
 
   void _saveCollections() => _p.setString('collections', jsonEncode(collections));
 
+  /// False when the free limit (two collections) is reached.
+  bool get canCreateCollection => plusUser || collections.length < freeCollections;
+
   void createCollection(String name) {
+    if (!collections.containsKey(name) && !canCreateCollection) return;
     collections.putIfAbsent(name, () => []);
     _saveCollections();
     notifyListeners();
@@ -431,7 +471,9 @@ class Store extends ChangeNotifier {
   }
 
   void toggleIn(String name, int id) {
+    if (!collections.containsKey(name) && !canCreateCollection) return;
     final l = collections.putIfAbsent(name, () => []);
+    if (!l.contains(id) && !plusUser && l.length >= freeCollectionSize) return;
     l.contains(id) ? l.remove(id) : l.add(id);
     _saveCollections();
     notifyListeners();
@@ -583,7 +625,14 @@ class Store extends ChangeNotifier {
   }
 
   /// What the developer set for everyone (marks, subscription switch, explanations).
-  void applyCloud({List<String>? verified, List<String>? hidden, List<String>? deleted, bool? plus, String? payLink, Map<String, dynamic>? shuruh}) {
+  void applyCloud({List<String>? verified, List<String>? hidden, List<String>? deleted, bool? plus, String? payLink, Map<String, dynamic>? shuruh, Map<String, dynamic>? features}) {
+    if (features != null) {
+      this.features = {
+        for (final e in features.entries)
+          if (e.value is bool) e.key: e.value as bool
+      };
+      _p.setString('features', jsonEncode(this.features));
+    }
     if (verified != null) {
       this.verified = verified.toSet();
       _p.setStringList('verified', verified);

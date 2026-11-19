@@ -132,7 +132,12 @@ class CollectionsScreen extends StatelessWidget {
             floatingActionButton: FloatingActionButton.extended(
               onPressed: () async {
                 final n = await askName(context, 'مجموعة جديدة', 'مثلاً: للحفظ');
-                if (n != null) Store.i.createCollection(n);
+                if (n == null) return;
+                if (!Store.i.canCreateCollection) {
+                  if (context.mounted) toast(context, 'المجاني مجموعتان، وفي كل واحدة ٦٠٠ مقطع. المشترك بلا حد.');
+                  return;
+                }
+                Store.i.createCollection(n);
               },
               icon: const Icon(Icons.add_rounded),
               label: const Text('مجموعة جديدة'),
@@ -346,7 +351,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 },
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 18),
-                  child: Center(child: Text('منتقيات الشعر — الإصدار ١٫٦', style: TextStyle(color: C.muted(context)))),
+                  child: Center(child: Text('منتقيات الشعر — الإصدار ١٫٧', style: TextStyle(color: C.muted(context)))),
                 ),
               ),
             ]),

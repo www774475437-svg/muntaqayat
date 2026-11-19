@@ -519,6 +519,8 @@ class DeveloperHub extends StatelessWidget {
             _row(context, Icons.auto_stories_outlined, 'طلبات تصميم الكتب', 'من دفع ٢٠ دولاراً للتصميم', () => push(context, const DevOrdersScreen())),
             _row(context, Icons.mark_email_unread_outlined, 'الرسائل', 'رسائل المستخدمين وطلبات الاختبارات', () => push(context, const DevMessagesScreen())),
             _row(context, Icons.flag_outlined, 'البلاغات', 'الأسماء والمنشورات المبلّغ عنها، والحظر', () => push(context, const DevReportsScreen())),
+            _row(context, Icons.gpp_bad_outlined, 'المخالفون', 'المحظورون والموقوفون مؤقتاً والمنذَرون', () => push(context, const ModerationScreen())),
+            _row(context, Icons.admin_panel_settings_outlined, 'المشرفون', 'أضف مشرفين ببريدهم وحدّد صلاحياتهم', () => push(context, const ModsScreen())),
             _row(context, Icons.link_rounded, 'رابط الدفع لتصميم الكتاب', Store.i.payLink.isEmpty ? 'لم يُضف بعد: زر الدفع يفتح المعاينة' : Store.i.payLink, () {
               final t = TextEditingController(text: Store.i.payLink);
               showDialog(
@@ -539,6 +541,10 @@ class DeveloperHub extends StatelessWidget {
                 ),
               );
             }),
+            const Divider(height: 28),
+            Text('مجلس الشعر: شغّل وأوقف', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: C.accent(context))),
+            for (final (k, t) in const [('tasks', 'المهام اليومية'), ('duel', 'المبارزة'), ('friday', 'جولة الجمعة المضاعفة'), ('weekly', 'شاعر الأسبوع')])
+              SwitchListTile(contentPadding: EdgeInsets.zero, dense: true, value: Store.i.feature(k), onChanged: (v) => Store.i.setFeature(k, v), title: Text(t, style: const TextStyle(fontSize: 16))),
             const Divider(height: 28),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
