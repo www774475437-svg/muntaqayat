@@ -8,6 +8,7 @@ import 'package:share_plus/share_plus.dart';
 import '../data.dart';
 import '../main.dart';
 import '../ui.dart';
+import 'extras.dart';
 import 'plus.dart';
 import 'lists.dart';
 
@@ -131,7 +132,7 @@ class _PoemScreenState extends State<PoemScreen> {
                   ),
                   IconButton(
                     tooltip: 'نسخ المقطع كاملاً',
-                    onPressed: () => copySheet(context, p.lines),
+                    onPressed: () => copySheet(context, p.shown),
                     icon: Icon(Icons.copy_all_rounded, color: C.ink(context)),
                   ),
                   IconButton(onPressed: () => shareSheet(context, p, p.firstVerse), icon: Icon(Icons.ios_share_rounded, color: C.ink(context))),
@@ -159,10 +160,12 @@ class _PoemScreenState extends State<PoemScreen> {
               Text(Ar.verses(p.verseCount), style: TextStyle(fontSize: 15.5, color: C.muted(context))),
               const SizedBox(height: 4),
               Text(meta, style: TextStyle(fontSize: 14.5, color: C.muted(context), height: 1.5)),
-              if (p.status.isNotEmpty || p.src == 'add')
+
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
                   child: Wrap(spacing: 6, runSpacing: 6, children: [
+                    if (p.fromBook) const MarkBadge.book(),
+                    if (p.anyVerified) const MarkBadge.verified(),
                     if (p.status.isNotEmpty) StatusBadge(p.status),
                     if (p.src == 'add') const Tag('من خارج الكتاب'),
                   ]),
@@ -192,23 +195,44 @@ class _PoemScreenState extends State<PoemScreen> {
           SelectionArea(
             child: Column(children: [
               for (var i = 0; i < p.lines.length; i++)
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () => _verseActions(context, p.lines[i]),
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(18, 10, 6, 14),
-                    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Expanded(child: VerseLines(p.lines[i], size: 27, number: p.lines.length > 1 ? i + 1 : null)),
-                      if (Store.i.developer) VerifyButton('p:${p.id}:${i + 1}', what: 'هذا البيت'),
-                      IconButton(
-                        tooltip: 'نسخ البيت',
-                        visualDensity: VisualDensity.compact,
-                        onPressed: () => copySheet(context, [p.lines[i]]),
-                        icon: Icon(Icons.copy_rounded, size: 18, color: C.muted(context)),
+                if (!p.deletedVerse(i + 1) && (!p.hiddenVerse(i + 1) || Store.i.developer))
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => _verseActions(context, p.lines[i]),
+                    child: Opacity(
+                      opacity: p.hiddenVerse(i + 1) ? 0.4 : 1,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(18, 10, 6, 14),
+                        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Expanded(child: VerseLines(p.lines[i], size: 27, number: p.lines.length > 1 ? i + 1 : null)),
+                          if (!Store.i.developer && p.verifiedVerse(i + 1))
+                            const Padding(
+                              padding: EdgeInsets.only(top: 10),
+                              child: Tooltip(message: 'بيت موثّق', child: Icon(Icons.verified_rounded, size: 19, color: verifiedBlue)),
+                            ),
+                          if (Store.i.developer) ...[
+                            VerifyButton('p:${p.id}:${i + 1}', what: 'هذا البيت'),
+                            IconButton(
+                              tooltip: p.hiddenVerse(i + 1) ? 'إظهار البيت' : 'إخفاء البيت',
+                              visualDensity: VisualDensity.compact,
+                              onPressed: () {
+                                final h = !p.hiddenVerse(i + 1);
+                                Store.i.setHidden('p:${p.id}:${i + 1}', h);
+                                toast(context, h ? 'أُخفي البيت عن القرّاء' : 'عاد البيت ظاهراً');
+                              },
+                              icon: Icon(p.hiddenVerse(i + 1) ? Icons.visibility_off_rounded : Icons.visibility_outlined, size: 19, color: C.muted(context)),
+                            ),
+                          ],
+                          IconButton(
+                            tooltip: 'نسخ البيت',
+                            visualDensity: VisualDensity.compact,
+                            onPressed: () => copySheet(context, [p.lines[i]]),
+                            icon: Icon(Icons.copy_rounded, size: 18, color: C.muted(context)),
+                          ),
+                        ]),
                       ),
-                    ]),
+                    ),
                   ),
-                ),
             ]),
           ),
           if (p.lines.length > 1)
@@ -216,9 +240,9 @@ class _PoemScreenState extends State<PoemScreen> {
               padding: const EdgeInsets.fromLTRB(18, 4, 18, 0),
               child: OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 13)),
-                onPressed: () => copySheet(context, p.lines),
+                onPressed: () => copySheet(context, p.shown),
                 icon: const Icon(Icons.copy_all_rounded),
-                label: Text('نسخ الأبيات كلها (${Ar.verses(p.lines.length)})', style: const TextStyle(fontSize: 16)),
+                label: Text('نسخ الأبيات كلها (${Ar.verses(p.shown.length)})', style: const TextStyle(fontSize: 16)),
               ),
             ),
           Padding(
@@ -286,13 +310,21 @@ class _PoemScreenState extends State<PoemScreen> {
       builder: (c) => SafeArea(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Padding(padding: const EdgeInsets.fromLTRB(22, 0, 22, 12), child: VerseLines(line, size: 21)),
+          ListTile(
+            leading: const Icon(Icons.translate_rounded),
+            title: const Text('معاني كلمات البيت'),
+            onTap: () {
+              Navigator.pop(c);
+              wordMeanings(context, line);
+            },
+          ),
           if (p.lines.length > 1)
             ListTile(
               leading: const Icon(Icons.copy_all_rounded),
               title: Text('نسخ المقطع كاملاً (${Ar.verses(p.lines.length)})'),
               onTap: () {
                 Navigator.pop(c);
-                copySheet(context, p.lines);
+                copySheet(context, p.shown);
               },
             ),
           ListTile(
@@ -383,10 +415,10 @@ class _PoemScreenState extends State<PoemScreen> {
                       child: SingleChildScrollView(
                         padding: const EdgeInsets.symmetric(vertical: 10),
                         child: Column(mainAxisSize: MainAxisSize.min, children: [
-                          row(Icons.copy_all_rounded, 'نسخ المقطع كاملاً', () => copySheet(context, p.lines)),
+                          row(Icons.copy_all_rounded, 'نسخ المقطع كاملاً', () => copySheet(context, p.shown)),
                           row(Icons.check_circle_outline_rounded, 'تحديد الأبيات', () => toast(context, 'اضغط مطوّلاً على البيت ثم اسحب لتحديد ما تريد')),
                           row(Icons.image_outlined, 'مشاركة صورة', () => shareSheet(context, p, p.firstVerse)),
-                          row(Icons.link_rounded, 'مشاركة الرابط', () => Share.share('${formatVerses(p.lines)}\n\n${poemLink(p)}')),
+                          row(Icons.link_rounded, 'مشاركة الرابط', () => Share.share('${formatVerses(p.shown)}\n\n${poemLink(p)}')),
                           line(),
                           row(Icons.edit_note_rounded, note.isEmpty ? 'إضافة ملاحظة على المقطع' : 'ملاحظتك على المقطع', () => _note(context)),
                           if (cols.isEmpty)

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../data.dart';
 import '../main.dart';
 import '../ui.dart';
+import 'extras.dart';
 import 'lists.dart';
 import 'majlis.dart';
 import 'games.dart';
@@ -105,6 +106,38 @@ class BrowseScreen extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: _pick(context, Icons.mosque_outlined, 'ديوان العلماء والصحابة', 'ابن القيم، ابن تيمية، الشافعي، الخنساء، حسان…',
               () => push(context, const ChaptersScreen(section: 2))),
+        ),
+        const SizedBox(height: 12),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(children: [
+            Expanded(child: _pick(context, Icons.menu_book_rounded, 'أبيات الكتاب', 'العلامة الخضراء · ${Ar.num(Library.bookPoems.length)}', () => openList(context, 'أبيات الكتاب', Library.bookPoems, subtitle: 'كل ما في كتاب «منتقيات شعرية»'))),
+            const SizedBox(width: 12),
+            Expanded(child: _pick(context, Icons.verified_rounded, 'الأبيات الموثّقة', 'العلامة الزرقاء · ${Ar.num(Library.verifiedPoems.length)}', () => openList(context, 'الأبيات الموثّقة', Library.verifiedPoems, subtitle: 'ما وثّقه المطوّر بيتاً بيتاً'))),
+          ]),
+        ),
+        const SizedBox(height: 12),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(children: [
+            Expanded(child: _pick(context, Icons.format_quote_rounded, 'أمثال من الشعر', 'أكثر من ألفَي بيت سائر', () => push(context, const AmthalScreen()))),
+            const SizedBox(width: 12),
+            Expanded(child: _pick(context, Icons.short_text_rounded, 'حِكَم قصيرة', 'بيت واحد لحالتك', () => push(context, const HikamScreen()))),
+          ]),
+        ),
+        const SizedBox(height: 12),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(children: [
+            Expanded(child: _pick(context, Icons.auto_stories_outlined, 'قصائد لها قصة', 'سبب القصيدة وخبرها', () => push(context, const StoriesScreen()))),
+            const SizedBox(width: 12),
+            Expanded(child: _pick(context, Icons.timeline_rounded, 'رحلة العصور', 'من الجاهلي إلى الحديث', () => push(context, const ErasJourneyScreen()))),
+          ]),
+        ),
+        const SizedBox(height: 12),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: _pick(context, Icons.forum_outlined, 'بيت وجوابه', 'المعارضات والنقائض بين الشعراء', () => push(context, const AnswersScreen())),
         ),
         const SizedBox(height: 12),
         Padding(

@@ -22,9 +22,63 @@ class Majlis {
 
   static List<Poem> get pool => Library.poems.where((p) => p.poet != 'بلا نسبة' && p.lines.isNotEmpty && p.lines.first.length == 2).toList();
 
-  static Poem poemOf(int day) {
-    final c = pool;
-    return c[(day * 7919) % c.length];
+  static final _punct = RegExp(r'[؟?!.،,:؛«»"()\[\]…*]');
+  static String clean(String s) => s.replaceAll(_punct, '').replaceAll(RegExp(r'\s+'), ' ').trim();
+
+  /// Five verses never asked before, each from a different selection (and poet when possible).
+  /// When every verse in the app has been asked, a new round starts.
+  static List<(Poem, int)> pick([int n = 5]) {
+    final rnd = Random();
+    List<(Poem, int)> free() {
+      final seen = Store.i.seen.toSet();
+      return [
+        for (final p in pool)
+          for (var i = 0; i < p.lines.length; i++)
+            if (p.lines[i].length == 2 && !p.gone(i + 1) && clean(p.lines[i][1]).split(' ').length >= 2 && !seen.contains('${p.id}:$i')) (p, i)
+      ];
+    }
+
+    var c = free();
+    var reset = false;
+    if (c.length < n) {
+      Store.i.seen = [];
+      reset = true;
+      c = free();
+    }
+    c.shuffle(rnd);
+    final out = <(Poem, int)>[];
+    final poems = <int>{}, poets = <String>{};
+    for (final pass in [0, 1]) {
+      for (final x in c) {
+        if (out.length == n) break;
+        if (poems.contains(x.$1.id)) continue;
+        if (pass == 0 && poets.contains(x.$1.poet)) continue;
+        out.add(x);
+        poems.add(x.$1.id);
+        poets.add(x.$1.poet);
+      }
+    }
+    Store.i.markSeen([for (final x in out) '${x.$1.id}:${x.$2}'], reset: reset);
+    return out;
+  }
+
+  /// Today's five verses: chosen once, the same if the reader comes back the same day.
+  static List<(Poem, int)> todayPicks() {
+    final t = Store.i.majlis['today'];
+    if (t is Map && t['day'] == Store.today) {
+      final out = <(Poem, int)>[
+        for (final x in t['picks'] as List)
+          if (Library.byId[((x as List)[0] as num).toInt()] != null) (Library.byId[(x[0] as num).toInt()]!, (x[1] as num).toInt())
+      ];
+      if (out.length == 5) return out;
+    }
+    final out = pick();
+    Store.i.majlis['today'] = {
+      'day': Store.today,
+      'picks': [for (final x in out) [x.$1.id, x.$2]]
+    };
+    Store.i.saveMajlis();
+    return out;
   }
 
   static Map<String, dynamic> get _days => (Store.i.majlis['days'] as Map<String, dynamic>?) ?? {};
@@ -111,7 +165,7 @@ class MajlisCard extends StatelessWidget {
             Text('مجلس الشعر', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700, color: C.ink(context))),
             const SizedBox(height: 2),
             Text(
-              done == null ? 'تحدّي اليوم ينتظرك: خمس مراحل على بيت واحد.' : 'أتممت تحدّي اليوم: ${Ar.num(done[0])} من ${Ar.num(Majlis.maxPoints)}. يتجدد غداً.',
+              done == null ? 'تحدّي اليوم ينتظرك: خمس مراحل بخمسة أبيات.' : 'أتممت تحدّي اليوم: ${Ar.num(done[0])} من ${Ar.num(Majlis.maxPoints)}. يتجدد غداً.',
               style: TextStyle(fontSize: 14.5, height: 1.5, color: C.muted(context)),
             ),
             const SizedBox(height: 2),
@@ -193,7 +247,7 @@ class MajlisScreen extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               SoftCard(
-                onTap: done == null ? () => push(context, ChallengeScreen(poem: Majlis.poemOf(today), day: today)) : null,
+                onTap: done == null ? () => push(context, ChallengeScreen(picks: Majlis.todayPicks(), day: today)) : null,
                 child: Row(children: [
                   Leaf(size: 56, letter: done == null ? '؟' : null, points: done?[0]),
                   const SizedBox(width: 14),
@@ -201,12 +255,12 @@ class MajlisScreen extends StatelessWidget {
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text('تحدّي اليوم', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: C.ink(context))),
                       Text(
-                        done == null ? 'خمس مراحل: اللمحة، أكمل الشطر، القافية، الباب، القائل. لكل مرحلة ثلاث محاولات.' : 'أتممته اليوم، وورقته في ديوانك. يتجدد غداً.',
+                        done == null ? 'خمس مراحل، ولكل مرحلة بيت جديد لشاعر آخر، وثلاث محاولات. لا يتكرر بيت حتى تنتهي أبيات التطبيق.' : 'أتممته اليوم، وورقته في ديوانك. يتجدد غداً.',
                         style: TextStyle(fontSize: 14.5, height: 1.5, color: C.muted(context)),
                       ),
                     ]),
                   ),
-                  if (done == null) FilledButton(onPressed: () => push(context, ChallengeScreen(poem: Majlis.poemOf(today), day: today)), child: const Text('ابدأ')),
+                  if (done == null) FilledButton(onPressed: () => push(context, ChallengeScreen(picks: Majlis.todayPicks(), day: today)), child: const Text('ابدأ')),
                 ]),
               ),
               const SizedBox(height: 10),
@@ -227,10 +281,7 @@ class MajlisScreen extends StatelessWidget {
                 Expanded(
                   child: SoftCard(
                     padding: const EdgeInsets.all(14),
-                    onTap: () {
-                      final c = Majlis.pool;
-                      push(context, ChallengeScreen(poem: c[Random().nextInt(c.length)]));
-                    },
+                    onTap: () => push(context, ChallengeScreen(picks: Majlis.pick())),
                     child: Column(children: [
                       Icon(Icons.fitness_center_rounded, color: C.accent(context), size: 30),
                       const SizedBox(height: 4),
@@ -267,16 +318,21 @@ class MajlisScreen extends StatelessWidget {
 // ------------------------------------------------------------ the challenge
 
 class ChallengeScreen extends StatefulWidget {
-  final Poem poem;
+  final List<(Poem, int)> picks; // one verse per stage
   final int? day; // null = practice round
-  const ChallengeScreen({super.key, required this.poem, this.day});
+  const ChallengeScreen({super.key, required this.picks, this.day});
   @override
   State<ChallengeScreen> createState() => _ChallengeScreenState();
 }
 
 class _ChallengeScreenState extends State<ChallengeScreen> {
-  late final Random rnd = Random(widget.day ?? DateTime.now().microsecondsSinceEpoch);
-  Poem get p => widget.poem;
+  final Random rnd = Random();
+  Poem poemAt(int i) => widget.picks[i % widget.picks.length].$1;
+  List<String> verseAt(int i) {
+    final x = widget.picks[i % widget.picks.length];
+    return x.$1.lines[x.$2];
+  }
+
   int stage = 0;
   int tries = 3;
   bool hinted = false;
@@ -285,7 +341,7 @@ class _ChallengeScreenState extends State<ChallengeScreen> {
   final removed = <String>{};
 
   // stage 0 — the glance
-  late final List<String> words = p.lines.first.join(' ').split(' ').where((w) => w.isNotEmpty).toList();
+  late final List<String> words = Majlis.clean(verseAt(0).join(' ')).split(' ').where((w) => w.isNotEmpty).toList();
   late List<int> shuffled;
   final placed = <int>[];
   bool showing = true;
@@ -294,22 +350,26 @@ class _ChallengeScreenState extends State<ChallengeScreen> {
   double left = 1;
 
   // options of the other stages
-  late final List<String> lineB = p.lines.length > 1 ? p.lines[1] : p.lines.first;
-  late final List<String> optHalf = _options(lineB[1], [for (final q in _similar()) q.lines.first[1]]);
-  late final String lastWord = p.lines.first[1].trim().split(' ').last;
-  late final List<String> optRhyme = _options(lastWord, [for (final q in _similar()) q.lines.first[1].trim().split(' ').last]);
-  late final List<String> optChapter = _options(p.chapterName, [for (final c in Library.chapters) c.name]);
-  late final List<String> optPoet = _options(p.poet, [for (final x in Library.namedPoets) x.name]);
+  late final String halfAnswer = Majlis.clean(verseAt(1)[1]);
+  late final List<String> optHalf = _options(halfAnswer, [for (final q in _similar(1)) Majlis.clean(q.lines.first.last)], const []);
+  late final List<String> rhymeWords = Majlis.clean(verseAt(2)[1]).split(' ');
+  late final String lastWord = rhymeWords.last;
+  late final List<String> optRhyme =
+      _options(lastWord, [for (final q in _similar(2)) Majlis.clean(q.lines.first.last).split(' ').last], Majlis.clean(verseAt(2).join(' ')).split(' '));
+  late final List<String> optChapter = _options(poemAt(3).chapterName, [for (final c in Library.chapters) c.name]..shuffle(rnd), const []);
+  late final List<String> optPoet = _options(poemAt(4).poet, [for (final x in Library.namedPoets) x.name]..shuffle(rnd), const []);
 
-  List<Poem> _similar() {
+  List<Poem> _similar(int i) {
+    final p = poemAt(i);
     final same = Majlis.pool.where((q) => q.id != p.id && q.rhyme == p.rhyme && q.rhyme.isNotEmpty).toList();
     final rest = Majlis.pool.where((q) => q.id != p.id).toList()..shuffle(rnd);
     return [...(same..shuffle(rnd)), ...rest];
   }
 
-  List<String> _options(String answer, List<String> others) {
+  /// The answer plus three wrong choices: no duplicates, and never a word already shown in the verse.
+  List<String> _options(String answer, List<String> others, List<String> shownWords) {
     final out = <String>[answer];
-    final seen = {Ar.plain(answer)};
+    final seen = {Ar.plain(answer), for (final w in shownWords) Ar.plain(w)};
     for (final o in others) {
       if (out.length == 4) break;
       if (o.trim().isEmpty || !seen.add(Ar.plain(o))) continue;
@@ -375,8 +435,8 @@ class _ChallengeScreenState extends State<ChallengeScreen> {
   void _next() {
     if (stage == Majlis.stages.length - 1) {
       final sum = points.fold(0, (a, b) => a + b);
-      if (widget.day != null) Majlis.record(widget.day!, sum, p.id);
-      Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => ResultScreen(poem: p, points: List.of(points), daily: widget.day != null)));
+      if (widget.day != null) Majlis.record(widget.day!, sum, poemAt(0).id);
+      Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => ResultScreen(picks: widget.picks, points: List.of(points), daily: widget.day != null)));
       return;
     }
     setState(() {
@@ -401,11 +461,11 @@ class _ChallengeScreenState extends State<ChallengeScreen> {
   Widget build(BuildContext context) {
     final body = switch (stage) {
       0 => _glance(context),
-      1 => _choice(context, 'أكمل الشطر', 'اختر الشطر الثاني الصحيح.', [lineB[0], '……'], optHalf, lineB[1], verse: true),
+      1 => _choice(context, 'أكمل الشطر', 'اختر الشطر الثاني الصحيح.', [verseAt(1)[0], '……'], optHalf, halfAnswer, verse: true),
       2 => _choice(context, 'القافية', 'اختر الكلمة التي ينتهي بها البيت.',
-          [p.lines.first[0], '${(p.lines.first[1].trim().split(' ')..removeLast()).join(' ')} ……'], optRhyme, lastWord, verse: true),
-      3 => _choice(context, 'في أي باب؟', 'في أي أبواب الكتاب يقع هذا البيت؟', p.lines.first, optChapter, p.chapterName),
-      _ => _choice(context, 'من القائل؟', 'من قائل هذا البيت؟', p.lines.first, optPoet, p.poet),
+          [verseAt(2)[0], '${rhymeWords.sublist(0, rhymeWords.length - 1).join(' ')} ……'], optRhyme, lastWord, verse: true),
+      3 => _choice(context, 'في أي باب؟', 'في أي أبواب الكتاب يقع هذا البيت؟', verseAt(3), optChapter, poemAt(3).chapterName),
+      _ => _choice(context, 'من القائل؟', 'من قائل هذا البيت؟', verseAt(4), optPoet, poemAt(4).poet),
     };
     return Scaffold(
       appBar: AppBar(
@@ -474,7 +534,7 @@ class _ChallengeScreenState extends State<ChallengeScreen> {
     return ListView(padding: const EdgeInsets.fromLTRB(18, 16, 18, 30), children: [
       _head(context, 'اللمحة', 'يظهر البيت ثوانيَ ثم يختفي. احفظه بنظرة، ثم أعد كلماته إلى مواضعها.'),
       if (showing) ...[
-        _verseBox(context, p.lines.first),
+        _verseBox(context, verseAt(0)),
         const SizedBox(height: 10),
         LinearProgressIndicator(value: left.clamp(0, 1), minHeight: 6, borderRadius: BorderRadius.circular(4), color: Majlis.gold),
         const SizedBox(height: 14),
@@ -495,7 +555,7 @@ class _ChallengeScreenState extends State<ChallengeScreen> {
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(color: C.card(context), borderRadius: BorderRadius.circular(18), border: Border.all(color: wrong != null && !failed ? Majlis.red : C.line(context))),
           child: failed
-              ? VerseLines(p.lines.first, size: 22)
+              ? VerseLines(verseAt(0), size: 22)
               : Wrap(spacing: 6, runSpacing: 6, children: [
                   for (final i in placed) _chip(context, words[i], () => setState(() => placed.remove(i)), filled: true),
                   if (placed.isEmpty) Text('اضغط الكلمات بترتيبها', style: TextStyle(color: C.muted(context))),
@@ -612,10 +672,10 @@ class _ChallengeScreenState extends State<ChallengeScreen> {
 }
 
 class ResultScreen extends StatelessWidget {
-  final Poem poem;
+  final List<(Poem, int)> picks;
   final List<int> points;
   final bool daily;
-  const ResultScreen({super.key, required this.poem, required this.points, required this.daily});
+  const ResultScreen({super.key, required this.picks, required this.points, required this.daily});
   @override
   Widget build(BuildContext context) {
     final sum = points.fold(0, (a, b) => a + b);
@@ -628,7 +688,7 @@ class ResultScreen extends StatelessWidget {
             duration: const Duration(milliseconds: 700),
             curve: Curves.elasticOut,
             builder: (_, t, child) => Transform.scale(scale: t, child: child),
-            child: Leaf(size: 110, letter: Library.poetByName[poem.poet]?.initial, points: sum),
+            child: Leaf(size: 110, letter: Library.poetByName[picks.first.$1.poet]?.initial, points: sum),
           ),
         ),
         const SizedBox(height: 14),
@@ -640,27 +700,26 @@ class ResultScreen extends StatelessWidget {
         ),
         Center(child: Text(daily ? 'أُضيفت الورقة إلى ديوانك، ونقاطها إلى رصيدك.' : 'جولة تدريب: لا تُحسب في النقاط.', style: TextStyle(color: C.muted(context)))),
         const SizedBox(height: 14),
-        for (var i = 0; i < points.length; i++)
+        for (var i = 0; i < points.length && i < picks.length; i++)
           Padding(
-            padding: const EdgeInsets.only(bottom: 6),
-            child: Row(children: [
-              Icon(points[i] > 0 ? Icons.check_circle_rounded : Icons.cancel_rounded, color: points[i] > 0 ? Majlis.green : Majlis.red, size: 20),
-              const SizedBox(width: 8),
-              Expanded(child: Text(Majlis.stages[i], style: TextStyle(fontWeight: FontWeight.w700, color: C.ink(context)))),
-              Text(points[i] == 3 ? 'من أول محاولة' : (points[i] == 0 ? 'لم تُصب' : '${Ar.num(points[i])} من ٣'), style: TextStyle(color: C.muted(context))),
-            ]),
+            padding: const EdgeInsets.only(bottom: 10),
+            child: SoftCard(
+              padding: const EdgeInsets.all(12),
+              onTap: () => openPoem(context, picks[i].$1),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  Icon(points[i] > 0 ? Icons.check_circle_rounded : Icons.cancel_rounded, color: points[i] > 0 ? Majlis.green : Majlis.red, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(Majlis.stages[i], style: TextStyle(fontWeight: FontWeight.w700, color: C.ink(context)))),
+                  Text(points[i] == 3 ? 'من أول محاولة' : (points[i] == 0 ? 'لم تُصب' : '${Ar.num(points[i])} من ٣'), style: TextStyle(color: C.muted(context))),
+                ]),
+                VerseLines(picks[i].$1.lines[picks[i].$2], size: 19),
+                Text('${picks[i].$1.poet} · ${picks[i].$1.chapterName}', style: TextStyle(fontSize: 13, color: C.accent(context))),
+              ]),
+            ),
           ),
-        const Divider(height: 28),
-        Text(poem.poet, style: TextStyle(fontSize: 17, color: C.accent(context), fontWeight: FontWeight.w700)),
-        Text(poem.chapterName, style: TextStyle(color: C.muted(context))),
         const SizedBox(height: 8),
-        for (final l in poem.lines) VerseLines(l, size: 21),
-        const SizedBox(height: 16),
-        FilledButton.icon(onPressed: () => openPoem(context, poem), icon: const Icon(Icons.menu_book_rounded), label: const Text('اقرأ المقطع')),
-        const SizedBox(height: 8),
-        OutlinedButton.icon(onPressed: () => openPoet(context, poem.poet), icon: const Icon(Icons.person_outline_rounded), label: const Text('تعرّف على الشاعر')),
-        const SizedBox(height: 8),
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلى المجلس')),
+        FilledButton(onPressed: () => Navigator.pop(context), child: const Text('إلى المجلس')),
       ]),
     );
   }

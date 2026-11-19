@@ -46,8 +46,26 @@ class Poem {
   /// Number of verses, counting a lone hemistich line as a verse.
   int get verseCount => lines.length;
 
+  /// Verse numbers (1-based) the developer hid or deleted.
+  bool hiddenVerse(int v) => Store.i.hidden.contains('p:$id:$v');
+  bool deletedVerse(int v) => Store.i.deleted.contains('p:$id:$v');
+  bool gone(int v) => hiddenVerse(v) || deletedVerse(v);
+  bool verifiedVerse(int v) => Store.i.verified.contains('p:$id:$v');
+  bool get anyVerified => [for (var v = 1; v <= lines.length; v++) v].any(verifiedVerse);
+  bool get allGone => [for (var v = 1; v <= lines.length; v++) v].every(gone);
+  bool get fromBook => src == 'book';
+
+  /// What readers see: the verses that are not hidden.
+  List<List<String>> get shown => [
+        for (var i = 0; i < lines.length; i++)
+          if (!gone(i + 1)) lines[i]
+      ];
+
   /// The first full verse (two hemistichs) — used on cards.
-  List<String> get firstVerse => lines.firstWhere((l) => l.length == 2, orElse: () => lines.first);
+  List<String> get firstVerse {
+    final s = shown.isEmpty ? lines : shown;
+    return s.firstWhere((l) => l.length == 2, orElse: () => s.first);
+  }
 
   bool get unattributed => poet == 'بلا نسبة';
 
@@ -115,6 +133,13 @@ class Matn {
           for (final h in (j['heads'] as List? ?? [])) ((h as List)[0] as num).toInt(): h[1] as String
         };
   bool get ready => lines.isNotEmpty;
+
+  /// Whether the text carries tashkeel (checked on its first verses).
+  late final bool vocalized = () {
+    final t = lines.take(6).map((l) => l.join()).join();
+    if (t.isEmpty) return true;
+    return RegExp('[\u064B-\u0652]').allMatches(t).length / t.length > 0.12;
+  }();
 }
 
 /// A verse a scholar quoted in one of his books («مما استشهد به العلماء»).
@@ -148,8 +173,14 @@ class Library {
   static List<Chapter> chapters = [];
   static List<String> eras = [];
   static List<Poet> poets = [];
-  static List<Poem> poems = [];
+  static List<Poem> poems = []; // what readers see (without fully hidden selections)
+  static List<Poem> all = [];
   static final Map<int, Poem> byId = {};
+
+  /// Re-applies the developer's hidden / deleted marks.
+  static void refresh() => poems = all.where((p) => !p.allGone).toList();
+  static List<Poem> get bookPoems => poems.where((p) => p.fromBook).toList();
+  static List<Poem> get verifiedPoems => poems.where((p) => p.anyVerified).toList();
   static final Map<String, Poet> poetByName = {};
   static List<String> branches = [];
   static List<Matn> mutun = [];
@@ -169,7 +200,8 @@ class Library {
     ];
     eras = [for (final e in j['eras'] as List) e as String];
     poets = [for (final p in j['poets'] as List) Poet.fromJson(p as Map<String, dynamic>)];
-    poems = [for (final p in j['poems'] as List) Poem.fromJson(p as Map<String, dynamic>)];
+    all = [for (final p in j['poems'] as List) Poem.fromJson(p as Map<String, dynamic>)];
+    poems = all;
     byId
       ..clear()
       ..addEntries(poems.map((p) => MapEntry(p.id, p)));
@@ -286,6 +318,11 @@ class Store extends ChangeNotifier {
   Set<String> days = {};
   Map<String, Set<int>> memorized = {};
   int wird = 5;
+  Set<String> hidden = {}; // developer: hidden verses, p:ID:v
+  Set<String> deleted = {}; // developer: removed for good
+  List<String> seen = []; // challenge: verses already asked, 'id:line'
+  Map<String, String> studentNames = {}; // teacher: personal number → name
+  List<Map<String, dynamic>> testLog = []; // teacher: tests he sent
   Set<String> verified = {}; // developer «توثيق» marks: p:ID, p:ID:v, m:ID, m:ID:v
   Map<String, List<int>> memLog = {}; // 'matn:verse' → [epoch day of last review, stage]
   Map<String, int> best = {}; // matn → best writing-test score out of 10 (whole matn)
@@ -315,6 +352,13 @@ class Store extends ChangeNotifier {
     morningMinute = _p.getInt('morningMinute') ?? 0;
     wird = _p.getInt('wird') ?? 5;
     verified = (_p.getStringList('verified') ?? []).toSet();
+    hidden = (_p.getStringList('hidden') ?? []).toSet();
+    deleted = (_p.getStringList('deleted') ?? []).toSet();
+    seen = _p.getStringList('seen') ?? [];
+    try {
+      studentNames = Map<String, String>.from(jsonDecode(_p.getString('studentNames') ?? '{}') as Map);
+      testLog = [for (final x in jsonDecode(_p.getString('testLog') ?? '[]') as List) Map<String, dynamic>.from(x as Map)];
+    } catch (_) {}
     certName = _p.getString('certName') ?? '';
     repeat = _p.getInt('repeat') ?? 3;
     plusOn = _p.getBool('plusOn') ?? true;
@@ -543,6 +587,44 @@ class Store extends ChangeNotifier {
   void removeStudent(String id) {
     students.remove(id);
     _p.setStringList('students', students);
+    notifyListeners();
+  }
+
+  void setHidden(String key, bool on) {
+    on ? hidden.add(key) : hidden.remove(key);
+    _p.setStringList('hidden', hidden.toList());
+    Library.refresh();
+    notifyListeners();
+  }
+
+  /// Removes a hidden verse for good (it leaves the hidden list too).
+  void deleteForGood(String key) {
+    hidden.remove(key);
+    verified.remove(key);
+    deleted.add(key);
+    _p.setStringList('hidden', hidden.toList());
+    _p.setStringList('verified', verified.toList());
+    _p.setStringList('deleted', deleted.toList());
+    Library.refresh();
+    notifyListeners();
+  }
+
+  void markSeen(Iterable<String> keys, {bool reset = false}) {
+    if (reset) seen = [];
+    seen.addAll(keys);
+    _p.setStringList('seen', seen);
+  }
+
+  void setStudentName(String id, String name) {
+    name.trim().isEmpty ? studentNames.remove(id) : studentNames[id] = name.trim();
+    _p.setString('studentNames', jsonEncode(studentNames));
+    notifyListeners();
+  }
+
+  void logTest(Map<String, dynamic> t) {
+    testLog.insert(0, t);
+    if (testLog.length > 200) testLog.removeLast();
+    _p.setString('testLog', jsonEncode(testLog));
     notifyListeners();
   }
 

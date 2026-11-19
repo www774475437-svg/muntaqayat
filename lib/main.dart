@@ -9,6 +9,8 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'data.dart';
 import 'screens/account.dart';
 import 'screens/browse.dart';
+import 'screens/mutun.dart' show TestMode;
+import 'screens/social.dart' show TestLinkScreen;
 import 'screens/poem.dart';
 import 'screens/search.dart';
 import 'screens/today.dart';
@@ -18,6 +20,7 @@ import 'ui.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Future.wait([Library.load(), Store.i.load()]);
+  Library.refresh();
   runApp(const MuntaqayatApp());
   Device.init();
   Device.checkUpdate();
@@ -33,6 +36,7 @@ class MuntaqayatApp extends StatelessWidget {
       builder: (context, _) => MaterialApp(
         title: 'منتقيات الشعر',
         debugShowCheckedModeBanner: false,
+        builder: (context, child) => WideFrame(child: child!),
         locale: const Locale('ar'),
         supportedLocales: const [Locale('ar')],
         localizationsDelegates: const [
@@ -49,6 +53,18 @@ class MuntaqayatApp extends StatelessWidget {
           final poem = m == null ? null : Library.byId[int.parse(m.group(1)!)];
           if (poem != null) {
             return MaterialPageRoute(settings: s, builder: (_) => PoemScreen(poem: poem, fromLink: true));
+          }
+          // A teacher's test link: …/#/t/<matn>/<from>-<to>/<mode>
+          final t = RegExp(r'^/t/([a-z_]+)/(\d+)-(\d+)/(\d)').firstMatch(s.name ?? '');
+          if (t != null) {
+            final matn = Library.mutun.where((x) => x.id == t.group(1) && x.ready).firstOrNull;
+            if (matn != null) {
+              final n = matn.lines.length;
+              final from = int.parse(t.group(2)!).clamp(1, n);
+              final to = int.parse(t.group(3)!).clamp(from, n);
+              final mode = TestMode.values[int.parse(t.group(4)!).clamp(0, TestMode.values.length - 1)];
+              return MaterialPageRoute(settings: s, builder: (_) => TestLinkScreen(matn: matn, from: from, to: to, mode: mode));
+            }
           }
           return MaterialPageRoute(settings: s, builder: (_) => const Shell());
         },
@@ -286,4 +302,70 @@ class _ShellState extends State<Shell> with TickerProviderStateMixin {
 /// Open a selection (used everywhere).
 void openPoem(BuildContext context, Poem p) {
   Navigator.of(context).push(MaterialPageRoute(settings: RouteSettings(name: '/p/${p.id}'), builder: (_) => PoemScreen(poem: p)));
+}
+
+/// On a laptop or a wide screen: the app sits in a centred column, with a
+/// quiet panel beside it carrying the name and the verse of the day.
+class WideFrame extends StatelessWidget {
+  final Widget child;
+  const WideFrame({super.key, required this.child});
+  @override
+  Widget build(BuildContext context) {
+    final mq = MediaQuery.of(context);
+    final w = mq.size.width;
+    if (w < 900) return child;
+    final col = (w * 0.56).clamp(560.0, 880.0);
+    final verse = Library.poemOfDay();
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: ColoredBox(
+        color: dark ? const Color(0xFF0E0C09) : const Color(0xFFEAE4D8),
+        child: Row(children: [
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(40),
+              child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Container(
+                  width: 92,
+                  height: 92,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: C.accent(context), width: 2)),
+                  child: Text('منتقيات\nالشعر',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontFamily: verseFont, fontSize: 19, height: 1.1, fontWeight: FontWeight.w700, color: C.accent(context), decoration: TextDecoration.none)),
+                ),
+                const SizedBox(height: 22),
+                Text('منتقيات الشعر', style: TextStyle(fontFamily: uiFont, fontSize: 34, fontWeight: FontWeight.w700, color: C.ink(context), decoration: TextDecoration.none)),
+                const SizedBox(height: 6),
+                Text('مختارات من عيون الشعر العربي، مرتبة على الأبواب والشعراء والعصور، مع متون طالب العلم.',
+                    style: TextStyle(fontFamily: uiFont, fontSize: 17, height: 1.7, fontWeight: FontWeight.normal, color: C.muted(context), decoration: TextDecoration.none)),
+                const SizedBox(height: 30),
+                Text('بيت اليوم', style: TextStyle(fontFamily: uiFont, fontSize: 15, fontWeight: FontWeight.w700, color: C.accent(context), decoration: TextDecoration.none)),
+                const SizedBox(height: 8),
+                for (final h in verse.firstVerse)
+                  Text(h, style: TextStyle(fontFamily: verseFont, fontSize: 27, height: 1.9, fontWeight: FontWeight.normal, color: C.ink(context), decoration: TextDecoration.none)),
+                const SizedBox(height: 6),
+                Text(verse.poet, style: TextStyle(fontFamily: uiFont, fontSize: 15, fontWeight: FontWeight.normal, color: C.muted(context), decoration: TextDecoration.none)),
+              ]),
+            ),
+          ),
+          Container(
+            width: col,
+            margin: const EdgeInsets.symmetric(vertical: 18).copyWith(left: 28),
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(26),
+              border: Border.all(color: C.line(context)),
+              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.18), blurRadius: 40, offset: const Offset(0, 12))],
+            ),
+            child: MediaQuery(
+              data: mq.copyWith(size: Size(col, mq.size.height - 36)),
+              child: child,
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
 }

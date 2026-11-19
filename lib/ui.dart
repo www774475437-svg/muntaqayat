@@ -344,7 +344,30 @@ class VerifyButton extends StatelessWidget {
         Store.i.toggleVerified(keyName);
         toast(context, ok ? 'أُلغي التوثيق' : 'تمّ توثيق $what ✓');
       },
-      icon: Icon(ok ? Icons.verified_rounded : Icons.verified_outlined, size: 20, color: ok ? const Color(0xFF2F6B4F) : Colors.orange.shade700),
+      icon: Icon(ok ? Icons.verified_rounded : Icons.verified_outlined, size: 20, color: ok ? verifiedBlue : Colors.orange.shade700),
+    );
+  }
+}
+
+/// Blue = verified by the developer. Green = from the book.
+const verifiedBlue = Color(0xFF1D7BD8);
+const bookGreen = Color(0xFF2F6B4F);
+
+class MarkBadge extends StatelessWidget {
+  final bool book; // true: green «من الكتاب», false: blue «موثّق»
+  const MarkBadge.book({super.key}) : book = true;
+  const MarkBadge.verified({super.key}) : book = false;
+  @override
+  Widget build(BuildContext context) {
+    final c = book ? bookGreen : verifiedBlue;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(color: c.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(20), border: Border.all(color: c.withValues(alpha: 0.5))),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(book ? Icons.menu_book_rounded : Icons.verified_rounded, size: 15, color: c),
+        const SizedBox(width: 4),
+        Text(book ? 'من الكتاب' : 'موثّق', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: c)),
+      ]),
     );
   }
 }

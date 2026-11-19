@@ -345,7 +345,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 },
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 18),
-                  child: Center(child: Text('منتقيات الشعر — الإصدار ١٫٤', style: TextStyle(color: C.muted(context)))),
+                  child: Center(child: Text('منتقيات الشعر — الإصدار ١٫٥', style: TextStyle(color: C.muted(context)))),
                 ),
               ),
             ]),

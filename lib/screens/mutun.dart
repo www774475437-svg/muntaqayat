@@ -62,6 +62,7 @@ class MutunScreen extends StatelessWidget {
                     Text('حفظتَ ${Ar.num(Store.i.memOf(m.id).length)} من ${Ar.num(m.lines.length)} بيتاً',
                         style: TextStyle(fontSize: 13.5, color: C.accent(context))),
                   if (!m.complete) const IncompleteTag(),
+                  if (m.ready && !m.vocalized) const IncompleteTag(text: 'بلا تشكيل'),
                   if (Store.i.developer && Store.i.isVerified('m:${m.id}')) const Icon(Icons.verified_rounded, size: 18, color: Color(0xFF2F6B4F)),
                 ]),
               ]),
@@ -73,12 +74,13 @@ class MutunScreen extends StatelessWidget {
 }
 
 class IncompleteTag extends StatelessWidget {
-  const IncompleteTag({super.key});
+  final String text;
+  const IncompleteTag({super.key, this.text = 'غير كاملة'});
   @override
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
         decoration: BoxDecoration(color: const Color(0x1AB3261E), borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFFB3261E))),
-        child: const Text('غير كاملة', style: TextStyle(fontSize: 12.5, color: Color(0xFFB3261E), fontWeight: FontWeight.w700)),
+        child: Text(text, style: const TextStyle(fontSize: 12.5, color: Color(0xFFB3261E), fontWeight: FontWeight.w700)),
       );
 }
 
@@ -97,11 +99,12 @@ class MatnScreen extends StatelessWidget {
           final head = <Widget>[
             Text('${matn.author}${matn.death.isEmpty ? '' : ' · ت ${matn.death}'}',
                 style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700, color: C.accent(context))),
-            if (!matn.complete || dev)
+            if (!matn.complete || !matn.vocalized || dev)
               Padding(
                 padding: const EdgeInsets.only(top: 6),
                 child: Wrap(spacing: 8, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
                   if (!matn.complete) const IncompleteTag(),
+                  if (matn.ready && !matn.vocalized) const IncompleteTag(text: 'بلا تشكيل'),
                   if (dev)
                     ActionChip(
                       avatar: Icon(Store.i.isVerified('m:${matn.id}') ? Icons.verified_rounded : Icons.verified_outlined,
