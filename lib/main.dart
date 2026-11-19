@@ -355,17 +355,18 @@ class WideFrame extends StatelessWidget {
         color: dark ? const Color(0xFF0E0C09) : const Color(0xFFEAE4D8),
         child: Row(children: [
           Expanded(
-            child: Padding(
+            child: Center(
+              child: SingleChildScrollView(
               padding: const EdgeInsets.all(40),
-              child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
+              child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Container(
-                  width: 92,
-                  height: 92,
+                  width: 76,
+                  height: 76,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: C.accent(context), width: 2)),
                   child: Text('منتقيات\nالشعر',
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontFamily: verseFont, fontSize: 19, height: 1.1, fontWeight: FontWeight.w700, color: C.accent(context), decoration: TextDecoration.none)),
+                      style: TextStyle(fontFamily: verseFont, fontSize: 16, height: 1.1, fontWeight: FontWeight.w700, color: C.accent(context), decoration: TextDecoration.none)),
                 ),
                 const SizedBox(height: 22),
                 Text('منتقيات الشعر', style: TextStyle(fontFamily: uiFont, fontSize: 34, fontWeight: FontWeight.w700, color: C.ink(context), decoration: TextDecoration.none)),
@@ -382,6 +383,7 @@ class WideFrame extends StatelessWidget {
                 const SizedBox(height: 6),
                 Text(verse.poet, style: TextStyle(fontFamily: uiFont, fontSize: 15, fontWeight: FontWeight.normal, color: C.muted(context), decoration: TextDecoration.none)),
               ]),
+            ),
             ),
           ),
           Container(
