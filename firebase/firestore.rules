@@ -1,10 +1,10 @@
 rules_version = '2';
 // قواعد قاعدة بيانات «منتقيات الشعر».
-// المطوّر: ضع رقم حسابك (UID) مكان DEVELOPER_UID بعد أول تسجيل دخول لك.
+// المطوّر يُعرَف ببريده الموثّق في حساب جوجل.
 service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() { return request.auth != null; }
-    function isDev() { return signedIn() && request.auth.uid == 'DEVELOPER_UID'; }
+    function isDev() { return signedIn() && request.auth.token.email == 'www774475437@gmail.com' && request.auth.token.email_verified == true; }
     function me(uid) { return signedIn() && request.auth.uid == uid; }
 
     // سجلّ واحد لكل مستخدم: الاسم والرقم الشخصي والعدادات (قراءة واحدة).
@@ -35,6 +35,8 @@ service cloud.firestore {
       allow read: if signedIn() && (resource.data.teacher == request.auth.uid || request.auth.uid in resource.data.students || isDev());
       allow update: if signedIn() && (resource.data.teacher == request.auth.uid || request.auth.uid in resource.data.students);
     }
+    // لوحة الصدارة: يقرؤها الجميع، ويكتب كل واحد نتيجته فقط.
+    match /board/{uid} { allow read: if true; allow write: if me(uid); }
     // البلاغات والرسائل وطلبات التصميم: يكتبها المستخدم، ويقرؤها المطوّر.
     match /reports/{id}  { allow create: if signedIn(); allow read, update, delete: if isDev(); }
     match /messages/{id} {
