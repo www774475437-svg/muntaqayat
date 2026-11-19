@@ -98,9 +98,13 @@ class Cloud extends ChangeNotifier {
     if (!ready) return 'تعذّر الاتصال بالخادم. تحقّق من الإنترنت ثم أعد فتح التطبيق.';
     try {
       if (kIsWeb) {
-        await FirebaseAuth.instance.signInWithPopup(GoogleAuthProvider());
+        // Always show the list of Google accounts to choose from.
+        await FirebaseAuth.instance.signInWithPopup(GoogleAuthProvider()..setCustomParameters({'prompt': 'select_account'}));
       } else {
         final g = GoogleSignIn(serverClientId: _webClient, scopes: const ['email']);
+        try {
+          await g.signOut();
+        } catch (_) {}
         final acc = await g.signIn();
         if (acc == null) return 'أُلغي الدخول.';
         final a = await acc.authentication;
