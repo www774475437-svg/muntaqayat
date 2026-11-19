@@ -429,8 +429,10 @@ class Cloud extends ChangeNotifier {
   // ------------------------------------------------------------ quotes
 
   List<Doc>? _feed;
-  int _count(String k) => _p.getInt('$k:${Store.today}') ?? 0;
-  void _bump(String k) => _p.setInt('$k:${Store.today}', _count(k) + 1);
+  // Daily counters belong to the account, not to the phone: each account has its own.
+  String _dayKey(String k) => '$k:${uid.isEmpty ? 'guest' : uid}:${Store.today}';
+  int _count(String k) => _p.getInt(_dayKey(k)) ?? 0;
+  void _bump(String k) => _p.setInt(_dayKey(k), _count(k) + 1);
   int get quotesLeft => 10 - _count('q');
   bool get plus => profile['plus'] == true;
 
@@ -551,7 +553,7 @@ class Cloud extends ChangeNotifier {
     // Counted on the account itself, whatever phone it is opened from.
     final now = DateTime.now(), dayStart = DateTime(now.year, now.month, now.day).millisecondsSinceEpoch;
     final sent = (await myMessages()).where((m) => (m['kind'] ?? 'message') == kind && ((m['at'] ?? 0) as num) >= dayStart).length;
-    _p.setInt('$counter:${Store.today}', sent);
+    _p.setInt(_dayKey(counter), sent);
     if (!isDev && sent >= (kind == 'message' ? messagesLimit : 1)) {
       return plus ? 'أرسلت عشرين رسالة اليوم. عُد غداً.' : 'المجاني رسالة واحدة في اليوم. عُد غداً، أو اشترك لتراسل عشرين مرة في اليوم.';
     }
