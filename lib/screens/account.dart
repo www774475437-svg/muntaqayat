@@ -10,6 +10,7 @@ import 'plus.dart';
 import 'poem.dart';
 import 'social.dart';
 import 'today.dart';
+import '../services/cloud.dart';
 import '../services/device.dart';
 
 const developerPin = '7744';
@@ -18,7 +19,7 @@ class AccountScreen extends StatelessWidget {
   const AccountScreen({super.key});
 
   @override
-  Widget build(BuildContext context) => ListenableBuilder(listenable: Store.i, builder: (context, _) => _build(context));
+  Widget build(BuildContext context) => ListenableBuilder(listenable: Listenable.merge([Store.i, Cloud.i]), builder: (context, _) => _build(context));
 
   Widget _build(BuildContext context) {
     final s = Store.i;
@@ -40,16 +41,16 @@ class AccountScreen extends StatelessWidget {
               _stat(context, Ar.num(s.days.length), 'يوماً'),
             ]),
             const SizedBox(height: 14),
-            Text('سجّل دخولك لتبقى مكتبتك وشعراؤك ومجموعاتك معك على كل أجهزتك.',
+            Text(Cloud.i.signedIn ? 'أنت داخل باسم «${Cloud.i.name}». رقمك الشخصي: ${Cloud.i.publicId}' : 'ادخل بحسابك ليكون لك رقم شخصي، فتنشر الاقتباسات وتدخل لوحة الصدارة ويصلك اختبار معلّمك.',
                 style: TextStyle(fontSize: 15, color: C.muted(context), height: 1.6)),
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
-                onPressed: () => soonSheet(context, 'تسجيل الدخول', 'تسجيل الدخول والمزامنة بين الأجهزة، ونشر المختارات والإعجابات — قريباً بإذن الله.'),
-                icon: const Icon(Icons.login_rounded),
-                label: const Text('تسجيل الدخول — قريباً', style: TextStyle(fontSize: 16)),
+                onPressed: () => Cloud.i.signedIn ? push(context, const ProfileScreen()) : needAccount(context),
+                icon: Icon(Cloud.i.signedIn ? Icons.badge_outlined : Icons.login_rounded),
+                label: Text(Cloud.i.signedIn ? 'صفحتك الشخصية' : 'ادخل بحساب جوجل', style: const TextStyle(fontSize: 16)),
               ),
             ),
           ]),

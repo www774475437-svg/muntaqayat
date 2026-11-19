@@ -58,7 +58,7 @@ Future<bool> needAccount(BuildContext context, [String why = '']) async {
       child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         const Text('ادخل بحسابك', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
         const SizedBox(height: 8),
-        Text('${why.isEmpty ? '' : '$why\n\n'}تدخل بحساب جوجل بضغطة واحدة، فيكون لك رقم شخصي ثابت من سبعة أرقام. لا نطلب كلمة مرور ولا نرى بريدك.',
+        Text('${why.isEmpty ? '' : '$why\n\n'}تدخل بحساب جوجل بضغطة واحدة، فيكون لك رقم شخصي ثابت من سبعة أرقام. لا نطلب كلمة مرور، ولا يظهر بريدك لأحد من القرّاء.',
             style: const TextStyle(fontSize: 16, height: 1.7)),
         const SizedBox(height: 16),
         FilledButton.icon(
