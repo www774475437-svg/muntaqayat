@@ -419,6 +419,8 @@ class Cloud extends ChangeNotifier {
         'mods': jsonEncode(mods),
         'at': _now,
       });
+      // The supervisors as a map, for the server rules to read.
+      await _db.collection('config').doc('mods').set({'list': mods, 'at': _now});
       _p.setBool('cfgDirty', false);
       _p.setInt('cfgAt', _now);
     } catch (_) {}
