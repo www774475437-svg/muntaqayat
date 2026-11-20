@@ -14,6 +14,7 @@ import 'screens/cloud_ui.dart' show BlockedScreen;
 import 'screens/mutun.dart' show TestMode;
 import 'screens/social.dart' show TestLinkScreen;
 import 'screens/poem.dart';
+import 'screens/qawafi.dart';
 import 'screens/search.dart';
 import 'screens/today.dart';
 import 'services/cloud.dart';
@@ -104,6 +105,7 @@ class _ShellState extends State<Shell> with TickerProviderStateMixin {
   static const _icons = [
     (Icons.wb_sunny_outlined, Icons.wb_sunny, 'اليوم'),
     (Icons.grid_view_outlined, Icons.grid_view_rounded, 'تصفّح'),
+    (Icons.history_edu_outlined, Icons.history_edu, 'قوافي'),
     (Icons.account_circle_outlined, Icons.account_circle, 'حسابك'),
   ];
 
@@ -163,6 +165,7 @@ class _ShellState extends State<Shell> with TickerProviderStateMixin {
     final pages = [
       TodayScreen(onBrowse: () => _go(1)),
       const BrowseScreen(),
+      const QawafiScreen(),
       const AccountScreen(),
     ];
     return Scaffold(
@@ -275,7 +278,7 @@ class _ShellState extends State<Shell> with TickerProviderStateMixin {
   /// The three tabs with the pill that slides, stretches like liquid, then settles with a bounce.
   Widget _items(BuildContext context, double full) {
     const pad = 6.0;
-    final item = (full - pad * 2) / 3;
+    final item = (full - pad * 2) / _icons.length;
     return AnimatedBuilder(
       animation: _slide,
       builder: (context, _) {
@@ -299,7 +302,7 @@ class _ShellState extends State<Shell> with TickerProviderStateMixin {
           ),
           Padding(
             padding: const EdgeInsets.all(pad),
-            child: Row(children: [for (var i = 0; i < 3; i++) _item(context, i)]),
+            child: Row(children: [for (var i = 0; i < _icons.length; i++) _item(context, i)]),
           ),
         ]);
       },
@@ -421,6 +424,7 @@ class SideNav extends StatelessWidget {
   static const items = [
     (Icons.wb_sunny_outlined, Icons.wb_sunny, 'اليوم'),
     (Icons.grid_view_outlined, Icons.grid_view_rounded, 'تصفّح'),
+    (Icons.history_edu_outlined, Icons.history_edu, 'قوافي'),
     (Icons.account_circle_outlined, Icons.account_circle, 'حسابك'),
   ];
   @override

@@ -487,12 +487,14 @@ class Cloud extends ChangeNotifier {
         'a': l[0],
         'b': l.length > 1 ? l[1] : '',
         'poet': p.poet,
+        'hue': profile['hue'] ?? 0,
         'likes': 0,
         'at': _now,
       };
       final ref = await _db.collection('quotes').add(data);
       _bump('q');
       _feed?.insert(0, {...data, 'id': ref.id});
+      _wall?.insert(0, {...data, 'id': ref.id});
       notifyListeners();
       return null;
     } catch (_) {
@@ -517,10 +519,107 @@ class Cloud extends ChangeNotifier {
     try {
       await _db.collection('quotes').doc(id).delete();
       _feed?.removeWhere((x) => x['id'] == id);
+      _wall?.removeWhere((x) => x['id'] == id);
       notifyListeners();
       return true;
     } catch (_) {
       return false;
+    }
+  }
+
+  // ------------------------------------------------------------ «قوافي»: the wall of verses
+
+  List<Doc>? _wall;
+  DocumentSnapshot<Map<String, dynamic>>? _wallLast;
+  bool wallEnd = false;
+
+  /// The newest posts (quotes and members' own poems), forty at a time.
+  Future<List<Doc>> wall({bool refresh = false, bool more = false}) async {
+    if (!ready) return _wall ?? [];
+    if (_wall != null && !refresh && !more) return _wall!;
+    if (more && wallEnd) return _wall ?? [];
+    try {
+      var q = _db.collection('quotes').orderBy('at', descending: true).limit(40);
+      if (more && _wallLast != null) q = q.startAfterDocument(_wallLast!);
+      final snap = await q.get();
+      final docs = [
+        for (final d in snap.docs) {...d.data(), 'id': d.id}
+      ];
+      if (snap.docs.isNotEmpty) _wallLast = snap.docs.last;
+      wallEnd = snap.docs.length < 40;
+      _wall = more ? [...?_wall, ...docs] : docs;
+      return _wall!;
+    } catch (_) {
+      return _wall ?? [];
+    }
+  }
+
+  /// Two poems of one's own a day (the developer has no limit).
+  int get ownLeft => (isDev ? 99 : 2) - _count('own');
+
+  Future<String?> publishOwn({required String title, required List<List<String>> lines, String meter = '', String purpose = ''}) async {
+    if (!signedIn) return 'ادخل بحسابك أولاً.';
+    if (!canPost) return banned ? 'حسابك محظور عن النشر.' : 'حسابك موقوف مؤقتاً عن النشر.';
+    if (ownLeft <= 0) return 'تنشر قصيدتين في اليوم. عُد غداً.';
+    try {
+      final data = <String, dynamic>{
+        'uid': uid,
+        'name': name,
+        'publicId': publicId,
+        'kind': 'own',
+        'title': title.trim(),
+        'lines': [
+          for (final l in lines) {'a': l[0].trim(), 'b': l.length > 1 ? l[1].trim() : ''}
+        ],
+        'a': lines.first[0].trim(),
+        'b': lines.first.length > 1 ? lines.first[1].trim() : '',
+        'poet': name,
+        'hue': profile['hue'] ?? 0,
+        'meter': meter,
+        'purpose': purpose,
+        'likes': 0,
+        'at': _now,
+      };
+      final ref = await _db.collection('quotes').add(data);
+      _bump('own');
+      final doc = {...data, 'id': ref.id};
+      _feed?.insert(0, doc);
+      _wall?.insert(0, doc);
+      notifyListeners();
+      return null;
+    } catch (_) {
+      return 'تعذّر النشر. تحقّق من الإنترنت.';
+    }
+  }
+
+  void forgetPost(String id) {
+    _wall?.removeWhere((x) => x['id'] == id);
+    _feed?.removeWhere((x) => x['id'] == id);
+    notifyListeners();
+  }
+
+  /// What the reader writes on his own page: bio, country, poets, verse, colour.
+  Future<bool> setProfile(Map<String, dynamic> data) async {
+    if (!signedIn) return false;
+    try {
+      await _db.collection('users').doc(uid).update(data);
+      profile.addAll(data);
+      _cacheProfile();
+      notifyListeners();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<Doc?> userByUid(String id) async {
+    if (!signedIn || id.isEmpty) return null;
+    if (id == uid) return {...profile, 'uid': uid};
+    try {
+      final u = await _db.collection('users').doc(id).get();
+      return u.exists ? {...u.data()!, 'uid': u.id} : null;
+    } catch (_) {
+      return null;
     }
   }
 
