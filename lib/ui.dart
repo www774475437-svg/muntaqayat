@@ -288,6 +288,15 @@ class Hijri {
     'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر',
   ];
 
+  static const weekdays = ['الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت', 'الأحد'];
+
+  /// The day's name, then the Hijri and the Gregorian date.
+  static String full([DateTime? at]) {
+    final d = at ?? DateTime.now();
+    final (hy, hm, hd) = parts(d);
+    return '${weekdays[d.weekday - 1]} · ${Ar.num(hd)} ${months[(hm - 1).clamp(0, 11)]} ${Ar.num(hy)} هـ · ${Ar.num(d.day)} ${gMonths[d.month - 1]} ${Ar.num(d.year)}';
+  }
+
   /// (year, month 1–12, day) in the Hijri calendar.
   static (int, int, int) parts([DateTime? at]) {
     final d = at ?? DateTime.now();
@@ -320,6 +329,24 @@ class Hijri {
     final hd = l - (709 * hm) ~/ 24;
     final hy = 30 * n + j - 30;
     return '${Ar.num(hd)} ${months[(hm - 1).clamp(0, 11)]} ${Ar.num(hy)} هـ · ${Ar.num(d.day)} ${gMonths[d.month - 1]} ${Ar.num(d.year)}';
+  }
+}
+
+/// The small round mark with the app's name.
+class AppMark extends StatelessWidget {
+  final double size;
+  final Color? color;
+  const AppMark({super.key, this.size = 30, this.color});
+  @override
+  Widget build(BuildContext context) {
+    final c = color ?? C.muted(context);
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: c, width: 1)),
+      child: Text('منتقيات\nالشعر', textAlign: TextAlign.center, style: TextStyle(fontFamily: 'Amiri', fontSize: size * 0.22, height: 1.2, fontWeight: FontWeight.w700, color: c)),
+    );
   }
 }
 

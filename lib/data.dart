@@ -346,6 +346,9 @@ class Store extends ChangeNotifier {
   bool morning = false;
   int morningHour = 7;
   int morningMinute = 0;
+  bool evening = false; // a reminder of «بيت الذهب» and the proverbs before the day ends
+  int eveningHour = 20;
+  int eveningMinute = 0;
   Set<String> days = {};
   Map<String, Set<int>> memorized = {};
   int wird = 5;
@@ -389,6 +392,9 @@ class Store extends ChangeNotifier {
     morning = _p.getBool('morning') ?? false;
     morningHour = _p.getInt('morningHour') ?? 7;
     morningMinute = _p.getInt('morningMinute') ?? 0;
+    evening = _p.getBool('evening') ?? false;
+    eveningHour = _p.getInt('eveningHour') ?? 20;
+    eveningMinute = _p.getInt('eveningMinute') ?? 0;
     wird = _p.getInt('wird') ?? 5;
     verified = (_p.getStringList('verified') ?? []).toSet();
     hidden = (_p.getStringList('hidden') ?? []).toSet();
@@ -516,6 +522,16 @@ class Store extends ChangeNotifier {
   void setDeveloper(bool v) {
     developer = v;
     _p.setBool('developer', v);
+    notifyListeners();
+  }
+
+  void setEvening(bool on, int hour, int minute) {
+    evening = on;
+    eveningHour = hour;
+    eveningMinute = minute;
+    _p.setBool('evening', on);
+    _p.setInt('eveningHour', hour);
+    _p.setInt('eveningMinute', minute);
     notifyListeners();
   }
 

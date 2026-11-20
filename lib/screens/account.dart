@@ -302,6 +302,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       },
                     ),
                   ),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('تذكير بيت الذهب', style: TextStyle(fontSize: 17)),
+                  subtitle: Text(s.evening
+                      ? 'تذكير كل يوم الساعة ${Ar.num(s.eveningHour)}:${s.eveningMinute.toString().padLeft(2, '0')} إن لم تُنهِ بيت الذهب والأمثال'
+                      : 'تذكير يومي ببيت الذهب وأمثال اليوم قبل أن ينتهي اليوم'),
+                  value: s.evening,
+                  onChanged: (v) async {
+                    s.setEvening(v, s.eveningHour, s.eveningMinute);
+                    await Device.refresh();
+                  },
+                ),
+                if (s.evening)
+                  Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: TextButton.icon(
+                      icon: const Icon(Icons.schedule_rounded),
+                      label: const Text('تغيير وقت التذكير'),
+                      onPressed: () async {
+                        final t = await showTimePicker(context: context, initialTime: TimeOfDay(hour: s.eveningHour, minute: s.eveningMinute));
+                        if (t == null) return;
+                        s.setEvening(true, t.hour, t.minute);
+                        await Device.refresh();
+                      },
+                    ),
+                  ),
                 Padding(
                   padding: const EdgeInsets.only(bottom: 6),
                   child: Text('ولـ«بيت اليوم» على شاشة الجوال: اضغط مطوّلاً على الشاشة الرئيسية ← الأدوات (Widgets) ← منتقيات الشعر.',

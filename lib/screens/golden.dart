@@ -1,13 +1,19 @@
 import 'dart:math';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../data.dart';
 import '../main.dart';
 import '../services/cloud.dart';
+import '../services/device.dart';
 import '../ui.dart';
 import 'boards.dart';
 import 'lists.dart';
+import 'poem.dart' show formatVerses;
 
 /// «بيت الذهب»: questions about the verse of the day, the same for everyone,
 /// one attempt for each question, once a day. What the reader gets right turns
@@ -32,6 +38,22 @@ class Golden {
   static int get askedTotal => log.values.fold(0, (a, e) => a + (e is Map ? _n(e['t']) : 0));
   static int get percent => askedTotal == 0 ? 0 : (rightTotal * 100 / askedTotal).floor();
 
+  /// Days in a row that ended with a complete verse, up to today (or yesterday, before today's is played).
+  static int get streak {
+    final days = <int>{for (final e in log.values) if (e is Map && _n(e['t']) > 0 && _n(e['r']) == _n(e['t'])) _n(e['day'])};
+    var d = Store.today;
+    if (!days.contains(d)) d--;
+    var n = 0;
+    while (days.contains(d)) {
+      n++;
+      d--;
+    }
+    return n;
+  }
+
+  /// The calendar day of a day number.
+  static DateTime dateOf(int day) => DateTime.utc(2024, 1, 1 + day);
+
   static void saveAnswer(Poem p, List<int> ans, int total) {
     final m = Store.i.majlis;
     final done = ans.length >= total;
@@ -45,7 +67,10 @@ class Golden {
       m['goldenLog'] = l;
     }
     Store.i.saveMajlis();
-    if (done) Cloud.i.publishStats({'goldFull': full, 'goldRight': rightTotal});
+    if (done) {
+      Cloud.i.publishStats({'goldFull': full, 'goldRight': rightTotal, 'goldStreak': streak});
+      Device.refresh();
+    }
   }
 }
 
@@ -302,8 +327,8 @@ class _GoldenScreenState extends State<GoldenScreen> {
     final right = ans.where((a) => a == 1).length;
     final all = right == qs.length;
     return ListView(padding: const EdgeInsets.fromLTRB(18, 10, 18, 120), children: [
-      GoldenVerseCard(poem: poem, ans: ans),
-      const SizedBox(height: 16),
+      GoldenPlate(poem: poem, ans: ans),
+      const SizedBox(height: 10),
       Text(
         all ? 'نلتَ البيت ذهبياً كاملاً' : 'نلتَ من البيت ${Ar.num(right)} من ${Ar.num(qs.length)}',
         textAlign: TextAlign.center,
@@ -348,7 +373,8 @@ class GoldenVerseCard extends StatelessWidget {
   final Poem poem;
   final List<int> ans;
   final bool compact;
-  const GoldenVerseCard({super.key, required this.poem, required this.ans, this.compact = false});
+  final DateTime? date; // the day it was won; today when absent
+  const GoldenVerseCard({super.key, required this.poem, required this.ans, this.compact = false, this.date});
 
   static const _grounds = [
     [Color(0xFF0E1A2B), Color(0xFF1B2F4B)],
@@ -424,6 +450,17 @@ class GoldenVerseCard extends StatelessWidget {
               ]),
               SizedBox(height: compact ? 6 : 10),
               Text(all ? 'مكتمل' : '${Ar.num(right)} من ${Ar.num(total)}', style: TextStyle(fontSize: compact ? 11 : 13, fontWeight: FontWeight.w700, color: all ? golds[0] : _grey)),
+              SizedBox(height: compact ? 8 : 14),
+              Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                AppMark(size: compact ? 22 : 28, color: Colors.white.withValues(alpha: 0.7)),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(Hijri.full(date), style: TextStyle(fontSize: compact ? 10 : 11.5, color: Colors.white.withValues(alpha: 0.7))),
+                  ),
+                ),
+              ]),
             ]),
           ),
         ),
@@ -537,6 +574,57 @@ class _PlatePainter extends CustomPainter {
   bool shouldRepaint(_PlatePainter old) => old.id != id || old.frame != frame || old.gold != gold;
 }
 
+/// The plate with two small marks under it: copy the verse, and share the plate as a picture.
+class GoldenPlate extends StatefulWidget {
+  final Poem poem;
+  final List<int> ans;
+  final DateTime? date;
+  final VoidCallback? onTap;
+  const GoldenPlate({super.key, required this.poem, required this.ans, this.date, this.onTap});
+  @override
+  State<GoldenPlate> createState() => _GoldenPlateState();
+}
+
+class _GoldenPlateState extends State<GoldenPlate> {
+  final _key = GlobalKey();
+  bool busy = false;
+
+  String get _text => '${formatVerses([widget.poem.firstVerse])}\n\n${widget.poem.unattributed ? '' : '${widget.poem.poet}\n'}${Hijri.full(widget.date)}\nمنتقيات الشعر';
+
+  Future<void> _share() async {
+    if (busy) return;
+    setState(() => busy = true);
+    try {
+      final b = _key.currentContext!.findRenderObject() as RenderRepaintBoundary;
+      final img = await b.toImage(pixelRatio: 3);
+      final data = await img.toByteData(format: ui.ImageByteFormat.png);
+      await Share.shareXFiles([XFile.fromData(data!.buffer.asUint8List(), mimeType: 'image/png', name: 'bayt-althahab-${widget.poem.id}.png')], text: 'بيت الذهب — منتقيات الشعر');
+    } catch (_) {
+      if (mounted) toast(context, 'تعذّرت المشاركة');
+    }
+    if (mounted) setState(() => busy = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    Widget mark(IconData icon, String tip, VoidCallback onTap) => InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: onTap,
+          child: Tooltip(message: tip, child: Padding(padding: const EdgeInsets.all(8), child: Icon(icon, size: 17, color: C.muted(context)))),
+        );
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      InkWell(onTap: widget.onTap, child: RepaintBoundary(key: _key, child: GoldenVerseCard(poem: widget.poem, ans: widget.ans, date: widget.date))),
+      Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+        mark(Icons.copy_rounded, 'نسخ', () {
+          Clipboard.setData(ClipboardData(text: _text));
+          toast(context, 'نُسخ البيت');
+        }),
+        mark(Icons.ios_share_rounded, 'مشاركة صورة', _share),
+      ]),
+    ]);
+  }
+}
+
 // ------------------------------------------------------------ the collection
 
 List<(Poem, List<int>, int)> _goldenEntries() {
@@ -575,7 +663,7 @@ class GoldenSummary extends StatelessWidget {
         Row(children: [
           stat(Ar.num(Golden.full), 'مكتملة'),
           stat(Ar.num(Golden.played - Golden.full), 'ناقصة'),
-          stat(Ar.num(Golden.rightTotal), 'إجابة صحيحة'),
+          stat(Ar.num(Golden.streak), 'أيام متتالية'),
           stat('${Ar.num(Golden.percent)}٪', 'نسبة الإصابة'),
         ]),
       ]),
@@ -613,7 +701,7 @@ class _GoldenGalleryScreenState extends State<GoldenGalleryScreen> {
         for (final e in shown)
           Padding(
             padding: const EdgeInsets.only(bottom: 14),
-            child: InkWell(onTap: () => openPoem(context, e.$1), child: GoldenVerseCard(poem: e.$1, ans: e.$2)),
+            child: GoldenPlate(poem: e.$1, ans: e.$2, date: Golden.dateOf(e.$3), onTap: () => openPoem(context, e.$1)),
           ),
         if (!Golden.doneToday) ...[
           const SizedBox(height: 4),

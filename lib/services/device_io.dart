@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:home_widget/home_widget.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
@@ -13,7 +14,7 @@ import '../data.dart';
 class Device {
   static final _plugin = FlutterLocalNotificationsPlugin();
   static bool _ready = false;
-  static const _first = 10, _days = 14;
+  static const _first = 10, _days = 14, _evening = 40;
 
   static Future<void> init() async {
     try {
@@ -26,6 +27,47 @@ class Device {
     await refresh();
   }
 
+  /// The evening reminder of «بيت الذهب» and the three proverbs. Today's is
+  /// left out once both are finished.
+  static Future<void> _planEvening() async {
+    try {
+      for (var i = 0; i < _days; i++) {
+        await _plugin.cancel(_evening + i);
+      }
+      final s = Store.i;
+      if (!s.evening) return;
+      await _plugin
+          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+          ?.requestNotificationsPermission();
+      final now = DateTime.now();
+      final run = s.majlis['goldenRun'];
+      final goldenDone = run is Map && run['day'] == Store.today && run['done'] == true;
+      var quizDone = false;
+      try {
+        final saved = jsonDecode((await SharedPreferences.getInstance()).getString('proverbQuiz') ?? '{}') as Map;
+        final quizDay = DateTime(now.year, now.month, now.day).difference(DateTime(2026, 1, 1)).inDays;
+        quizDone = saved['day'] == quizDay && !(saved['done'] as List).contains(0);
+      } catch (_) {}
+      for (var i = 0; i < _days; i++) {
+        final at = DateTime(now.year, now.month, now.day + i, s.eveningHour, s.eveningMinute);
+        if (!at.isAfter(now)) continue;
+        if (i == 0 && goldenDone && quizDone) continue;
+        await _plugin.zonedSchedule(
+          _evening + i,
+          'بيت الذهب بانتظارك',
+          'بيت اليوم وأمثاله الثلاثة تنتهي بانتهاء اليوم.',
+          tz.TZDateTime.from(at, tz.UTC),
+          const NotificationDetails(
+            android: AndroidNotificationDetails('golden_reminder', 'تذكير بيت الذهب',
+                channelDescription: 'تذكير يومي ببيت الذهب وأمثال اليوم في الوقت الذي تختاره',
+                importance: Importance.defaultImportance, priority: Priority.defaultPriority),
+          ),
+          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        );
+      }
+    } catch (_) {}
+  }
+
   /// Puts today's verse on the widget and plans the next two weeks of
   /// morning notifications (each day with that day's verse).
   static Future<void> refresh() async {
@@ -36,6 +78,7 @@ class Device {
       await HomeWidget.updateWidget(androidName: 'VerseWidgetProvider');
     } catch (_) {}
     if (!_ready) return;
+    await _planEvening();
     try {
       for (var i = 0; i < _days; i++) {
         await _plugin.cancel(_first + i);

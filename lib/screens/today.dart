@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../data.dart';
@@ -77,7 +78,11 @@ class TodayScreen extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 26),
-        Center(child: Text(Hijri.today(), style: TextStyle(fontSize: 15, color: C.muted(context)))),
+        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          const AppMark(size: 26),
+          const SizedBox(width: 8),
+          Flexible(child: FittedBox(fit: BoxFit.scaleDown, child: Text(Hijri.full(), style: TextStyle(fontSize: 15, color: C.muted(context))))),
+        ]),
         const SizedBox(height: 10),
         Row(mainAxisAlignment: MainAxisAlignment.center, children: [
           _rule(context),
@@ -85,13 +90,19 @@ class TodayScreen extends StatelessWidget {
           _rule(context),
         ]),
         const SizedBox(height: 22),
-        InkWell(
-          onTap: () => openPoem(context, day),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 22),
-            child: VerseLines(day.firstVerse, size: 29),
+        if (goldenDoneToday())
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: GoldenPlate(poem: day, ans: Golden.todayAnswers, onTap: () => openPoem(context, day)),
+          )
+        else
+          InkWell(
+            onTap: () => openPoem(context, day),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 22),
+              child: VerseLines(day.firstVerse, size: 29),
+            ),
           ),
-        ),
         const SizedBox(height: 14),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 22),
@@ -108,19 +119,33 @@ class TodayScreen extends StatelessWidget {
           child: Row(children: [
             Expanded(
               child: InkWell(
-                onTap: day.unattributed ? null : () => openPoet(context, day.poet),
-                child: Text.rich(TextSpan(children: [
-                  TextSpan(text: day.poet, style: TextStyle(fontWeight: FontWeight.w700, color: C.ink(context))),
-                  if (day.era.isNotEmpty) TextSpan(text: ' · ${day.era}'),
-                  TextSpan(text: ' · ${day.chapterName}'),
-                ]), style: TextStyle(fontSize: 15.5, color: C.muted(context))),
+                onTap: day.unattributed || !goldenDoneToday() ? null : () => openPoet(context, day.poet),
+                child: goldenDoneToday()
+                    ? Text.rich(TextSpan(children: [
+                        TextSpan(text: day.poet, style: TextStyle(fontWeight: FontWeight.w700, color: C.ink(context))),
+                        if (day.era.isNotEmpty) TextSpan(text: ' · ${day.era}'),
+                        TextSpan(text: ' · ${day.chapterName}'),
+                      ]), style: TextStyle(fontSize: 15.5, color: C.muted(context)))
+                    // The poet, era and chapter are answers in «بيت الذهب», so they wait until it is done.
+                    : Text('يظهر الشاعر وعصره وبابه بعد «بيت الذهب»', style: TextStyle(fontSize: 13.5, color: C.muted(context))),
               ),
             ),
+            if (!goldenDoneToday())
+              IconButton(
+                tooltip: 'نسخ',
+                visualDensity: VisualDensity.compact,
+                iconSize: 17,
+                onPressed: () {
+                  Clipboard.setData(ClipboardData(text: '${formatVerses([day.firstVerse])}\n\n${Hijri.full()}\nمنتقيات الشعر'));
+                  toast(context, 'نُسخ البيت');
+                },
+                icon: Icon(Icons.copy_rounded, color: C.muted(context)),
+              ),
             IconButton(
               onPressed: () => Store.i.toggleLike(day.id),
               icon: Icon(Store.i.liked(day.id) ? Icons.favorite : Icons.favorite_border, color: Store.i.liked(day.id) ? C.accent(context) : C.ink(context)),
             ),
-            IconButton(onPressed: () => shareSheet(context, day, day.firstVerse), icon: Icon(Icons.ios_share_rounded, color: C.ink(context))),
+            IconButton(tooltip: 'مشاركة', visualDensity: VisualDensity.compact, iconSize: 19, onPressed: () => shareSheet(context, day, day.firstVerse), icon: Icon(Icons.ios_share_rounded, color: C.ink(context))),
           ]),
         ),
         const MajlisCard(),

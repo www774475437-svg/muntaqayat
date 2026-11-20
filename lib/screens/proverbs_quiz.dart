@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data.dart';
 import '../services/cloud.dart';
+import '../services/device.dart';
 import '../services/majma.dart';
 import '../ui.dart';
 import 'boards.dart';
@@ -117,6 +118,7 @@ class _ProverbQuizScreenState extends State<ProverbQuizScreen> {
     });
     _save();
     if (done[i] != 0) Cloud.i.countQuizAnswer(done[i] != 3);
+    if (!done.contains(0)) Device.refresh();
   }
 
   @override
