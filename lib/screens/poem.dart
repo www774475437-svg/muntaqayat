@@ -665,6 +665,11 @@ const _styles = [
   _Style('ليل', Color(0xFF15181F), Color(0xFFF1EBDF), Color(0xFFD9B26A)),
   _Style('زمرد', Color(0xFF123B33), Color(0xFFF4EFE3), Color(0xFFE2C27A)),
   _Style('عقيق', Color(0xFF5B1F1F), Color(0xFFF7EDE3), Color(0xFFF0C48A)),
+  _Style('شفق', Color(0xFF3B2A4A), Color(0xFFF6EEF8), Color(0xFFE8B4C8)),
+  _Style('بحري', Color(0xFF0E2A3A), Color(0xFFEAF3F6), Color(0xFF8FD3E0)),
+  _Style('زيتوني', Color(0xFF26301F), Color(0xFFF2F0E4), Color(0xFFC9B77A)),
+  _Style('نيلي', Color(0xFF1B2140), Color(0xFFEEF0FA), Color(0xFFB7BEE8)),
+  _Style('أبيض', Color(0xFFFFFFFF), Color(0xFF111111), Color(0xFF555555)),
 ];
 
 void shareSheet(BuildContext context, Poem p, List<String> line) {
@@ -679,9 +684,18 @@ class ShareCardScreen extends StatefulWidget {
   State<ShareCardScreen> createState() => _ShareCardScreenState();
 }
 
+/// Shapes of the card: (name, width ÷ height).
+const _cardShapes = [('مربع', 1.0), ('ستوري', 9 / 16), ('طولي', 4 / 5), ('A4', 1 / 1.414)];
+
+/// Removes the tashkeel (harakat) from a text.
+String plainText(String t) => t.replaceAll(RegExp('[\u064B-\u065F\u0670]'), '');
+
 class _ShareCardScreenState extends State<ShareCardScreen> {
   final _key = GlobalKey();
   int style = 0;
+  int shape = 2;
+  bool tashkeel = true;
+  bool frame = true;
   bool busy = false;
 
   Future<void> _share() async {
@@ -701,49 +715,65 @@ class _ShareCardScreenState extends State<ShareCardScreen> {
     if (mounted) setState(() => busy = false);
   }
 
+  String _t(String x) => tashkeel ? x : plainText(x);
+
   @override
   Widget build(BuildContext context) {
     final s = _styles[style];
+    final ratio = _cardShapes[shape].$2;
+    final poetLine = widget.poem.poet;
     return Scaffold(
       appBar: AppBar(title: const Text('مشاركة صورة')),
       body: ListView(padding: const EdgeInsets.all(18), children: [
-        RepaintBoundary(
-          key: _key,
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(26, 34, 26, 22),
-            decoration: BoxDecoration(color: s.bg, borderRadius: BorderRadius.circular(24)),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              Text(widget.line[0], style: TextStyle(fontFamily: verseFont, fontSize: 25, height: 1.9, color: s.ink),
-                  textAlign: widget.line.length == 1 ? TextAlign.center : TextAlign.start),
-              if (widget.line.length > 1)
-                Padding(
-                  padding: const EdgeInsetsDirectional.only(start: 40),
-                  child: Text(widget.line[1], style: TextStyle(fontFamily: verseFont, fontSize: 25, height: 1.9, color: s.ink)),
+        Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: AspectRatio(
+              aspectRatio: ratio,
+              child: RepaintBoundary(
+                key: _key,
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(color: s.bg, borderRadius: BorderRadius.circular(24)),
+                  child: Container(
+                    decoration: frame ? BoxDecoration(border: Border.all(color: s.mark, width: 1.4), borderRadius: BorderRadius.circular(18)) : null,
+                    padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 30),
+                    child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.center, children: [
+                      for (final h in widget.line)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 6),
+                          child: Text(_t(h),
+                              textAlign: TextAlign.center,
+                              style: TextStyle(fontFamily: verseFont, fontSize: 24, height: 1.9, color: s.ink)),
+                        ),
+                      const SizedBox(height: 18),
+                      Text(poetLine,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontFamily: verseFont, fontSize: 17, fontWeight: FontWeight.w700, color: s.mark)),
+                      const Spacer(),
+                      Container(
+                        width: 58,
+                        height: 58,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: s.mark, width: 1.4)),
+                        child: Text('منتقيات\nالشعر',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(fontFamily: verseFont, fontSize: 11.5, height: 1.25, fontWeight: FontWeight.w700, color: s.mark)),
+                      ),
+                    ]),
+                  ),
                 ),
-              const SizedBox(height: 22),
-              Row(children: [
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(widget.poem.poet, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: s.ink)),
-                    if (widget.poem.era.isNotEmpty)
-                      Text('العصر ${widget.poem.era}', style: TextStyle(fontSize: 12.5, color: s.ink.withValues(alpha: 0.7))),
-                  ]),
-                ),
-                Container(
-                  width: 62,
-                  height: 62,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: s.mark, width: 1.6)),
-                  child: Text('منتقيات\nالشعر',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontFamily: verseFont, fontSize: 12.5, height: 1.25, fontWeight: FontWeight.w700, color: s.mark)),
-                ),
-              ]),
-            ]),
+              ),
+            ),
           ),
         ),
         const SizedBox(height: 20),
-        Wrap(alignment: WrapAlignment.center, spacing: 10, children: [
+        Wrap(alignment: WrapAlignment.center, spacing: 10, runSpacing: 8, children: [
+          for (var i = 0; i < _cardShapes.length; i++)
+            ChoiceChip(label: Text(_cardShapes[i].$1), selected: shape == i, onSelected: (_) => setState(() => shape = i)),
+        ]),
+        const SizedBox(height: 14),
+        Wrap(alignment: WrapAlignment.center, spacing: 10, runSpacing: 8, children: [
           for (var i = 0; i < _styles.length; i++)
             ChoiceChip(
               label: Text(_styles[i].name),
@@ -752,7 +782,20 @@ class _ShareCardScreenState extends State<ShareCardScreen> {
               onSelected: (_) => setState(() => style = i),
             ),
         ]),
-        const SizedBox(height: 22),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('التشكيل'),
+          subtitle: const Text('أطفئه لعرض البيت بدون حركات'),
+          value: tashkeel,
+          onChanged: (v) => setState(() => tashkeel = v),
+        ),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('الإطار'),
+          value: frame,
+          onChanged: (v) => setState(() => frame = v),
+        ),
+        const SizedBox(height: 10),
         FilledButton.icon(
           style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
           onPressed: busy ? null : _share,
