@@ -103,8 +103,6 @@ class _ShellState extends State<Shell> with TickerProviderStateMixin {
   final _navs = List.generate(4, (_) => GlobalKey<NavigatorState>());
   late final _obs = List.generate(4, (_) => _TabRoutes(_routesChanged));
   int _lastScroll = 0;
-  // the sun keeps turning as the page is scrolled: one radian per 40 px
-  final ValueNotifier<double> _spin = ValueNotifier(0);
   late final AnimationController _slide = AnimationController(vsync: this, duration: const Duration(milliseconds: 520), value: 1);
 
   static const _icons = [
@@ -172,7 +170,6 @@ class _ShellState extends State<Shell> with TickerProviderStateMixin {
   bool _onScroll(ScrollNotification n) {
     if (n.metrics.axis != Axis.vertical || n.depth != 0 || n is! ScrollUpdateNotification) return false;
     final d = n.scrollDelta ?? 0;
-    _spin.value += d / 40;
     final now = DateTime.now().microsecondsSinceEpoch;
     final dt = (now - _lastScroll) / 1000.0;
     _lastScroll = now;
@@ -290,7 +287,7 @@ class _ShellState extends State<Shell> with TickerProviderStateMixin {
                               child: Center(
                                 child: Transform.scale(
                                   scale: 1.15 - 0.15 * open,
-                                  child: _animIcon(tab, Icon(_icons[tab].$2, color: C.accent(context), size: 30), true),
+                                  child: Icon(_icons[tab].$2, color: C.accent(context), size: 30),
                                 ),
                               ),
                             ),
@@ -368,57 +365,6 @@ class _ShellState extends State<Shell> with TickerProviderStateMixin {
     );
   }
 
-  /// Each tab's icon has its own motion: the sun turns with the reading,
-  /// the browse cube turns over, the quill writes and the account ring turns.
-  Widget _animIcon(int i, Widget icon, bool on) {
-    switch (i) {
-      case 0:
-        // the sun turns on its own while its tab is open, and turns further with every scroll
-        if (!on) {
-          return ValueListenableBuilder<double>(
-            valueListenable: _spin,
-            builder: (context, a, child) => Transform.rotate(angle: a, child: child),
-            child: icon,
-          );
-        }
-        return _Loop(
-          period: const Duration(milliseconds: 9000),
-          builder: (context, t) => ValueListenableBuilder<double>(
-            valueListenable: _spin,
-            builder: (context, a, child) => Transform.rotate(angle: a + t * math.pi * 2, child: child),
-            child: icon,
-          ),
-        );
-      case 1:
-        // the cubes turn over one after another while the tab is open
-        if (!on) return icon;
-        return _Loop(
-          period: const Duration(milliseconds: 2600),
-          builder: (context, t) => Transform(alignment: Alignment.center, transform: Matrix4.rotationY(t * math.pi * 2), child: icon),
-        );
-      case 2:
-        // the quill writes across a page, and the lines of the page fill in
-        if (!on) return icon;
-        return _Loop(
-          period: const Duration(milliseconds: 2400),
-          builder: (context, t) => SizedBox(
-            width: 40,
-            height: 40,
-            child: Stack(alignment: Alignment.center, children: [
-              CustomPaint(size: const Size(34, 34), painter: _PagePainter(t, C.accent(context))),
-              Transform.translate(
-                offset: Offset(-6 + 12 * t, -5 + 10 * t),
-                child: Transform.rotate(angle: -0.5, child: icon),
-              ),
-            ]),
-          ),
-        );
-      case 3:
-        return icon;
-    }
-    return icon;
-  }
-
   Widget _item(BuildContext context, int i) {
     final on = tab == i;
     final (icon, active, label) = _icons[i];
@@ -434,7 +380,7 @@ class _ShellState extends State<Shell> with TickerProviderStateMixin {
             curve: Curves.easeOutBack,
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 220),
-              child: _animIcon(i, Icon(on ? active : icon, key: ValueKey(on), color: color, size: 27), on),
+              child: Icon(on ? active : icon, key: ValueKey(on), color: color, size: 27),
             ),
           ),
           const SizedBox(height: 2),
@@ -616,49 +562,4 @@ class _TabRoutes extends NavigatorObserver {
     }
     onChange();
   }
-}
-
-/// Repeats a motion forever, passing the progress from 0 to 1 to [builder].
-class _Loop extends StatefulWidget {
-  final Duration period;
-  final Widget Function(BuildContext, double) builder;
-  const _Loop({required this.period, required this.builder});
-  @override
-  State<_Loop> createState() => _LoopState();
-}
-
-class _LoopState extends State<_Loop> with SingleTickerProviderStateMixin {
-  late final AnimationController _c = AnimationController(vsync: this, duration: widget.period)..repeat();
-  @override
-  void dispose() {
-    _c.dispose();
-    super.dispose();
-  }
-  @override
-  Widget build(BuildContext context) => AnimatedBuilder(animation: _c, builder: (context, _) => widget.builder(context, _c.value));
-}
-
-/// The page under the quill: lines fill in one by one as the quill moves.
-class _PagePainter extends CustomPainter {
-  final double t;
-  final Color color;
-  _PagePainter(this.t, this.color);
-  @override
-  void paint(Canvas canvas, Size size) {
-    final frame = Paint()
-      ..color = color.withValues(alpha: 0.5)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.2;
-    canvas.drawRRect(RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(4)), frame);
-    final line = Paint()
-      ..color = color
-      ..strokeWidth = 1.6
-      ..strokeCap = StrokeCap.round;
-    for (var i = 0; i < 4; i++) {
-      final y = size.height * (0.28 + i * 0.18);
-      canvas.drawLine(Offset(size.width * 0.18, y), Offset(size.width * 0.82, y), line);
-    }
-  }
-  @override
-  bool shouldRepaint(covariant _PagePainter old) => old.t != t || old.color != color;
 }
