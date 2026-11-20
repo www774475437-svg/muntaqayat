@@ -8,6 +8,7 @@ import 'lists.dart';
 import 'majlis.dart';
 import 'games.dart';
 import 'mutun.dart';
+import 'proverbs_quiz.dart';
 import 'shawahid.dart';
 import 'whosaid.dart';
 import 'plus.dart';
@@ -123,6 +124,13 @@ class BrowseScreen extends StatelessWidget {
             Expanded(child: _pick(context, Icons.format_quote_rounded, 'أمثال من الشعر', 'أكثر من ألفَي بيت سائر', () => push(context, const AmthalScreen()))),
             const SizedBox(width: 12),
             Expanded(child: _pick(context, Icons.short_text_rounded, 'حِكَم قصيرة', 'بيت واحد لحالتك', () => push(context, const HikamScreen()))),
+          ]),
+        ),
+        const SizedBox(height: 12),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(children: [
+            Expanded(child: _pick(context, Icons.quiz_rounded, 'مسابقة الأمثال', 'سؤالان كل يوم', () => push(context, const ProverbQuizScreen()))),
           ]),
         ),
         const SizedBox(height: 12),
