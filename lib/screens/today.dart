@@ -9,6 +9,7 @@ import 'majlis.dart';
 import 'plus.dart';
 import 'poem.dart';
 import '../services/device.dart';
+import '../services/words.dart';
 
 class TodayScreen extends StatelessWidget {
   final VoidCallback onBrowse;
@@ -55,6 +56,7 @@ class TodayScreen extends StatelessWidget {
                   ]),
                 ),
         ),
+        const WordOfDayCard(),
         const SizedBox(height: 26),
         Center(child: Text(Hijri.today(), style: TextStyle(fontSize: 15, color: C.muted(context)))),
         const SizedBox(height: 10),
