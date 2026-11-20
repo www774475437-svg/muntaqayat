@@ -713,6 +713,7 @@ class _ShareCardScreenState extends State<ShareCardScreen> {
   Size _box = Size.zero;
   bool tashkeel = true;
   bool frame = true;
+  bool logo = true; // the pen picture «منتقيات الشعر» beside the poet's name
   bool busy = false;
   bool shared = false; // the move arrows disappear after sharing
 
@@ -820,6 +821,9 @@ class _ShareCardScreenState extends State<ShareCardScreen> {
                                             Text(widget.poem.poet,
                                                 style: TextStyle(fontFamily: fam, fontSize: 12, fontWeight: FontWeight.w700, color: s.mark)),
                                             const SizedBox(width: 10),
+                                            if (logo)
+                                              Image.asset('assets/images/share_logo.png', width: 54, height: 54, filterQuality: FilterQuality.high)
+                                            else
                                             Container(
                                               width: 34,
                                               height: 34,
@@ -906,6 +910,13 @@ class _ShareCardScreenState extends State<ShareCardScreen> {
           title: const Text('الإطار'),
           value: frame,
           onChanged: (v) => setState(() => frame = v),
+        ),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('صورة الشعار'),
+          subtitle: const Text('القلم و«منتقيات الشعر» بجانب اسم الشاعر، وإن أطفأتها ظهرت الدائرة الصغيرة'),
+          value: logo,
+          onChanged: (v) => setState(() => logo = v),
         ),
         const SizedBox(height: 10),
         FilledButton.icon(
