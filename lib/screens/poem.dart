@@ -61,6 +61,7 @@ class PoemScreen extends StatefulWidget {
 
 class _PoemScreenState extends State<PoemScreen> {
   Poem get p => widget.poem;
+  final Set<int> _sel = {}; // verses selected by long-press, for sharing
 
   @override
   void initState() {
@@ -173,12 +174,14 @@ class _PoemScreenState extends State<PoemScreen> {
                 if (!p.deletedVerse(i + 1) && (!p.hiddenVerse(i + 1) || Store.i.developer))
                   GestureDetector(
                     behavior: HitTestBehavior.opaque,
+                    onLongPress: () => setState(() => _sel.contains(i) ? _sel.remove(i) : _sel.add(i)),
                     onTap: () => _verseActions(context, p.lines[i]),
                     child: Opacity(
                       opacity: p.hiddenVerse(i + 1) ? 0.4 : 1,
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(18, 10, 6, 14),
                         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          if (_sel.contains(i)) Padding(padding: const EdgeInsetsDirectional.only(end: 6, top: 6), child: Icon(Icons.check_circle_rounded, color: C.accent(context), size: 20)),
                           Expanded(child: VerseLines(p.lines[i], size: 27, number: p.lines.length > 1 ? i + 1 : null)),
                           if (!Store.i.developer && p.verifiedVerse(i + 1))
                             const Padding(
@@ -396,7 +399,7 @@ class _PoemScreenState extends State<PoemScreen> {
                         padding: const EdgeInsets.symmetric(vertical: 10),
                         child: Column(mainAxisSize: MainAxisSize.min, children: [
                           row(Icons.copy_all_rounded, 'نسخ المقطع كاملاً', () => copySheet(context, p.shown)),
-                          row(Icons.check_circle_outline_rounded, 'تحديد الأبيات', () => toast(context, 'اضغط مطوّلاً على البيت ثم اسحب لتحديد ما تريد')),
+                          row(Icons.check_circle_outline_rounded, 'تحديد الأبيات', () => toast(context, 'اضغط مطوّلاً على كل بيت تريده، ثم زر المشاركة أسفل الشاشة')),
                           row(Icons.image_outlined, 'مشاركة صورة', () => shareSheet(context, p, p.firstVerse)),
                           row(Icons.link_rounded, 'مشاركة الرابط', () => Share.share('${formatVerses(p.shown, mark: !Cloud.i.noMark)}\n\n${poemLink(p)}')),
                           line(),
@@ -674,14 +677,16 @@ const _styles = [
   _Style('أسود', Color(0xFF0B0B0D), Color(0xFFFFFFFF), Color(0xFFBDBDBD)),
 ];
 
-void shareSheet(BuildContext context, Poem p, List<String> line) {
-  Navigator.of(context).push(MaterialPageRoute(fullscreenDialog: true, builder: (_) => ShareCardScreen(poem: p, line: line)));
+void shareSheet(BuildContext context, Poem p, List<String> line) => shareLines(context, p, [line]);
+
+void shareLines(BuildContext context, Poem p, List<List<String>> lines) {
+  Navigator.of(context).push(MaterialPageRoute(fullscreenDialog: true, builder: (_) => ShareCardScreen(poem: p, lines: lines)));
 }
 
 class ShareCardScreen extends StatefulWidget {
   final Poem poem;
-  final List<String> line;
-  const ShareCardScreen({super.key, required this.poem, required this.line});
+  final List<List<String>> lines;
+  const ShareCardScreen({super.key, required this.poem, required this.lines});
   @override
   State<ShareCardScreen> createState() => _ShareCardScreenState();
 }
@@ -693,16 +698,18 @@ const _cardShapes = [('مربع', 1.0), ('ستوري', 9 / 16), ('طولي', 4 /
 const _cardFonts = [('أميري', 'Amiri'), ('رقعة', 'ArefRuqaa'), ('نستعليق', 'NotoNastaliq'), ('كوفي', 'ReemKufi')];
 
 /// Removes the tashkeel (harakat) from a text.
-String plainText(String t) => t.replaceAll(RegExp('[\u064B-\u065F\u0670]'), '');
+String plainText(String t) => t.replaceAll(RegExp('[\\u064B-\\u065F\\u0670]'), '');
 
 class _ShareCardScreenState extends State<ShareCardScreen> {
   final _key = GlobalKey();
   int style = 0;
   int shape = 2;
   int font = 0;
+  int pos = 1; // 0 top, 1 middle, 2 bottom (used for one or two verses)
   bool tashkeel = true;
   bool frame = true;
   bool busy = false;
+  bool shared = false; // the move arrows disappear after sharing
 
   Future<void> _share() async {
     setState(() => busy = true);
@@ -715,6 +722,7 @@ class _ShareCardScreenState extends State<ShareCardScreen> {
         [XFile.fromData(bytes, mimeType: 'image/png', name: 'muntaqayat-${widget.poem.id}.png')],
         text: '${widget.poem.poet} — منتقيات الشعر\n${poemLink(widget.poem)}',
       );
+      if (mounted) setState(() => shared = true);
     } catch (e) {
       if (mounted) toast(context, 'تعذّرت المشاركة');
     }
@@ -723,11 +731,22 @@ class _ShareCardScreenState extends State<ShareCardScreen> {
 
   String _t(String x) => tashkeel ? x : plainText(x);
 
+  void _move(int d) => setState(() => pos = (pos + d).clamp(0, 2));
+
   @override
   Widget build(BuildContext context) {
     final s = _styles[style];
     final ratio = _cardShapes[shape].$2;
-    final poetLine = widget.poem.poet;
+    final many = widget.lines.length > 2;
+    final count = widget.lines.length;
+    final size = count == 1 ? 26.0 : count == 2 ? 23.0 : count == 3 ? 20.0 : 16.0;
+    final align = many || pos == 1
+        ? MainAxisAlignment.center
+        : pos == 0
+            ? MainAxisAlignment.start
+            : MainAxisAlignment.end;
+    final canMove = !many;
+    final fam = _cardFonts[font].$2;
     return Scaffold(
       appBar: AppBar(title: const Text('مشاركة صورة')),
       body: ListView(padding: const EdgeInsets.all(18), children: [
@@ -736,52 +755,76 @@ class _ShareCardScreenState extends State<ShareCardScreen> {
             constraints: const BoxConstraints(maxWidth: 420),
             child: AspectRatio(
               aspectRatio: ratio,
-              child: RepaintBoundary(
-                key: _key,
-                child: Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(color: s.bg, borderRadius: BorderRadius.circular(24)),
-                  child: Container(
-                    decoration: frame ? BoxDecoration(border: Border.all(color: s.mark, width: 1.4), borderRadius: BorderRadius.circular(18)) : null,
-                    padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 30),
-                    child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.center, children: [
-                      for (final h in widget.line)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 6),
-                          child: Text(_t(h),
-                              textAlign: TextAlign.center,
-                              style: TextStyle(fontFamily: _cardFonts[font].$2, fontSize: 24, height: 1.9, color: s.ink)),
+              child: Stack(children: [
+                Positioned.fill(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onVerticalDragEnd: canMove
+                        ? (d) {
+                            if ((d.primaryVelocity ?? 0) < -60) _move(-1);
+                            if ((d.primaryVelocity ?? 0) > 60) _move(1);
+                          }
+                        : null,
+                    child: RepaintBoundary(
+                      key: _key,
+                      child: Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(color: s.bg, borderRadius: BorderRadius.circular(24)),
+                        child: Container(
+                          decoration: frame ? BoxDecoration(border: Border.all(color: s.mark, width: 1.4), borderRadius: BorderRadius.circular(18)) : null,
+                          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 26),
+                          child: Column(mainAxisAlignment: align, crossAxisAlignment: CrossAxisAlignment.center, children: [
+                            for (final line in widget.lines) ...[
+                              for (final h in line)
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 4),
+                                  child: Text(_t(h),
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(fontFamily: fam, fontSize: size, height: 1.9, color: s.ink)),
+                                ),
+                              if (line != widget.lines.last)
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 6),
+                                  child: Text('..', style: TextStyle(fontSize: size, color: s.mark)),
+                                ),
+                            ],
+                            const SizedBox(height: 16),
+                            Text(widget.poem.poet,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(fontFamily: fam, fontSize: 16, fontWeight: FontWeight.w700, color: s.mark)),
+                            const SizedBox(height: 14),
+                            Container(
+                              width: 56,
+                              height: 56,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: s.mark, width: 1.4)),
+                              child: Text('منتقيات\nالشعر',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(fontFamily: verseFont, fontSize: 11.5, height: 1.25, fontWeight: FontWeight.w700, color: s.mark)),
+                            ),
+                          ]),
                         ),
-                      const SizedBox(height: 18),
-                      Text(poetLine,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(fontFamily: _cardFonts[font].$2, fontSize: 17, fontWeight: FontWeight.w700, color: s.mark)),
-                      const Spacer(),
-                      Container(
-                        width: 58,
-                        height: 58,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: s.mark, width: 1.4)),
-                        child: Text('منتقيات\nالشعر',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(fontFamily: verseFont, fontSize: 11.5, height: 1.25, fontWeight: FontWeight.w700, color: s.mark)),
                       ),
-                    ]),
+                    ),
                   ),
                 ),
-              ),
+                if (canMove && !shared) ...[
+                  Positioned(top: 4, left: 0, right: 0, child: Icon(Icons.keyboard_arrow_up_rounded, size: 34, color: s.mark.withValues(alpha: 0.7))),
+                  Positioned(bottom: 4, left: 0, right: 0, child: Icon(Icons.keyboard_arrow_down_rounded, size: 34, color: s.mark.withValues(alpha: 0.7))),
+                ],
+              ]),
             ),
           ),
         ),
         const SizedBox(height: 20),
         Wrap(alignment: WrapAlignment.center, spacing: 10, runSpacing: 8, children: [
-          for (var i = 0; i < _cardFonts.length; i++)
-            ChoiceChip(label: Text(_cardFonts[i].$1), selected: font == i, onSelected: (_) => setState(() => font = i)),
+          for (var i = 0; i < _cardShapes.length; i++)
+            ChoiceChip(label: Text(_cardShapes[i].$1), selected: shape == i, onSelected: (_) => setState(() => shape = i)),
         ]),
         const SizedBox(height: 14),
         Wrap(alignment: WrapAlignment.center, spacing: 10, runSpacing: 8, children: [
-          for (var i = 0; i < _cardShapes.length; i++)
-            ChoiceChip(label: Text(_cardShapes[i].$1), selected: shape == i, onSelected: (_) => setState(() => shape = i)),
+          for (var i = 0; i < _cardFonts.length; i++)
+            ChoiceChip(label: Text(_cardFonts[i].$1), selected: font == i, onSelected: (_) => setState(() => font = i)),
         ]),
         const SizedBox(height: 14),
         Wrap(alignment: WrapAlignment.center, spacing: 10, runSpacing: 8, children: [
