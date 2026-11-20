@@ -8,6 +8,7 @@ import 'package:share_plus/share_plus.dart';
 import '../data.dart';
 import '../main.dart';
 import '../services/cloud.dart';
+import '../services/explain.dart';
 import '../ui.dart';
 import 'cloud_ui.dart';
 import 'extras.dart';
@@ -225,7 +226,7 @@ class _PoemScreenState extends State<PoemScreen> {
               ActionChip(
                 avatar: Icon(Icons.auto_awesome_rounded, size: 18, color: C.accent(context)),
                 label: const Text('الشرح'),
-                onPressed: () => _soon(context, 'شرح الأبيات من كتب الشُّرّاح ومعاجم اللغة، مع ذكر المصدر — قريباً بإذن الله.'),
+                onPressed: () => explainSheet(context, p),
               ),
               const SizedBox(width: 8),
               ActionChip(
@@ -482,6 +483,79 @@ class _PoemScreenState extends State<PoemScreen> {
           ]),
         ),
       ),
+    );
+  }
+}
+
+/// يعرض لكل بيت زرّ «اشرح البيت» يطلب الشرح من الذكاء الاصطناعي (فايربيس).
+void explainSheet(BuildContext context, Poem p) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    builder: (b) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(18, 14, 18, 18),
+        child: SingleChildScrollView(
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            const Text('شرح الأبيات', textAlign: TextAlign.center, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 4),
+            Text('شرح آلي تحت مراجعة المطوّر', textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: C.muted(b))),
+            const SizedBox(height: 12),
+            for (var i = 0; i < p.lines.length; i++)
+              _ExplainRow(verse: p.lines[i]),
+          ]),
+        ),
+      ),
+    ),
+  );
+}
+
+class _ExplainRow extends StatefulWidget {
+  const _ExplainRow({required this.verse});
+  final List<String> verse;
+  @override
+  State<_ExplainRow> createState() => _ExplainRowState();
+}
+
+class _ExplainRowState extends State<_ExplainRow> {
+  bool _busy = false;
+  String? _text;
+  bool _failed = false;
+
+  Future<void> _ask() async {
+    setState(() {
+      _busy = true;
+      _failed = false;
+    });
+    final r = await Explain.verse(widget.verse);
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _text = r;
+      _failed = r == null;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Text(widget.verse.join('   '), style: const TextStyle(fontSize: 16, height: 1.8)),
+        const SizedBox(height: 6),
+        if (_text == null)
+          OutlinedButton.icon(
+            onPressed: _busy ? null : _ask,
+            icon: _busy
+                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.auto_awesome_rounded),
+            label: Text(_busy ? 'جارٍ الشرح…' : 'اشرح البيت'),
+          ),
+        if (_failed)
+          Text('تعذّر الشرح الآن، حاول لاحقاً.', style: TextStyle(color: C.muted(context))),
+        if (_text != null)
+          Text(_text!, style: const TextStyle(fontSize: 16, height: 1.8)),
+      ]),
     );
   }
 }
