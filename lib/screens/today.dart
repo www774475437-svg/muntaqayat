@@ -69,7 +69,7 @@ class TodayScreen extends StatelessWidget {
               child: Row(children: [
                 Icon(Icons.quiz_rounded, color: C.accent(context)),
                 const SizedBox(width: 12),
-                Expanded(child: Text('مسابقة الأمثال: سؤالان كل يوم', style: TextStyle(fontSize: 16, color: C.ink(context), fontWeight: FontWeight.w700))),
+                Expanded(child: Text('أمثال العرب: ثلاثة أسئلة كل يوم', style: TextStyle(fontSize: 16, color: C.ink(context), fontWeight: FontWeight.w700))),
                 Icon(Icons.chevron_left_rounded, color: C.muted(context)),
               ]),
             ),

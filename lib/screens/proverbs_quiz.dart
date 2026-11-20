@@ -2,44 +2,45 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show rootBundle;
+import 'package:flutter/services.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import '../data.dart';
 import '../services/cloud.dart';
+import '../services/majma.dart';
+import '../ui.dart';
 import 'boards.dart';
 import 'lists.dart';
-import '../ui.dart';
 
-/// «أمثال العرب»: three questions every day, two attempts for each.
-/// The proverbs come from «مجمع الأمثال» للميداني. Meanings and stories are
-/// added only where they have been written and checked.
+int _dayNumber() {
+  final now = DateTime.now();
+  return DateTime(now.year, now.month, now.day).difference(DateTime(2026, 1, 1)).inDays;
+}
+
+class _Q {
+  final Mathal m;
+  final String title, text, correct;
+  final List<String> options;
+  const _Q(this.m, this.title, this.text, this.options, this.correct);
+}
+
+/// «أمثال العرب»: three questions every day from «مجمع الأمثال», two attempts
+/// for each. After each answer the proverb appears with the book's explanation.
 class ProverbQuizScreen extends StatefulWidget {
   const ProverbQuizScreen({super.key});
   @override
   State<ProverbQuizScreen> createState() => _ProverbQuizScreenState();
 }
 
-class _Proverb {
-  final String full, meaning, story;
-  final int n;
-  _Proverb(this.n, this.full, this.meaning, this.story);
-  String get lastWord => full.split(' ').last;
-  String get lastBlank => '${full.substring(0, full.length - lastWord.length).trimRight()} …';
-}
-
-class _Q {
-  final String title, text, correct;
-  final List<String> options;
-  const _Q(this.title, this.text, this.options, this.correct);
-}
-
 class _ProverbQuizScreenState extends State<ProverbQuizScreen> {
-  List<_Proverb>? all;
-  final List<_Proverb> today = [];
-  final List<_Q> questions = [];
-  int step = 0; // 0..2 questions, 3 = finished
-  int tries = 2;
-  String? wrongPick;
-  bool revealed = false;
+  final day = _dayNumber();
+  List<_Q>? questions;
+  // For each question: the wrong picks so far, and how it ended.
+  // done: 0 = still open, 1 = right from the first try, 2 = right from the second, 3 = missed.
+  final List<List<String>> wrong = [[], [], []];
+  final List<int> done = [0, 0, 0];
+  SharedPreferences? prefs;
 
   @override
   void initState() {
@@ -48,166 +49,325 @@ class _ProverbQuizScreenState extends State<ProverbQuizScreen> {
   }
 
   Future<void> _load() async {
-    final book = jsonDecode(await rootBundle.loadString('assets/data/proverbs_book.json')) as List;
-    final notes = jsonDecode(await rootBundle.loadString('assets/data/proverb_notes.json')) as List;
-    final byNumber = <int, Map<String, dynamic>>{for (final x in notes) (x as Map)['n'] as int: Map<String, dynamic>.from(x)};
-    final list = <_Proverb>[];
-    for (final x in book) {
-      final m = Map<String, dynamic>.from(x as Map);
-      final note = byNumber[m['n'] as int];
-      list.add(_Proverb(m['n'] as int, m['full'] as String, (note?['meaning'] ?? '') as String, (note?['story'] ?? '') as String));
+    final list = await Majma.all();
+    final p = await SharedPreferences.getInstance();
+    final pool = [for (final m in list) if (m.quiz) m];
+    final rnd = math.Random(day * 7919 + 13);
+    final picked = <Mathal>[];
+    while (picked.length < 3 && picked.length < pool.length) {
+      final m = pool[rnd.nextInt(pool.length)];
+      if (!picked.contains(m)) picked.add(m);
     }
-    if (!mounted) return;
-    setState(() {
-      all = list;
-      _pickToday(list);
-    });
-  }
-
-  /// Three proverbs for the day, the same for everyone on that day.
-  void _pickToday(List<_Proverb> list) {
-    final day = DateTime.now().difference(DateTime(2026, 1, 1)).inDays;
-    final n = list.length;
-    for (var k = 0; today.length < 3 && k < n; k++) {
-      final p = list[(day * 7 + k * 613) % n];
-      if (!today.contains(p)) today.add(p);
-    }
-    final rnd = math.Random(day);
-    for (var i = 0; i < today.length; i++) {
-      final p = today[i];
-      if (p.meaning.isNotEmpty) {
-        // Which proverb fits this meaning?
-        final others = [for (final o in list) if (o != p) o.full]..shuffle(rnd);
-        final opts = <String>{p.full, ...others.take(3)}.toList()..shuffle(rnd);
-        questions.add(_Q('أيّ مثل يُضرب لهذا؟', p.meaning, opts, p.full));
-      } else {
-        // Which word ends this proverb?
-        final others = <String>{for (final o in list) if (o != p && o.lastWord != p.lastWord) o.lastWord}.toList()..shuffle(rnd);
-        final opts = <String>{p.lastWord, ...others.take(3)}.toList()..shuffle(rnd);
-        questions.add(_Q('أكمِل المثل بآخر كلمة', p.lastBlank, opts, p.lastWord));
+    final qs = <_Q>[
+      for (var i = 0; i < picked.length; i++) i == 1 ? _meaning(pool, picked[i], rnd) : _complete(pool, picked[i], rnd),
+    ];
+    // What was answered earlier today stays answered.
+    try {
+      final saved = jsonDecode(p.getString('proverbQuiz') ?? '{}') as Map;
+      if (saved['day'] == day) {
+        final d = saved['done'] as List, w = saved['wrong'] as List;
+        for (var i = 0; i < 3; i++) {
+          done[i] = d[i] as int;
+          wrong[i].addAll([for (final x in w[i] as List) '$x']);
+        }
       }
-    }
-  }
-
-  void _pick(String choice) {
-    if (step >= 3 || revealed || wrongPick != null) return;
-    final q = questions[step];
-    if (choice == q.correct) {
-      setState(() => revealed = true);
-      Cloud.i.countQuizAnswer(true);
-      Future.delayed(const Duration(milliseconds: 900), _next);
-      return;
-    }
-    setState(() {
-      tries--;
-      wrongPick = choice;
-    });
-    if (tries == 0) {
-      setState(() => revealed = true);
-      Cloud.i.countQuizAnswer(false);
-      Future.delayed(const Duration(milliseconds: 1400), _next);
-    } else {
-      Future.delayed(const Duration(milliseconds: 700), () {
-        if (mounted) setState(() => wrongPick = null);
-      });
-    }
-  }
-
-  void _next() {
+    } catch (_) {}
     if (!mounted) return;
     setState(() {
-      step++;
-      tries = 2;
-      wrongPick = null;
-      revealed = false;
+      prefs = p;
+      questions = qs;
+    });
+  }
+
+  /// «أكمِل المثل»: the last word is hidden.
+  _Q _complete(List<Mathal> pool, Mathal m, math.Random rnd) {
+    final words = m.text.split(' ');
+    final last = words.last;
+    final opts = <String>{last};
+    while (opts.length < 4) {
+      final w = pool[rnd.nextInt(pool.length)].text.split(' ').last;
+      if (Ar.plain(w) != Ar.plain(last)) opts.add(w);
+    }
+    return _Q(m, 'أكمِل المثل', '${words.sublist(0, words.length - 1).join(' ')} …', opts.toList()..shuffle(rnd), last);
+  }
+
+  /// «أيّ مثل يُضرب لهذا؟»: the book's «يضرب» sentence, and four proverbs.
+  _Q _meaning(List<Mathal> pool, Mathal m, math.Random rnd) {
+    final opts = <String>{m.text};
+    while (opts.length < 4) {
+      opts.add(pool[rnd.nextInt(pool.length)].text);
+    }
+    return _Q(m, 'أيّ مثل يُضرب لهذا؟', m.usage, opts.toList()..shuffle(rnd), m.text);
+  }
+
+  void _save() {
+    prefs?.setString('proverbQuiz', jsonEncode({'day': day, 'done': done, 'wrong': wrong}));
+  }
+
+  void _pick(int i, String choice) {
+    final q = questions![i];
+    if (done[i] != 0 || wrong[i].contains(choice)) return;
+    setState(() {
+      if (choice == q.correct) {
+        done[i] = wrong[i].isEmpty ? 1 : 2;
+      } else {
+        wrong[i].add(choice);
+        if (wrong[i].length >= 2) done[i] = 3;
+      }
+    });
+    _save();
+    if (done[i] != 0) Cloud.i.countQuizAnswer(done[i] != 3);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final qs = questions;
+    final finished = !done.contains(0);
+    final right = done.where((d) => d == 1 || d == 2).length;
+    return Scaffold(
+      appBar: AppBar(title: const Text('أمثال العرب'), actions: [
+        IconButton(tooltip: 'كل الأمثال', icon: const Icon(Icons.menu_book_outlined), onPressed: () => push(context, const MajmaScreen())),
+        IconButton(tooltip: 'المتصدرون', icon: const Icon(Icons.emoji_events_outlined), onPressed: () => push(context, const BoardsScreen())),
+      ]),
+      body: qs == null
+          ? const Center(child: CircularProgressIndicator())
+          : ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 120), children: [
+              Text('ثلاثة أسئلة كل يوم من «مجمع الأمثال» للميداني، ولكل سؤال محاولتان. ثم المثل وشرحه وقصته من الكتاب.', style: TextStyle(fontSize: 15, height: 1.7, color: C.muted(context))),
+              const SizedBox(height: 14),
+              for (var i = 0; i < qs.length; i++) ...[
+                _card(context, i, qs[i]),
+                const SizedBox(height: 14),
+              ],
+              if (finished)
+                SoftCard(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('أتممت أسئلة اليوم: ${Ar.num(right)} من ${Ar.num(qs.length)}', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: C.accent(context))),
+                    const SizedBox(height: 4),
+                    Text('أسئلة جديدة غداً.', style: TextStyle(color: C.muted(context))),
+                    const SizedBox(height: 10),
+                    Row(children: [
+                      Expanded(child: FilledButton.icon(onPressed: () => push(context, const BoardsScreen()), icon: const Icon(Icons.emoji_events_outlined), label: const Text('المتصدرون'))),
+                      const SizedBox(width: 10),
+                      Expanded(child: OutlinedButton.icon(onPressed: () => push(context, const MajmaScreen()), icon: const Icon(Icons.menu_book_outlined), label: const Text('كل الأمثال'))),
+                    ]),
+                  ]),
+                ),
+            ]),
+    );
+  }
+
+  Widget _card(BuildContext context, int i, _Q q) {
+    final d = done[i];
+    const green = Color(0xFF2F6B4F);
+    final wide = q.options.any((o) => o.length > 14);
+    Widget option(String o) {
+      final isWrong = wrong[i].contains(o);
+      final isRight = d != 0 && o == q.correct;
+      return InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: d != 0 || isWrong ? null : () => _pick(i, o),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+          decoration: BoxDecoration(color: isRight ? green.withValues(alpha: 0.18) : C.soft(context).withValues(alpha: isWrong ? 0.45 : 1), borderRadius: BorderRadius.circular(16)),
+          child: Text(
+            o,
+            textAlign: TextAlign.center,
+            style: TextStyle(fontFamily: 'Amiri', fontSize: 19, height: 1.5, color: isWrong ? C.muted(context) : C.ink(context), decoration: isWrong ? TextDecoration.lineThrough : null),
+          ),
+        ),
+      );
+    }
+
+    return SoftCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Expanded(child: Text(q.title, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: C.accent(context)))),
+          if (d == 1) const Text('من المحاولة الأولى', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: green)),
+          if (d == 2) const Text('من المحاولة الثانية', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: green)),
+          if (d == 3) Text('لم تُصب', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: C.muted(context))),
+        ]),
+        const SizedBox(height: 8),
+        Text(q.text, style: TextStyle(fontFamily: 'Amiri', fontSize: 22, height: 1.7, color: C.ink(context))),
+        const SizedBox(height: 12),
+        if (wide)
+          for (final o in q.options) Padding(padding: const EdgeInsets.only(bottom: 8), child: option(o))
+        else
+          for (var r = 0; r < q.options.length; r += 2)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(children: [
+                Expanded(child: option(q.options[r])),
+                const SizedBox(width: 8),
+                Expanded(child: r + 1 < q.options.length ? option(q.options[r + 1]) : const SizedBox()),
+              ]),
+            ),
+        if (d == 0 && wrong[i].length == 1) Text('ليس هذا. بقيت لك محاولة.', style: TextStyle(fontSize: 13.5, color: C.muted(context))),
+        if (d != 0) ...[
+          Divider(height: 24, color: C.muted(context).withValues(alpha: 0.3)),
+          MathalBody(q.m, short: true),
+        ],
+      ]),
+    );
+  }
+}
+
+/// The proverb, then the book's words about it, then where it is in the book.
+class MathalBody extends StatelessWidget {
+  final Mathal m;
+  final bool short; // inside the quiz: a long story is cut, and a link opens the whole of it
+  const MathalBody(this.m, {super.key, this.short = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final cut = short && m.body.length > 520;
+    final body = cut ? '${m.body.substring(0, 520)}…' : m.body;
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(m.text, style: TextStyle(fontFamily: 'Amiri', fontSize: short ? 21 : 26, fontWeight: FontWeight.w700, height: 1.7, color: C.ink(context))),
+      if (!short && m.usage.isNotEmpty) ...[
+        const SizedBox(height: 10),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(color: C.accent(context).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(14)),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('مَضرِب المثل', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: C.accent(context))),
+            const SizedBox(height: 4),
+            Text(m.usage, style: TextStyle(fontSize: 16.5, height: 1.8, color: C.ink(context))),
+          ]),
+        ),
+      ],
+      const SizedBox(height: 10),
+      if (!short && body.isNotEmpty) Text('الشرح والقصة', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: C.accent(context))),
+      if (body.isEmpty)
+        Text('ذكره الميداني ولم يشرحه.', style: TextStyle(color: C.muted(context)))
+      else
+        SelectableText(body, style: TextStyle(fontSize: short ? 15 : 17, height: 1.9, color: C.ink(context))),
+      const SizedBox(height: 8),
+      if (short)
+        InkWell(
+          onTap: () => push(context, MathalScreen(m)),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Text(cut ? 'أكمل القصة في «مجمع الأمثال» ←' : 'المثل في «مجمع الأمثال» ←', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: C.accent(context))),
+          ),
+        )
+      else
+        Text(m.source, style: TextStyle(fontSize: 12.5, color: C.muted(context))),
+    ]);
+  }
+}
+
+/// One proverb on its own page.
+class MathalScreen extends StatelessWidget {
+  final Mathal m;
+  const MathalScreen(this.m, {super.key});
+
+  String get _shareText => '${m.text}\n\n${m.body}\n\n${m.source}\n— منتقيات الشعر';
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AppBar(title: Text('المثل ${Ar.num(m.n)}'), actions: [
+          IconButton(
+            tooltip: 'نسخ',
+            icon: const Icon(Icons.copy_rounded),
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: _shareText));
+              toast(context, 'نُسخ المثل وشرحه');
+            },
+          ),
+          IconButton(tooltip: 'مشاركة', icon: const Icon(Icons.ios_share_rounded), onPressed: () => Share.share(_shareText)),
+        ]),
+        body: ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 120), children: [
+          SoftCard(padding: const EdgeInsets.all(18), child: MathalBody(m)),
+        ]),
+      );
+}
+
+/// «مجمع الأمثال»: every proverb of the book, with search.
+class MajmaScreen extends StatefulWidget {
+  const MajmaScreen({super.key});
+  @override
+  State<MajmaScreen> createState() => _MajmaScreenState();
+}
+
+class _MajmaScreenState extends State<MajmaScreen> {
+  List<Mathal>? all;
+  // Search text prepared once: the proverb, and the proverb with its explanation.
+  List<String> _titles = const [], _bodies = const [];
+  String query = '';
+  bool storiesOnly = false;
+
+  @override
+  void initState() {
+    super.initState();
+    Majma.all().then((l) {
+      if (!mounted) return;
+      _titles = [for (final m in l) Ar.norm(m.text)];
+      _bodies = [for (final m in l) Ar.norm(m.body)];
+      setState(() => all = l);
     });
   }
 
   @override
   Widget build(BuildContext context) {
     final list = all;
+    final q = Ar.norm(query.trim());
+    final shown = list == null
+        ? const <Mathal>[]
+        : [
+            for (var i = 0; i < list.length; i++)
+              if ((!storiesOnly || list[i].body.length > 200) && (q.isEmpty || _titles[i].contains(q) || (q.length > 2 && _bodies[i].contains(q)))) list[i]
+          ];
     return Scaffold(
-      appBar: AppBar(title: const Text('أمثال العرب'), actions: [IconButton(tooltip: 'المتصدرون', icon: const Icon(Icons.emoji_events_outlined), onPressed: () => push(context, const BoardsScreen()))]),
+      appBar: AppBar(title: const Text('مجمع الأمثال')),
       body: list == null
           ? const Center(child: CircularProgressIndicator())
-          : ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 40), children: [
-              Text('ثلاثة أسئلة كل يوم من «مجمع الأمثال» للميداني، ولكل سؤال محاولتان. ثم تعرف المثل وقصته.', style: TextStyle(fontSize: 15, height: 1.7, color: C.muted(context))),
-              const SizedBox(height: 16),
-              if (step < 3) _questionCard(context, questions[step], step + 1),
-              if (step >= 3) _result(context),
+          : Column(children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                child: TextField(
+                  decoration: const InputDecoration(hintText: 'ابحث في الأمثال وشروحها', prefixIcon: Icon(Icons.search_rounded)),
+                  onChanged: (v) => setState(() => query = v),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(children: [
+                  FilterChip(label: const Text('ما له قصة أو شرح طويل'), selected: storiesOnly, onSelected: (v) => setState(() => storiesOnly = v)),
+                  const Spacer(),
+                  Text('${Ar.num(shown.length)} مثلاً', style: TextStyle(fontSize: 13, color: C.muted(context))),
+                ]),
+              ),
+              const SizedBox(height: 6),
+              Expanded(
+                child: shown.isEmpty
+                    ? const EmptyNote(Icons.search_off_rounded, 'لا مثل بهذا اللفظ.')
+                    : ListView.builder(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
+                        itemCount: shown.length,
+                        itemBuilder: (context, i) {
+                          final m = shown[i];
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: SoftCard(
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              onTap: () => push(context, MathalScreen(m)),
+                              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                  Expanded(child: Text(m.text, style: TextStyle(fontFamily: 'Amiri', fontSize: 19, height: 1.6, fontWeight: FontWeight.w700, color: C.ink(context)))),
+                                  Text(Ar.num(m.n), style: TextStyle(fontSize: 12, color: C.muted(context))),
+                                ]),
+                                if (m.usage.isNotEmpty) Text(m.usage, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 14, height: 1.6, color: C.muted(context))),
+                              ]),
+                            ),
+                          );
+                        },
+                      ),
+              ),
             ]),
     );
-  }
-
-  Widget _questionCard(BuildContext context, _Q q, int number) {
-    return SoftCard(
-      padding: const EdgeInsets.all(16),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('السؤال $number من 3: ${q.title}', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: C.accent(context))),
-        const SizedBox(height: 8),
-        Text(q.text, style: TextStyle(fontSize: 21, height: 1.7, color: C.ink(context))),
-        const SizedBox(height: 12),
-        for (final o in q.options)
-          Padding(padding: const EdgeInsets.only(bottom: 8), child: _choice(context, q, o)),
-        if (wrongPick != null && !revealed)
-          Text('ليس هذا. بقيت لك محاولة', style: TextStyle(fontSize: 14, color: C.accent(context), fontWeight: FontWeight.w700)),
-        if (revealed && wrongPick != null)
-          Text('الجواب الصحيح: ${q.correct}', style: TextStyle(fontSize: 14, color: C.accent(context), fontWeight: FontWeight.w700)),
-      ]),
-    );
-  }
-
-  Widget _choice(BuildContext context, _Q q, String o) {
-    Color bg = C.soft(context);
-    final isWrong = o == wrongPick;
-    final isRight = revealed && o == q.correct;
-    if (isRight) bg = const Color(0xFF2F6B4F).withValues(alpha: 0.2);
-    if (isWrong) bg = const Color(0xFFB3261E).withValues(alpha: 0.18);
-    return InkWell(
-      borderRadius: BorderRadius.circular(16),
-      onTap: revealed || wrongPick != null ? null : () => _pick(o),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(16)),
-        child: Text(
-          o,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 19,
-            color: isWrong ? C.muted(context) : C.ink(context),
-            decoration: isWrong ? TextDecoration.lineThrough : null,
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// After the three questions: each proverb with its source, and its meaning and story where written.
-  Widget _result(BuildContext context) {
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Text('أنهيت أسئلة اليوم', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: C.accent(context))),
-      const SizedBox(height: 12),
-      for (final p in today)
-        Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: SoftCard(
-            padding: const EdgeInsets.all(16),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(p.full, style: TextStyle(fontSize: 20, height: 1.7, color: C.ink(context))),
-              if (p.meaning.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Text('المعنى: ${p.meaning}', style: TextStyle(fontSize: 15, height: 1.7, color: C.ink(context))),
-              ],
-              if (p.story.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Text('القصة: ${p.story}', style: TextStyle(fontSize: 15, height: 1.7, color: C.ink(context))),
-              ],
-              const SizedBox(height: 8),
-              Text('المصدر: مجمع الأمثال للميداني، رقم ${p.n}', style: TextStyle(fontSize: 13, color: C.muted(context))),
-            ]),
-          ),
-        ),
-    ]);
   }
 }

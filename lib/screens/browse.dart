@@ -130,7 +130,9 @@ class BrowseScreen extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Row(children: [
-            Expanded(child: _pick(context, Icons.quiz_rounded, 'مسابقة الأمثال', 'سؤالان كل يوم', () => push(context, const ProverbQuizScreen()))),
+            Expanded(child: _pick(context, Icons.quiz_rounded, 'مسابقة الأمثال', 'ثلاثة أسئلة كل يوم', () => push(context, const ProverbQuizScreen()))),
+            const SizedBox(width: 12),
+            Expanded(child: _pick(context, Icons.auto_stories_rounded, 'مجمع الأمثال', 'المثل وشرحه وقصته', () => push(context, const MajmaScreen()))),
           ]),
         ),
         const SizedBox(height: 12),
