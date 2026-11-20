@@ -1061,8 +1061,10 @@ class Cloud extends ChangeNotifier {
       final ref = await _db.collection('tests').add({
         'teacher': uid,
         'teacherName': name,
+        'teacherPublicId': publicId,
         'students': ['${opponent['uid']}'],
         'oppName': '${opponent['name'] ?? 'قارئ'}',
+        'oppPublicId': '${opponent['publicId'] ?? ''}',
         'kind': 'duel',
         'picks': [
           for (final x in picks) '${x.$1.id}:${x.$2}'

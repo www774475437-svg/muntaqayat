@@ -589,6 +589,27 @@ class MyPoetsScreen extends StatelessWidget {
 }
 
 /// «المبارزات»: the same five verses for two; the higher score wins.
+/// The five verses of a duel, in order.
+List<(Poem, int)> duelPicks(Doc d) => [
+      for (final k in d['picks'] as List? ?? [])
+        if (Library.byId[int.tryParse('$k'.split(':').first)] != null) (Library.byId[int.parse('$k'.split(':').first)]!, int.parse('$k'.split(':').last))
+    ];
+
+/// The other person in a duel, from my side.
+String duelOtherUid(Doc d) => d['teacher'] == Cloud.i.uid ? '${(d['students'] as List? ?? ['']).first}' : '${d['teacher']}';
+
+bool duelHasUid(Doc d, String uid) => d['teacher'] == uid || (d['students'] as List? ?? []).contains(uid);
+
+/// Plays each duel one after another. Moving from one person's challenge to the next happens here.
+Future<void> playDuels(BuildContext context, List<Doc> list) async {
+  for (final d in list) {
+    final picks = duelPicks(d);
+    if (picks.length != 5) continue;
+    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => ChallengeScreen(picks: picks, duel: '${d['id']}')));
+    if (!context.mounted) return;
+  }
+}
+
 class DuelsScreen extends StatefulWidget {
   const DuelsScreen({super.key});
   @override
@@ -662,6 +683,17 @@ class _DuelsScreenState extends State<DuelsScreen> {
                     _statsCard(context, list),
                     if (_pending(list).isNotEmpty) ...[
                       _section(context, 'تحديات تنتظر ردّك (${Ar.num(_pending(list).length)})'),
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: FilledButton.icon(
+                          icon: const Icon(Icons.play_arrow_rounded),
+                          label: const Text('ابدأ كل التحديات'),
+                          onPressed: () async {
+                            await playDuels(context, _pending(list));
+                            if (mounted) setState(() => job = Cloud.i.duels());
+                          },
+                        ),
+                      ),
                       for (final d in _pending(list)) _card(context, d),
                     ],
                     if (list.isEmpty) const EmptyNote(Icons.sports_kabaddi_rounded, 'لا مبارزات بعد.'),
@@ -737,7 +769,15 @@ class _DuelsScreenState extends State<DuelsScreen> {
       child: SoftCard(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            Expanded(child: Text('مع $otherName', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: C.ink(context)))),
+            Expanded(
+              child: InkWell(
+                onTap: () => push(context, DuelPersonScreen(uid: duelOtherUid(d), name: otherName, publicId: '${iStarted ? d['oppPublicId'] ?? '' : d['teacherPublicId'] ?? ''}')),
+                child: Text(
+                  'مع $otherName${(iStarted ? d['oppPublicId'] : d['teacherPublicId']) == null ? '' : '  ·  ${(iStarted ? d['oppPublicId'] : d['teacherPublicId'])}'}',
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: C.ink(context)),
+                ),
+              ),
+            ),
             Text(ago(d['at']), style: TextStyle(fontSize: 12, color: C.muted(context))),
           ]),
           Text(verdict(), style: TextStyle(color: C.accent(context), fontWeight: FontWeight.w700)),
@@ -758,6 +798,123 @@ class _DuelsScreenState extends State<DuelsScreen> {
             ),
           ]),
           if (mine == null && picks.length == 5) ...[
+            const SizedBox(height: 8),
+            FilledButton(
+              onPressed: () async {
+                await Navigator.of(context).push(MaterialPageRoute(builder: (_) => ChallengeScreen(picks: picks, duel: '${d['id']}')));
+                if (mounted) setState(() => job = Cloud.i.duels());
+              },
+              child: const Text('العب المبارزة'),
+            ),
+          ],
+        ]),
+      ),
+    );
+  }
+}
+
+/// A person's page in duels: the challenges between us, who won how many,
+/// their pending challenges to me, and follow.
+class DuelPersonScreen extends StatefulWidget {
+  final String uid, name, publicId;
+  const DuelPersonScreen({super.key, required this.uid, required this.name, required this.publicId});
+  @override
+  State<DuelPersonScreen> createState() => _DuelPersonScreenState();
+}
+
+class _DuelPersonScreenState extends State<DuelPersonScreen> {
+  late Future<List<Doc>> job = Cloud.i.duels();
+
+  @override
+  Widget build(BuildContext context) {
+    final title = widget.name.isEmpty ? widget.publicId : widget.name;
+    return ListenableBuilder(
+      listenable: Cloud.i,
+      builder: (context, _) => Scaffold(
+        appBar: AppBar(title: Text(title)),
+        body: FutureBuilder<List<Doc>>(
+          future: job,
+          builder: (context, snap) {
+            if (snap.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
+            final me = Cloud.i.uid;
+            final between = [for (final d in snap.data ?? []) if (duelHasUid(d, widget.uid)) d];
+            var won = 0, lost = 0, tied = 0, pendingToMe = 0;
+            for (final d in between) {
+              final r = d['results'] as Map? ?? {};
+              final a = r[me] as Map?;
+              final b = r[widget.uid] as Map?;
+              if (a == null && d['teacher'] != me) pendingToMe++;
+              if (a == null || b == null) continue;
+              final x = _n(a['r']), y = _n(b['r']);
+              if (x > y) won++;
+              if (x < y) lost++;
+              if (x == y) tied++;
+            }
+            final pending = [for (final d in between) if (d['teacher'] != me && (d['results'] as Map? ?? {})[me] == null) d];
+            final following = Cloud.i.following.containsKey(widget.publicId);
+            return ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 40), children: [
+              SoftCard(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(title, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: C.ink(context))),
+                  if (widget.publicId.isNotEmpty) Text('رقمه: ${widget.publicId}', style: TextStyle(color: C.muted(context))),
+                  const SizedBox(height: 10),
+                  Text('المكتملة بينكما: فزتَ في ${Ar.num(won)}، وفاز في ${Ar.num(lost)}، وتعادلتما في ${Ar.num(tied)}', style: TextStyle(height: 1.7, color: C.ink(context))),
+                  if (pendingToMe > 0) Text('لديك ${Ar.num(pendingToMe)} تحدياً بانتظار ردّك منه', style: TextStyle(height: 1.7, color: C.accent(context), fontWeight: FontWeight.w700)),
+                ]),
+              ),
+              const SizedBox(height: 10),
+              if (pending.isNotEmpty)
+                FilledButton.icon(
+                  icon: const Icon(Icons.play_arrow_rounded),
+                  label: Text('ابدأ تحدياته (${Ar.num(pending.length)})'),
+                  onPressed: () async {
+                    await playDuels(context, pending);
+                    if (mounted) setState(() => job = Cloud.i.duels());
+                  },
+                ),
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                icon: Icon(following ? Icons.person_remove_outlined : Icons.person_add_alt_1_outlined),
+                label: Text(following ? 'إلغاء الصداقة' : 'صادقه'),
+                onPressed: widget.publicId.isEmpty
+                    ? null
+                    : () {
+                        Cloud.i.follow(widget.publicId, widget.name, !following, ofUid: widget.uid);
+                        setState(() {});
+                      },
+              ),
+              const SizedBox(height: 16),
+              for (final d in between) _card(context, d),
+              if (between.isEmpty) const EmptyNote(Icons.sports_kabaddi_rounded, 'لا تحديات بينكما بعد.'),
+            ]);
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _card(BuildContext context, Doc d) {
+    final r = d['results'] as Map? ?? {};
+    final mine = r[Cloud.i.uid] as Map?;
+    final other = r[widget.uid] as Map?;
+    String verdict() {
+      if (mine == null && d['teacher'] != Cloud.i.uid) return 'بانتظار ردّك';
+      if (mine == null) return 'لم تُكمل تحديك بعد';
+      if (other == null) return 'أكملتَ. ننتظره';
+      final a = _n(mine['r']), b = _n(other['r']);
+      return a > b ? 'فزتَ' : (a == b ? 'تعادلتما' : 'فاز ${widget.name}');
+    }
+
+    final picks = duelPicks(d);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: SoftCard(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Expanded(child: Text(verdict(), style: TextStyle(fontWeight: FontWeight.w700, color: C.accent(context)))),
+            Text(ago(d['at']), style: TextStyle(fontSize: 12, color: C.muted(context))),
+          ]),
+          if (mine == null && d['teacher'] != Cloud.i.uid && picks.length == 5) ...[
             const SizedBox(height: 8),
             FilledButton(
               onPressed: () async {
