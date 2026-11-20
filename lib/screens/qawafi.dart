@@ -160,7 +160,6 @@ class _QawafiScreenState extends State<QawafiScreen> {
   final _rnd = Random();
   final _seen = <String>{};
   PageController _page = PageController();
-  int _at = 0;
 
   bool _started = false, _fetched = false;
 
@@ -253,7 +252,6 @@ class _QawafiScreenState extends State<QawafiScreen> {
     }
     if (mix) _more(out, 24);
     items = out;
-    _at = 0;
     if (_page.hasClients) _page.jumpToPage(0);
   }
 
@@ -265,7 +263,6 @@ class _QawafiScreenState extends State<QawafiScreen> {
   }
 
   Future<void> _onPage(int i) async {
-    _at = i;
     if (i < items.length - 6) return;
     final before = posts.length;
     if (!Cloud.i.wallEnd && Cloud.i.ready) {
