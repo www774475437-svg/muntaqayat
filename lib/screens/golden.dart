@@ -51,6 +51,26 @@ class Golden {
     return n;
   }
 
+  /// The longest run of complete days so far.
+  static int get bestStreak {
+    final days = (<int>{for (final e in log.values) if (e is Map && _n(e['t']) > 0 && _n(e['r']) == _n(e['t'])) _n(e['day'])}.toList())..sort();
+    var best = 0, run = 0, last = -5;
+    for (final d in days) {
+      run = d == last + 1 ? run + 1 : 1;
+      if (run > best) best = run;
+      last = d;
+    }
+    return best;
+  }
+
+  /// Day number → (right, asked), for the calendar.
+  static Map<int, (int, int)> get byDay => {
+        for (final e in log.values)
+          if (e is Map) _n(e['day']): (_n(e['r']), _n(e['t']))
+      };
+
+  static int dayOf(DateTime d) => DateTime.utc(d.year, d.month, d.day).difference(DateTime.utc(2024, 1, 1)).inDays;
+
   /// The calendar day of a day number.
   static DateTime dateOf(int day) => DateTime.utc(2024, 1, 1 + day);
 
@@ -89,8 +109,8 @@ const _shortVowels = ['َ', 'ُ', 'ِ'];
 List<String> _split(String s) => s.trim().split(RegExp(r'\s+'));
 
 /// The day's questions. Seeded by the day and the verse, so everyone gets the same.
-List<_GQ> _goldenQuestions(Poem p) {
-  final rnd = Random(Store.today * 31 + p.id);
+List<_GQ> _goldenQuestions(Poem p, {int? day}) {
+  final rnd = Random((day ?? Store.today) * 31 + p.id);
   final v = p.firstVerse;
   final first = v[0].trim(), second = v.length > 1 ? v[1].trim() : '';
   final words = [..._split(first), if (second.isNotEmpty) ..._split(second)];
@@ -159,10 +179,12 @@ List<_GQ> _goldenQuestions(Poem p) {
     if (eras.length >= 3) qs.add(pick('في أي عصر عاش ${p.poet}؟', const [], p.era, eras.take(3).toList()));
   }
 
-  // 7. How one word is vowelled in the verse, when the verse carries its vowels.
+  // 7. How one word is vowelled in the verse. Asked only on verses the developer
+  // has verified, so a slip in the stored vowels is never counted against the reader.
+  final verified = p.verifiedVerse(p.lines.indexOf(v) + 1);
   final marked = [
     for (final w in words)
-      if (Ar.plain(w).length >= 4 && w.split('').where(_shortVowels.contains).length >= 2) w
+      if (verified && Ar.plain(w).length >= 4 && w.split('').where(_shortVowels.contains).length >= 2) w
   ];
   if (marked.isNotEmpty) {
     final w = marked[rnd.nextInt(marked.length)];
@@ -216,6 +238,7 @@ class _GoldenScreenState extends State<GoldenScreen> {
   @override
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(title: const Text('بيت الذهب'), actions: [
+          IconButton(tooltip: 'بيت الأمس', icon: const Icon(Icons.history_rounded), onPressed: () => push(context, const GoldenYesterdayScreen())),
           IconButton(tooltip: 'بيوتي الذهبية', icon: const Icon(Icons.collections_bookmark_outlined), onPressed: () => push(context, const GoldenGalleryScreen())),
         ]),
         body: finished ? _result(context) : _question(context),
@@ -360,7 +383,68 @@ class _GoldenScreenState extends State<GoldenScreen> {
         const SizedBox(width: 10),
         Expanded(child: OutlinedButton.icon(onPressed: () => push(context, const BoardsScreen()), icon: const Icon(Icons.emoji_events_outlined), label: const Text('المتصدرون'))),
       ]),
+      const SizedBox(height: 6),
+      Center(
+        child: TextButton.icon(
+          onPressed: () => reportDialog(context, 'بيت الذهب', 'البيت رقم ${poem.id}'),
+          icon: const Icon(Icons.flag_outlined, size: 18),
+          label: const Text('أبلغ عن خطأ في الأسئلة'),
+        ),
+      ),
     ]);
+  }
+}
+
+/// Asks what is wrong, then sends the report to the developer.
+Future<void> reportDialog(BuildContext context, String kind, String target) async {
+  final t = TextEditingController();
+  final text = await showDialog<String>(
+    context: context,
+    builder: (d) => AlertDialog(
+      title: const Text('ما الخطأ؟'),
+      content: TextField(controller: t, maxLines: 4, maxLength: 300, decoration: const InputDecoration(hintText: 'اكتب الخطأ الذي رأيته وموضعه')),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(d), child: const Text('إلغاء')),
+        FilledButton(onPressed: () => Navigator.pop(d, t.text.trim()), child: const Text('أرسل')),
+      ],
+    ),
+  );
+  if (text == null || text.isEmpty || !context.mounted) return;
+  final ok = await Cloud.i.report(kind, target, text);
+  if (context.mounted) toast(context, ok ? 'وصل بلاغك، شكراً لك' : 'ادخل بحسابك أولاً لترسل البلاغ');
+}
+
+/// «بيت الأمس»: the verse and its answers, to read only. It is not won from here.
+class GoldenYesterdayScreen extends StatelessWidget {
+  const GoldenYesterdayScreen({super.key});
+  @override
+  Widget build(BuildContext context) {
+    final date = DateTime.now().subtract(const Duration(days: 1));
+    final p = Library.poemOfDay(date);
+    final day = Store.today - 1;
+    final qs = _goldenQuestions(p, day: day);
+    final mine = Golden.log['${p.id}'];
+    final played = mine is Map && mine['day'] == day;
+    return Scaffold(
+      appBar: AppBar(title: const Text('بيت الأمس')),
+      body: ListView(padding: const EdgeInsets.fromLTRB(18, 10, 18, 120), children: [
+        Text(played ? 'لعبتَ هذا البيت أمس، وهذه أجوبته.' : 'فاتك هذا البيت. هذه أجوبته للاطلاع، ولا يُنال بعد يومه.', style: TextStyle(height: 1.7, color: C.muted(context))),
+        const SizedBox(height: 12),
+        SoftCard(padding: const EdgeInsets.all(16), onTap: () => openPoem(context, p), child: VerseLines(p.firstVerse, size: 23)),
+        const SizedBox(height: 12),
+        for (final q in qs)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: SoftCard(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(q.title, style: TextStyle(fontSize: 14, color: C.muted(context))),
+                Text(q.correct, style: TextStyle(fontFamily: 'Amiri', fontSize: 17, height: 1.6, color: C.ink(context))),
+              ]),
+            ),
+          ),
+      ]),
+    );
   }
 }
 
@@ -693,6 +777,15 @@ class _GoldenGalleryScreenState extends State<GoldenGalleryScreen> {
       body: ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 120), children: [
         const GoldenSummary(),
         const SizedBox(height: 12),
+        const _StreakMedals(),
+        const SizedBox(height: 12),
+        const _GoldenCalendar(),
+        const SizedBox(height: 8),
+        Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: TextButton.icon(onPressed: () => push(context, const GoldenYesterdayScreen()), icon: const Icon(Icons.history_rounded, size: 18), label: const Text('بيت الأمس وأجوبته')),
+        ),
+        const SizedBox(height: 4),
         Wrap(spacing: 8, children: [
           for (final (i, t) in const [(0, 'الكل'), (1, 'المكتملة'), (2, 'الناقصة')]) ChoiceChip(label: Text(t), selected: filter == i, onSelected: (_) => setState(() => filter = i)),
         ]),
@@ -710,4 +803,155 @@ class _GoldenGalleryScreenState extends State<GoldenGalleryScreen> {
       ]),
     );
   }
+}
+
+/// Medals for days in a row with a complete verse: 7, 30 and 100.
+class _StreakMedals extends StatelessWidget {
+  const _StreakMedals();
+  @override
+  Widget build(BuildContext context) {
+    const gold = Color(0xFFB08A3E);
+    final best = Golden.bestStreak;
+    return SoftCard(
+      padding: const EdgeInsets.all(14),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('أوسمة السلسلة', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: C.ink(context))),
+        Text('أطول سلسلة لك: ${Ar.num(best)} يوماً متتالياً ببيت مكتمل', style: TextStyle(fontSize: 13, color: C.muted(context))),
+        const SizedBox(height: 10),
+        Row(children: [
+          for (final (n, name) in const [(7, 'وسام الأسبوع'), (30, 'وسام الشهر'), (100, 'وسام المئة')])
+            Expanded(
+              child: Column(children: [
+                Icon(Icons.military_tech_rounded, size: 38, color: best >= n ? gold : C.line(context)),
+                Text(name, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: best >= n ? gold : C.muted(context))),
+                Text(best >= n ? 'نلتَه' : '${Ar.num(best)} من ${Ar.num(n)}', style: TextStyle(fontSize: 12, color: C.muted(context))),
+              ]),
+            ),
+        ]),
+      ]),
+    );
+  }
+}
+
+/// A month of «بيت الذهب»: gold for a complete day, half gold for an
+/// incomplete one, grey for a day that passed unplayed.
+class _GoldenCalendar extends StatefulWidget {
+  const _GoldenCalendar();
+  @override
+  State<_GoldenCalendar> createState() => _GoldenCalendarState();
+}
+
+class _GoldenCalendarState extends State<_GoldenCalendar> {
+  late DateTime month = DateTime(DateTime.now().year, DateTime.now().month);
+
+  @override
+  Widget build(BuildContext context) {
+    const gold = Color(0xFFB08A3E);
+    final byDay = Golden.byDay;
+    final today = Store.today;
+    final count = DateTime(month.year, month.month + 1, 0).day;
+    // The week starts on Saturday.
+    final lead = (DateTime(month.year, month.month, 1).weekday + 1) % 7;
+    final thisMonth = month.year == DateTime.now().year && month.month == DateTime.now().month;
+    Widget cell(int d) {
+      final n = Golden.dayOf(DateTime(month.year, month.month, d));
+      final e = byDay[n];
+      final full = e != null && e.$2 > 0 && e.$1 == e.$2;
+      Color fill = Colors.transparent, ink = C.ink(context);
+      Border? border;
+      if (full) {
+        fill = gold;
+        ink = Colors.white;
+      } else if (e != null) {
+        fill = gold.withValues(alpha: 0.28);
+        border = Border.all(color: gold);
+      } else if (n < today) {
+        fill = C.line(context);
+        ink = C.muted(context);
+      } else if (n == today) {
+        border = Border.all(color: C.accent(context), width: 1.5);
+      }
+      return Container(
+        margin: const EdgeInsets.all(3),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(color: fill, shape: BoxShape.circle, border: border),
+        child: Text(Ar.num(d), style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: ink)),
+      );
+    }
+
+    Widget key(Color c, String t, {bool ring = false}) => Row(mainAxisSize: MainAxisSize.min, children: [
+          Container(width: 12, height: 12, decoration: BoxDecoration(color: c, shape: BoxShape.circle, border: ring ? Border.all(color: gold) : null)),
+          const SizedBox(width: 5),
+          Text(t, style: TextStyle(fontSize: 12, color: C.muted(context))),
+        ]);
+
+    return SoftCard(
+      padding: const EdgeInsets.all(12),
+      child: Column(children: [
+        Row(children: [
+          IconButton(onPressed: () => setState(() => month = DateTime(month.year, month.month - 1)), icon: const Icon(Icons.chevron_right_rounded)),
+          Expanded(child: Text('${Hijri.gMonths[month.month - 1]} ${Ar.num(month.year)}', textAlign: TextAlign.center, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: C.ink(context)))),
+          IconButton(onPressed: thisMonth ? null : () => setState(() => month = DateTime(month.year, month.month + 1)), icon: const Icon(Icons.chevron_left_rounded)),
+        ]),
+        Row(children: [
+          for (final w in const ['س', 'ح', 'ن', 'ث', 'ر', 'خ', 'ج']) Expanded(child: Text(w, textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: C.muted(context)))),
+        ]),
+        const SizedBox(height: 4),
+        GridView.count(
+          crossAxisCount: 7,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          children: [
+            for (var i = 0; i < lead; i++) const SizedBox(),
+            for (var d = 1; d <= count; d++) cell(d),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Wrap(spacing: 14, runSpacing: 6, alignment: WrapAlignment.center, children: [
+          key(gold, 'مكتمل'),
+          key(gold.withValues(alpha: 0.28), 'ناقص', ring: true),
+          key(C.line(context), 'فائت'),
+        ]),
+      ]),
+    );
+  }
+}
+
+/// On another reader's page: his golden verses beside mine.
+class GoldenCompare extends StatelessWidget {
+  final String uid, name;
+  const GoldenCompare({super.key, required this.uid, required this.name});
+  @override
+  Widget build(BuildContext context) => FutureBuilder<Doc>(
+        future: Cloud.i.boardOf(uid),
+        builder: (context, snap) {
+          final b = snap.data;
+          if (b == null) return const SizedBox();
+          int n(String k) => b[k] is num ? (b[k] as num).toInt() : 0;
+          const gold = Color(0xFFB08A3E);
+          Widget col(String who, int full, int streak) => Expanded(
+                child: Column(children: [
+                  Text(who, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, color: C.muted(context))),
+                  Text(Ar.num(full), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: gold)),
+                  Text('بيتاً مكتملاً · سلسلة ${Ar.num(streak)}', style: TextStyle(fontSize: 12, color: C.muted(context))),
+                ]),
+              );
+          return SoftCard(
+            padding: const EdgeInsets.all(12),
+            child: Column(children: [
+              Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                const Icon(Icons.auto_awesome_rounded, size: 16, color: gold),
+                const SizedBox(width: 6),
+                Text('بيوت الذهب: أنت وهو', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: C.ink(context))),
+              ]),
+              const SizedBox(height: 8),
+              Row(children: [
+                col(name.isEmpty ? 'هو' : name, n('goldFull'), n('goldStreak')),
+                Container(width: 1, height: 44, color: C.line(context)),
+                col('أنت', Golden.full, Golden.streak),
+              ]),
+            ]),
+          );
+        },
+      );
 }

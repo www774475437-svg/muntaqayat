@@ -424,6 +424,7 @@ class Cloud extends ChangeNotifier {
       if (app.exists) {
         _p.setStringList('bannedDevices', List<String>.from(a['bannedDevices'] as List? ?? []));
         _p.setString('mods', a['mods'] is String ? a['mods'] as String : '{}');
+        if (a['mutedReporters'] is List) _p.setStringList('mutedReporters', List<String>.from(a['mutedReporters'] as List));
       }
       Store.i.applyCloud(
         verified: marks.exists ? List<String>.from(m['verified'] as List? ?? []) : null,
@@ -461,6 +462,7 @@ class Cloud extends ChangeNotifier {
         'features': s.features,
         'bannedDevices': bannedDevices,
         'mods': jsonEncode(mods),
+        'mutedReporters': mutedReporters,
         'at': _now,
       });
       // The supervisors as a map, for the server rules to read.
@@ -685,16 +687,52 @@ class Cloud extends ChangeNotifier {
 
   Future<List<Doc>> reports() async {
     try {
-      return _docs(await _db.collection('reports').orderBy('at', descending: true).limit(50).get());
+      return _docs(await _db.collection('reports').orderBy('at', descending: true).limit(200).get());
     } catch (_) {
       return [];
     }
   }
 
-  Future<void> closeReport(String id) async {
+  /// Closing a report moves it to the archive; it is deleted only from there.
+  Future<void> closeReport(String id, {bool closed = true}) async {
+    try {
+      await _db.collection('reports').doc(id).update({'closed': closed, 'closedAt': _now});
+    } catch (_) {}
+  }
+
+  Future<void> deleteReport(String id) async {
     try {
       await _db.collection('reports').doc(id).delete();
     } catch (_) {}
+  }
+
+  /// Readers whose reports no longer reach the main list (false reports).
+  List<String> get mutedReporters => _p.getStringList('mutedReporters') ?? [];
+  void muteReporter(String userUid, bool on) {
+    if (userUid.isEmpty) return;
+    final l = mutedReporters;
+    on ? l.add(userUid) : l.remove(userUid);
+    _p.setStringList('mutedReporters', l.toSet().toList());
+    notifyListeners();
+    _schedulePush();
+  }
+
+  /// One reader's numbers on the shared board (golden verses, quiz, duels).
+  Future<Doc> boardOf(String userUid) async {
+    try {
+      return (await _db.collection('board').doc(userUid).get()).data() ?? {};
+    } catch (_) {
+      return {};
+    }
+  }
+
+  /// Everyone who carries a badge.
+  Future<List<Doc>> usersWithTitle(String title) async {
+    try {
+      return _docs(await _db.collection('users').where('grants.titles', arrayContains: title).limit(100).get());
+    } catch (_) {
+      return [];
+    }
   }
 
   Future<bool> setBanned(String userUid, bool on) async {

@@ -78,11 +78,7 @@ class TodayScreen extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 26),
-        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          const AppMark(size: 26),
-          const SizedBox(width: 8),
-          Flexible(child: FittedBox(fit: BoxFit.scaleDown, child: Text(Hijri.full(), style: TextStyle(fontSize: 15, color: C.muted(context))))),
-        ]),
+        Center(child: FittedBox(fit: BoxFit.scaleDown, child: Text(Hijri.full(), style: TextStyle(fontSize: 15, color: C.muted(context))))),
         const SizedBox(height: 10),
         Row(mainAxisAlignment: MainAxisAlignment.center, children: [
           _rule(context),
@@ -106,12 +102,19 @@ class TodayScreen extends StatelessWidget {
         const SizedBox(height: 14),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 22),
-          child: OutlinedButton.icon(
-            onPressed: () => push(context, const GoldenScreen()),
-            icon: const Icon(Icons.auto_awesome_rounded, size: 18, color: Color(0xFFB08A3E)),
-            label: Text(goldenDoneToday() ? 'بيت الذهب: شاهد بيتك اليوم' : 'بيت الذهب: اختبر نفسك في هذا البيت لتناله'),
-            style: OutlinedButton.styleFrom(side: const BorderSide(color: Color(0xFFB08A3E))),
-          ),
+          child: goldenDoneToday()
+              ? OutlinedButton.icon(
+                  onPressed: () => push(context, const GoldenScreen()),
+                  icon: const Icon(Icons.auto_awesome_rounded, size: 18, color: Color(0xFFB08A3E)),
+                  label: const Text('نتيجتك في البيت الذهبي اليوم'),
+                  style: OutlinedButton.styleFrom(side: const BorderSide(color: Color(0xFFB08A3E))),
+                )
+              : FilledButton.icon(
+                  onPressed: () => push(context, const GoldenScreen()),
+                  icon: const Icon(Icons.auto_awesome_rounded, size: 20),
+                  label: const Text('اضغط لتنال البيت الذهبي اليومي', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                  style: FilledButton.styleFrom(backgroundColor: const Color(0xFFB08A3E), foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 13)),
+                ),
         ),
         const SizedBox(height: 10),
         Padding(

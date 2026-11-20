@@ -531,6 +531,7 @@ class DeveloperHub extends StatelessWidget {
             _row(context, Icons.flag_outlined, 'البلاغات', 'الأسماء والمنشورات المبلّغ عنها، والحظر', () => push(context, const DevReportsScreen())),
             _row(context, Icons.gpp_bad_outlined, 'المخالفون', 'المحظورون والموقوفون مؤقتاً والمنذَرون', () => push(context, const ModerationScreen())),
             _row(context, Icons.admin_panel_settings_outlined, 'المشرفون', 'أضف مشرفين ببريدهم وحدّد صلاحياتهم', () => push(context, const ModsScreen())),
+            _row(context, Icons.workspace_premium_outlined, 'الشارات وأصحابها', 'كل شارة ومن منحتها له', () => push(context, const BadgeHoldersScreen())),
             _row(context, Icons.link_rounded, 'رابط الدفع لتصميم الكتاب', Store.i.payLink.isEmpty ? 'لم يُضف بعد: زر الدفع يفتح المعاينة' : Store.i.payLink, () {
               final t = TextEditingController(text: Store.i.payLink);
               showDialog(

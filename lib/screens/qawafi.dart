@@ -9,6 +9,7 @@ import '../main.dart' show shellTab;
 import '../services/cloud.dart';
 import '../ui.dart';
 import 'cloud_ui.dart';
+import 'golden.dart';
 import 'lists.dart';
 import 'majlis.dart';
 import 'majlis_plus.dart';
@@ -110,6 +111,13 @@ const titlePresets = {
   'المعلّم': Icons.school_outlined,
   'المشرف': Icons.admin_panel_settings_outlined,
   'صديق التطبيق': Icons.handshake_outlined,
+  'النابغة': Icons.auto_awesome_rounded,
+  'المحرّر': Icons.edit_note_rounded,
+  'المراقب': Icons.visibility_outlined,
+  'الكاشف': Icons.search_rounded,
+  'المشكِّل': Icons.spellcheck_rounded,
+  'الموثِّق': Icons.source_outlined,
+  'الحافظ': Icons.workspace_premium_outlined,
 };
 
 class TitleBadge extends StatelessWidget {
@@ -1193,6 +1201,7 @@ class _MemberScreenState extends State<MemberScreen> {
         const SizedBox(height: 8),
         Wrap(alignment: WrapAlignment.center, spacing: 6, runSpacing: 6, children: [for (final t in titlesOf(u)) TitleBadge(t)]),
       ],
+      if (widget.uid != Cloud.i.uid) Padding(padding: const EdgeInsets.fromLTRB(16, 10, 16, 0), child: GoldenCompare(uid: widget.uid, name: name)),
       const SizedBox(height: 4),
       Wrap(alignment: WrapAlignment.center, crossAxisAlignment: WrapCrossAlignment.center, spacing: 12, children: [
         if (country.isNotEmpty) Text('${flagOf(country)} $country', style: TextStyle(fontSize: 16, color: C.muted(context))),

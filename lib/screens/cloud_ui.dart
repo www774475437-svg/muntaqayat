@@ -12,6 +12,7 @@ import 'majlis.dart';
 import 'majlis_plus.dart';
 import 'mutun.dart';
 import 'poem.dart';
+import 'qawafi.dart' show titlePresets, MemberScreen;
 
 // Screens that talk to the server: accounts, quotes, tests by number,
 // messages, reports, subscribers and statistics.
@@ -1825,51 +1826,189 @@ class ModsScreen extends StatelessWidget {
       );
 }
 
-class DevReportsScreen extends StatelessWidget {
+/// «البلاغات» in three parts: the open reports, the readers whose reports are
+/// muted (with what they reported), and the archive of closed reports.
+class DevReportsScreen extends StatefulWidget {
   const DevReportsScreen({super.key});
   @override
-  Widget build(BuildContext context) => _DevList(
-        title: 'البلاغات',
-        empty: 'لا بلاغات.',
-        icon: Icons.flag_outlined,
-        load: Cloud.i.reports,
-        item: (context, r, reload) => Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: SoftCard(
-            padding: const EdgeInsets.all(14),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('بلاغ عن ${r['kind']} · ${ago(r['at'])}', style: TextStyle(fontWeight: FontWeight.w700, color: C.accent(context))),
-              Text('${r['text']}', style: TextStyle(fontSize: 16, height: 1.6, color: C.ink(context))),
-              Text('المبلِّغ: ${r['byName']}', style: TextStyle(color: C.muted(context))),
-              Wrap(spacing: 4, children: [
-                if (r['kind'] == 'اقتباس')
-                  TextButton(
-                    onPressed: () async {
-                      await Cloud.i.deleteQuote('${r['target']}');
-                      await Cloud.i.closeReport('${r['id']}');
-                      reload();
-                    },
-                    child: const Text('احذف الاقتباس'),
-                  ),
-                if ('${r['ofUid'] ?? ''}'.isNotEmpty)
-                  TextButton(
-                    onPressed: () async {
-                      final ok = await Cloud.i.setBanned('${r['ofUid']}', true);
-                      if (context.mounted) toast(context, ok ? 'حُظر صاحبه عن النشر' : 'تعذّر');
-                    },
-                    child: const Text('احظر صاحبه'),
-                  ),
-                TextButton(
-                  onPressed: () async {
-                    await Cloud.i.closeReport('${r['id']}');
-                    reload();
-                  },
-                  child: const Text('أغلق البلاغ'),
-                ),
-              ]),
-            ]),
+  State<DevReportsScreen> createState() => _DevReportsScreenState();
+}
+
+class _DevReportsScreenState extends State<DevReportsScreen> {
+  late Future<List<Doc>> job = Cloud.i.reports();
+  void reload() => setState(() => job = Cloud.i.reports());
+
+  @override
+  Widget build(BuildContext context) => DefaultTabController(
+        length: 3,
+        child: Scaffold(
+          appBar: AppBar(
+            title: const Text('البلاغات'),
+            actions: [IconButton(onPressed: reload, icon: const Icon(Icons.refresh_rounded))],
+            bottom: const TabBar(tabs: [Tab(text: 'البلاغات'), Tab(text: 'محظورو الإبلاغ'), Tab(text: 'الأرشيف')]),
           ),
+          body: !Cloud.i.can('حظر')
+              ? const EmptyNote(Icons.lock_outline_rounded, 'هذه الصفحة للمطوّر ومشرفي الحظر.')
+              : FutureBuilder<List<Doc>>(
+                  future: job,
+                  builder: (context, snap) {
+                    if (snap.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
+                    final all = snap.data ?? <Doc>[];
+                    final muted = Cloud.i.mutedReporters;
+                    final open = <Doc>[for (final r in all) if (r['closed'] != true && !muted.contains('${r['by']}')) r];
+                    final fromMuted = <Doc>[for (final r in all) if (r['closed'] != true && muted.contains('${r['by']}')) r];
+                    final archive = <Doc>[for (final r in all) if (r['closed'] == true) r];
+                    Widget list(List<Doc> l, String empty, int tab) => l.isEmpty
+                        ? EmptyNote(Icons.flag_outlined, empty)
+                        : ListView(padding: const EdgeInsets.fromLTRB(16, 10, 16, 40), children: [for (final r in l) _item(context, r, tab)]);
+                    return TabBarView(children: [
+                      list(open, 'لا بلاغات.', 0),
+                      list(fromMuted, 'لا بلاغات ممن حظرت بلاغاتهم.', 1),
+                      list(archive, 'الأرشيف فارغ.', 2),
+                    ]);
+                  },
+                ),
         ),
+      );
+
+  Widget _item(BuildContext context, Doc r, int tab) {
+    final by = '${r['by'] ?? ''}';
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: SoftCard(
+        padding: const EdgeInsets.all(14),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('بلاغ عن ${r['kind']} · ${ago(r['at'])}', style: TextStyle(fontWeight: FontWeight.w700, color: C.accent(context))),
+          Text('${r['text']}', style: TextStyle(fontSize: 16, height: 1.6, color: C.ink(context))),
+          if ('${r['target'] ?? ''}'.isNotEmpty) Text('الموضع: ${r['target']}', style: TextStyle(fontSize: 13, color: C.muted(context))),
+          Text('المبلِّغ: ${r['byName']}', style: TextStyle(color: C.muted(context))),
+          Wrap(spacing: 4, children: [
+            if (tab != 2 && r['kind'] == 'اقتباس')
+              TextButton(
+                onPressed: () async {
+                  await Cloud.i.deleteQuote('${r['target']}');
+                  await Cloud.i.closeReport('${r['id']}');
+                  reload();
+                },
+                child: const Text('احذف الاقتباس'),
+              ),
+            if (tab != 2 && '${r['ofUid'] ?? ''}'.isNotEmpty)
+              TextButton(
+                onPressed: () async {
+                  final ok = await Cloud.i.setBanned('${r['ofUid']}', true);
+                  if (context.mounted) toast(context, ok ? 'حُظر صاحبه عن النشر' : 'تعذّر');
+                },
+                child: const Text('احظر صاحبه'),
+              ),
+            if (tab == 0 && by.isNotEmpty)
+              TextButton(
+                onPressed: () {
+                  Cloud.i.muteReporter(by, true);
+                  toast(context, 'لن تظهر بلاغاته هنا بعد الآن');
+                  setState(() {});
+                },
+                child: const Text('احظر بلاغاته'),
+              ),
+            if (tab == 1) ...[
+              TextButton(
+                onPressed: () {
+                  Cloud.i.muteReporter(by, false);
+                  toast(context, 'عادت بلاغاته إلى القائمة');
+                  setState(() {});
+                },
+                child: const Text('ارفع الحظر عن بلاغاته'),
+              ),
+              TextButton(
+                onPressed: () async {
+                  final ok = await Cloud.i.setBanned(by, true);
+                  if (context.mounted) toast(context, ok ? 'حُظر المبلِّغ نهائياً' : 'تعذّر');
+                },
+                child: const Text('احظره نهائياً'),
+              ),
+            ],
+            if (tab != 2)
+              TextButton(
+                onPressed: () async {
+                  await Cloud.i.closeReport('${r['id']}');
+                  reload();
+                },
+                child: const Text('إلى الأرشيف'),
+              ),
+            if (tab == 2) ...[
+              TextButton(
+                onPressed: () async {
+                  await Cloud.i.closeReport('${r['id']}', closed: false);
+                  reload();
+                },
+                child: const Text('أعد فتحه'),
+              ),
+              TextButton(
+                onPressed: () async {
+                  await Cloud.i.deleteReport('${r['id']}');
+                  reload();
+                },
+                child: const Text('احذفه نهائياً'),
+              ),
+            ],
+          ]),
+        ]),
+      ),
+    );
+  }
+}
+
+/// «الشارات وأصحابها»: choose a badge and see everyone who carries it.
+class BadgeHoldersScreen extends StatefulWidget {
+  const BadgeHoldersScreen({super.key});
+  @override
+  State<BadgeHoldersScreen> createState() => _BadgeHoldersScreenState();
+}
+
+class _BadgeHoldersScreenState extends State<BadgeHoldersScreen> {
+  String title = titlePresets.keys.first;
+  late Future<List<Doc>> job = Cloud.i.usersWithTitle(title);
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AppBar(title: const Text('الشارات وأصحابها')),
+        body: ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 40), children: [
+          Text('تمنح الشارة من صفحة القارئ: افتح صفحته ثم «الشارات».', style: TextStyle(height: 1.7, color: C.muted(context))),
+          const SizedBox(height: 10),
+          Wrap(spacing: 8, runSpacing: 8, children: [
+            for (final t in titlePresets.keys)
+              ChoiceChip(
+                label: Text(t),
+                selected: title == t,
+                onSelected: (_) => setState(() {
+                  title = t;
+                  job = Cloud.i.usersWithTitle(t);
+                }),
+              ),
+          ]),
+          const SizedBox(height: 14),
+          FutureBuilder<List<Doc>>(
+            future: job,
+            builder: (context, snap) {
+              if (snap.connectionState != ConnectionState.done) return const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()));
+              final list = snap.data ?? <Doc>[];
+              if (list.isEmpty) return EmptyNote(Icons.workspace_premium_outlined, 'لم تمنح شارة «$title» لأحد بعد.');
+              return Column(children: [
+                for (final x in list)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: SoftCard(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      onTap: () => push(context, MemberScreen(uid: '${x['id']}', name: '${x['name'] ?? ''}', publicId: '${x['publicId'] ?? ''}')),
+                      child: Row(children: [
+                        Expanded(child: Text('${x['name'] ?? ''}'.trim().isEmpty ? '${x['publicId'] ?? ''}' : '${x['name']}', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: C.ink(context)))),
+                        Text('${x['publicId'] ?? ''}', style: TextStyle(fontSize: 13, color: C.muted(context))),
+                      ]),
+                    ),
+                  ),
+              ]);
+            },
+          ),
+        ]),
       );
 }
 

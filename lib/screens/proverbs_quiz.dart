@@ -12,6 +12,7 @@ import '../services/device.dart';
 import '../services/majma.dart';
 import '../ui.dart';
 import 'boards.dart';
+import 'golden.dart' show reportDialog;
 import 'lists.dart';
 
 int _dayNumber() {
@@ -153,6 +154,13 @@ class _ProverbQuizScreenState extends State<ProverbQuizScreen> {
                       const SizedBox(width: 10),
                       Expanded(child: OutlinedButton.icon(onPressed: () => push(context, const MajmaScreen()), icon: const Icon(Icons.menu_book_outlined), label: const Text('كل الأمثال'))),
                     ]),
+                    Center(
+                      child: TextButton.icon(
+                        onPressed: () => reportDialog(context, 'أمثال العرب', 'الأمثال ${[for (final q in qs) q.m.n].join('، ')}'),
+                        icon: const Icon(Icons.flag_outlined, size: 18),
+                        label: const Text('أبلغ عن خطأ في الأسئلة'),
+                      ),
+                    ),
                   ]),
                 ),
             ]),
