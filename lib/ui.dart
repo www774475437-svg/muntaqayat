@@ -167,6 +167,27 @@ class VerseLines extends StatelessWidget {
 }
 
 /// The card used in lists and grids: first verse + poet + details.
+/// The red marks shown at the bottom of cards: «بلا تشكيل» when the text has no harakat, plus the poem's own flags.
+List<String> cardMarks(Poem p) {
+  final text = p.lines.expand((l) => l).join(' ');
+  final noHarakat = !RegExp('[\u064B-\u0652]').hasMatch(text);
+  return [if (noHarakat) 'بلا تشكيل', ...p.flags];
+}
+
+class MarkChips extends StatelessWidget {
+  final List<String> marks;
+  const MarkChips(this.marks, {super.key});
+  @override
+  Widget build(BuildContext context) => Wrap(spacing: 6, runSpacing: 6, children: [
+        for (final m in marks)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(color: const Color(0x1AB3261E), borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFFB3261E))),
+            child: Text(m, style: const TextStyle(fontSize: 12, color: Color(0xFFB3261E), fontWeight: FontWeight.w700)),
+          ),
+      ]);
+}
+
 class PoemCard extends StatelessWidget {
   final Poem poem;
   final VoidCallback onTap;
@@ -203,6 +224,10 @@ class PoemCard extends StatelessWidget {
           const SizedBox(height: 2),
           Text(poem.chapterName, style: TextStyle(fontSize: 13.5, color: C.accent(context), fontWeight: FontWeight.w500),
               maxLines: 1, overflow: TextOverflow.ellipsis),
+          if (cardMarks(poem).isNotEmpty) ...[
+            const SizedBox(height: 8),
+            MarkChips(cardMarks(poem)),
+          ],
         ]),
       ),
     );
