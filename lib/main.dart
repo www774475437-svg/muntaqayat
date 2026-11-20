@@ -103,7 +103,7 @@ class _ShellState extends State<Shell> with TickerProviderStateMixin {
   final _navs = List.generate(4, (_) => GlobalKey<NavigatorState>());
   late final _obs = List.generate(4, (_) => _TabRoutes(_routesChanged));
   int _lastScroll = 0;
-  // the sun turns with the reading: one radian per 40 px of scroll
+  // the sun keeps turning as the page is scrolled: one radian per 40 px
   final ValueNotifier<double> _spin = ValueNotifier(0);
   late final AnimationController _slide = AnimationController(vsync: this, duration: const Duration(milliseconds: 520), value: 1);
 
@@ -172,7 +172,7 @@ class _ShellState extends State<Shell> with TickerProviderStateMixin {
   bool _onScroll(ScrollNotification n) {
     if (n.metrics.axis != Axis.vertical || n.depth != 0 || n is! ScrollUpdateNotification) return false;
     final d = n.scrollDelta ?? 0;
-    _spin.value = n.metrics.pixels / 40;
+    _spin.value += d / 40;
     final now = DateTime.now().microsecondsSinceEpoch;
     final dt = (now - _lastScroll) / 1000.0;
     _lastScroll = now;
@@ -379,19 +379,28 @@ class _ShellState extends State<Shell> with TickerProviderStateMixin {
           child: icon,
         );
       case 1:
-        return TweenAnimationBuilder<double>(
-          tween: Tween(end: on ? math.pi : 0.0),
-          duration: const Duration(milliseconds: 620),
-          curve: Curves.easeOutBack,
-          builder: (context, v, child) => Transform(alignment: Alignment.center, transform: Matrix4.rotationY(v), child: child),
-          child: icon,
-        );
-      case 2:
-        // the quill tilts and keeps writing while its tab is open
+        // the cubes turn over one after another while the tab is open
         if (!on) return icon;
         return _Loop(
-          period: const Duration(milliseconds: 1400),
-          builder: (context, t) => Transform.rotate(angle: -0.32 + 0.14 * math.sin(t * math.pi * 2), child: icon),
+          period: const Duration(milliseconds: 2600),
+          builder: (context, t) => Transform(alignment: Alignment.center, transform: Matrix4.rotationY(t * math.pi * 2), child: icon),
+        );
+      case 2:
+        // the quill writes across a page, and the lines of the page fill in
+        if (!on) return icon;
+        return _Loop(
+          period: const Duration(milliseconds: 2400),
+          builder: (context, t) => SizedBox(
+            width: 40,
+            height: 40,
+            child: Stack(alignment: Alignment.center, children: [
+              CustomPaint(size: const Size(34, 34), painter: _PagePainter(t, C.accent(context))),
+              Transform.translate(
+                offset: Offset(-6 + 12 * t, -5 + 10 * t),
+                child: Transform.rotate(angle: -0.5, child: icon),
+              ),
+            ]),
+          ),
         );
       case 3:
         // a gold ring turns around the account icon while its tab is open
@@ -406,11 +415,15 @@ class _ShellState extends State<Shell> with TickerProviderStateMixin {
                 height: 36,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  gradient: SweepGradient(colors: [
-                    const Color(0xFFD9A441),
-                    C.accent(context),
-                    const Color(0xFFF2D48A),
-                    const Color(0xFFD9A441),
+                  gradient: const SweepGradient(colors: [
+                    Color(0xFFE53935),
+                    Color(0xFFFB8C00),
+                    Color(0xFFFDD835),
+                    Color(0xFF43A047),
+                    Color(0xFF1E88E5),
+                    Color(0xFF3949AB),
+                    Color(0xFF8E24AA),
+                    Color(0xFFE53935),
                   ]),
                 ),
                 child: Center(child: Container(width: 30, height: 30, decoration: BoxDecoration(shape: BoxShape.circle, color: C.bar(context)))),
@@ -640,4 +653,32 @@ class _LoopState extends State<_Loop> with SingleTickerProviderStateMixin {
   }
   @override
   Widget build(BuildContext context) => AnimatedBuilder(animation: _c, builder: (context, _) => widget.builder(context, _c.value));
+}
+
+/// The page under the quill: lines fill in one by one as the quill moves.
+class _PagePainter extends CustomPainter {
+  final double t;
+  final Color color;
+  _PagePainter(this.t, this.color);
+  @override
+  void paint(Canvas canvas, Size size) {
+    final frame = Paint()
+      ..color = color.withValues(alpha: 0.5)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2;
+    canvas.drawRRect(RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(4)), frame);
+    final line = Paint()
+      ..color = color
+      ..strokeWidth = 1.6
+      ..strokeCap = StrokeCap.round;
+    for (var i = 0; i < 4; i++) {
+      final start = i * 0.2;
+      final p = ((t - start) / 0.2).clamp(0.0, 1.0);
+      if (p <= 0) continue;
+      final y = size.height * (0.28 + i * 0.18);
+      canvas.drawLine(Offset(size.width * 0.18, y), Offset(size.width * (0.18 + 0.64 * p), y), line);
+    }
+  }
+  @override
+  bool shouldRepaint(covariant _PagePainter old) => old.t != t || old.color != color;
 }
