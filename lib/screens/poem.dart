@@ -502,7 +502,7 @@ void explainSheet(BuildContext context, Poem p) {
             Text('شرح آلي تحت مراجعة المطوّر', textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: C.muted(b))),
             const SizedBox(height: 12),
             for (var i = 0; i < p.lines.length; i++)
-              _ExplainRow(verse: p.lines[i]),
+              _ExplainRow(id: '${p.id}:$i', verse: p.lines[i]),
           ]),
         ),
       ),
@@ -511,7 +511,8 @@ void explainSheet(BuildContext context, Poem p) {
 }
 
 class _ExplainRow extends StatefulWidget {
-  const _ExplainRow({required this.verse});
+  const _ExplainRow({required this.id, required this.verse});
+  final String id;
   final List<String> verse;
   @override
   State<_ExplainRow> createState() => _ExplainRowState();
@@ -522,12 +523,20 @@ class _ExplainRowState extends State<_ExplainRow> {
   String? _text;
   bool _failed = false;
 
+  @override
+  void initState() {
+    super.initState();
+    Explain.saved(widget.id).then((t) {
+      if (mounted && t != null) setState(() => _text = t);
+    });
+  }
+
   Future<void> _ask() async {
     setState(() {
       _busy = true;
       _failed = false;
     });
-    final r = await Explain.verse(widget.verse);
+    final r = await Explain.verse(widget.id, widget.verse);
     if (!mounted) return;
     setState(() {
       _busy = false;
