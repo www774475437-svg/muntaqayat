@@ -687,6 +687,9 @@ class ShareCardScreen extends StatefulWidget {
 /// Shapes of the card: (name, width ÷ height).
 const _cardShapes = [('مربع', 1.0), ('ستوري', 9 / 16), ('طولي', 4 / 5), ('A4', 1 / 1.414)];
 
+/// Fonts of the card: (name, family in pubspec).
+const _cardFonts = [('أميري', 'Amiri'), ('رقعة', 'ArefRuqaa'), ('نستعليق', 'NotoNastaliq'), ('كوفي', 'ReemKufi')];
+
 /// Removes the tashkeel (harakat) from a text.
 String plainText(String t) => t.replaceAll(RegExp('[\u064B-\u065F\u0670]'), '');
 
@@ -694,6 +697,7 @@ class _ShareCardScreenState extends State<ShareCardScreen> {
   final _key = GlobalKey();
   int style = 0;
   int shape = 2;
+  int font = 0;
   bool tashkeel = true;
   bool frame = true;
   bool busy = false;
@@ -744,12 +748,12 @@ class _ShareCardScreenState extends State<ShareCardScreen> {
                           padding: const EdgeInsets.symmetric(vertical: 6),
                           child: Text(_t(h),
                               textAlign: TextAlign.center,
-                              style: TextStyle(fontFamily: verseFont, fontSize: 24, height: 1.9, color: s.ink)),
+                              style: TextStyle(fontFamily: _cardFonts[font].$2, fontSize: 24, height: 1.9, color: s.ink)),
                         ),
                       const SizedBox(height: 18),
                       Text(poetLine,
                           textAlign: TextAlign.center,
-                          style: TextStyle(fontFamily: verseFont, fontSize: 17, fontWeight: FontWeight.w700, color: s.mark)),
+                          style: TextStyle(fontFamily: _cardFonts[font].$2, fontSize: 17, fontWeight: FontWeight.w700, color: s.mark)),
                       const Spacer(),
                       Container(
                         width: 58,
@@ -768,6 +772,11 @@ class _ShareCardScreenState extends State<ShareCardScreen> {
           ),
         ),
         const SizedBox(height: 20),
+        Wrap(alignment: WrapAlignment.center, spacing: 10, runSpacing: 8, children: [
+          for (var i = 0; i < _cardFonts.length; i++)
+            ChoiceChip(label: Text(_cardFonts[i].$1), selected: font == i, onSelected: (_) => setState(() => font = i)),
+        ]),
+        const SizedBox(height: 14),
         Wrap(alignment: WrapAlignment.center, spacing: 10, runSpacing: 8, children: [
           for (var i = 0; i < _cardShapes.length; i++)
             ChoiceChip(label: Text(_cardShapes[i].$1), selected: shape == i, onSelected: (_) => setState(() => shape = i)),
