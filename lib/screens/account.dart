@@ -337,6 +337,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               ListTile(
                 contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.auto_awesome_rounded),
+                title: const Text('إزالة الإضافات'),
+                subtitle: const Text('الفاصلة والنقطة والريشة عند النسخ'),
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RemoveMarkScreen())),
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.menu_book_rounded),
                 title: Text('عن الكتاب: «${Library.book}»'),
                 subtitle: Text('جمع وترتيب ${Library.author} — ${Ar.num(Library.poems.length)} مقطعاً في ${Ar.num(Library.chapters.length)} باباً'),

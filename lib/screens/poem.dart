@@ -39,55 +39,16 @@ String formatWhatsApp(List<List<String>> lines) {
   return '$text،.🪶';
 }
 
-void copyVerses(BuildContext context, List<List<String>> lines, {bool whatsapp = false, bool mark = true}) {
-  Clipboard.setData(ClipboardData(text: whatsapp ? formatWhatsApp(lines) : formatVerses(lines, mark: mark)));
+/// One copy for everyone, in the channel layout. The closing mark «،.🪶» is kept
+/// unless the subscriber removed it in Settings (stored on the account).
+void copyVerses(BuildContext context, List<List<String>> lines) {
+  Clipboard.setData(ClipboardData(text: formatVerses(lines, mark: !Cloud.i.noMark)));
   final what = lines.length > 1 ? Ar.verses(lines.length) : 'البيت';
-  toast(context, 'تمّ نسخ $what${whatsapp ? ' لواتساب' : ''}');
+  toast(context, 'تمّ نسخ $what');
 }
 
-/// Choose: copy for Telegram (the channel layout) or for WhatsApp.
-void copySheet(BuildContext context, List<List<String>> lines) {
-  showModalBottomSheet(
-    context: context,
-    showDragHandle: true,
-    builder: (c) => SafeArea(
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Text(lines.length > 1 ? 'نسخ ${Ar.verses(lines.length)}' : 'نسخ البيت', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-        const SizedBox(height: 6),
-        ListTile(
-          leading: const Icon(Icons.send_rounded),
-          title: const Text('نسخ لتيليجرام'),
-          subtitle: const Text('بتنسيق القناة: «..» بين الأبيات'),
-          onTap: () {
-            Navigator.pop(c);
-            copyVerses(context, lines);
-          },
-        ),
-        ListTile(
-          leading: const Icon(Icons.chat_rounded),
-          title: const Text('نسخ لواتساب'),
-          subtitle: const Text('سطر فارغ بين الأبيات'),
-          onTap: () {
-            Navigator.pop(c);
-            copyVerses(context, lines, whatsapp: true);
-          },
-        ),
-        // Only subscribers may remove the closing mark «،.🪶» inside the app.
-        if (Store.plusUser)
-          ListTile(
-            leading: const Icon(Icons.auto_awesome_rounded),
-            title: const Text('نسخ بلا العلامة'),
-            subtitle: const Text('للمشترك فقط: بدون «،.🪶» في آخر النص'),
-            onTap: () {
-              Navigator.pop(c);
-              copyVerses(context, lines, mark: false);
-            },
-          ),
-        const SizedBox(height: 8),
-      ]),
-    ),
-  );
-}
+/// Copy directly: one action, no platform names.
+void copySheet(BuildContext context, List<List<String>> lines) => copyVerses(context, lines);
 
 class PoemScreen extends StatefulWidget {
   final Poem poem;
@@ -436,7 +397,7 @@ class _PoemScreenState extends State<PoemScreen> {
                           row(Icons.copy_all_rounded, 'نسخ المقطع كاملاً', () => copySheet(context, p.shown)),
                           row(Icons.check_circle_outline_rounded, 'تحديد الأبيات', () => toast(context, 'اضغط مطوّلاً على البيت ثم اسحب لتحديد ما تريد')),
                           row(Icons.image_outlined, 'مشاركة صورة', () => shareSheet(context, p, p.firstVerse)),
-                          row(Icons.link_rounded, 'مشاركة الرابط', () => Share.share('${formatVerses(p.shown)}\n\n${poemLink(p)}')),
+                          row(Icons.link_rounded, 'مشاركة الرابط', () => Share.share('${formatVerses(p.shown, mark: !Cloud.i.noMark)}\n\n${poemLink(p)}')),
                           line(),
                           row(Icons.edit_note_rounded, note.isEmpty ? 'إضافة ملاحظة على المقطع' : 'ملاحظتك على المقطع', () => _note(context)),
                           if (cols.isEmpty)
@@ -768,6 +729,55 @@ class _MemorizeScreenState extends State<MemorizeScreen> {
           child: Text(shown.length == lines.length ? 'إخفاء الكل' : 'إظهار الكل'),
         ),
       ]),
+    );
+  }
+}
+
+/// Settings → «إزالة الإضافات»: shows a sample verse with the closing mark.
+/// Only subscribers can switch the mark off; others are sent to the subscription.
+class RemoveMarkScreen extends StatelessWidget {
+  const RemoveMarkScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final candidates = Library.poems.where((p) => p.lines.isNotEmpty && p.lines.first.length > 1).toList();
+    final sample = candidates.isEmpty ? null : candidates.first;
+    final lines = sample == null ? const <List<String>>[] : [sample.lines.first];
+    return ListenableBuilder(
+      listenable: Cloud.i,
+      builder: (context, _) {
+        final plus = Cloud.i.plus;
+        return Scaffold(
+          appBar: AppBar(title: const Text('إزالة الإضافات')),
+          body: ListView(padding: const EdgeInsets.all(16), children: [
+            Text('عند النسخ تُضاف الفاصلة والنقطة والريشة في آخر النص، كما في المثال.',
+                style: TextStyle(fontSize: 15, color: C.ink(context))),
+            const SizedBox(height: 12),
+            if (lines.isNotEmpty)
+              SoftCard(
+                padding: const EdgeInsets.all(14),
+                child: SelectableText(formatVerses(lines, mark: true), style: const TextStyle(fontSize: 20, height: 1.8)),
+              ),
+            const SizedBox(height: 16),
+            if (plus)
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('إزالة الفاصلة والنقطة والريشة'),
+                subtitle: const Text('للمشترك فقط'),
+                value: Cloud.i.noMark,
+                onChanged: (v) async {
+                  final ok = await Cloud.i.setNoMark(v);
+                  if (context.mounted) toast(context, ok ? 'تم الحفظ' : 'تعذّر الحفظ، تحقّق من الإنترنت');
+                },
+              )
+            else
+              FilledButton(
+                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PlusScreen())),
+                child: const Text('اشترك لإزالتها'),
+              ),
+          ]),
+        );
+      },
     );
   }
 }

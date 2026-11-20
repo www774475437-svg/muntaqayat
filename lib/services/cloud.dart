@@ -436,6 +436,22 @@ class Cloud extends ChangeNotifier {
   int get quotesLeft => 10 - _count('q');
   bool get plus => profile['plus'] == true;
 
+  /// Subscribers may remove the closing mark «،.🪶» when copying. Stored on the account.
+  bool get noMark => plus && profile['noMark'] == true;
+
+  Future<bool> setNoMark(bool v) async {
+    if (!signedIn || !plus) return false;
+    try {
+      await _db.collection('users').doc(uid).update({'noMark': v});
+      profile['noMark'] = v;
+      _cacheProfile();
+      notifyListeners();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// One message a day for free, twenty for subscribers.
   int get messagesLimit => plus ? 20 : 1;
   int get messagesLeft => isDev ? 99 : messagesLimit - _count('msg');
