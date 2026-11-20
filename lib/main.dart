@@ -103,6 +103,8 @@ class _ShellState extends State<Shell> with TickerProviderStateMixin {
   final _navs = List.generate(4, (_) => GlobalKey<NavigatorState>());
   late final _obs = List.generate(4, (_) => _TabRoutes(_routesChanged));
   int _lastScroll = 0;
+  // the sun turns with the reading: one radian per 40 px of scroll
+  final ValueNotifier<double> _spin = ValueNotifier(0);
   late final AnimationController _slide = AnimationController(vsync: this, duration: const Duration(milliseconds: 520), value: 1);
 
   static const _icons = [
@@ -170,6 +172,7 @@ class _ShellState extends State<Shell> with TickerProviderStateMixin {
   bool _onScroll(ScrollNotification n) {
     if (n.metrics.axis != Axis.vertical || n.depth != 0 || n is! ScrollUpdateNotification) return false;
     final d = n.scrollDelta ?? 0;
+    _spin.value = n.metrics.pixels / 40;
     final now = DateTime.now().microsecondsSinceEpoch;
     final dt = (now - _lastScroll) / 1000.0;
     _lastScroll = now;
@@ -287,7 +290,7 @@ class _ShellState extends State<Shell> with TickerProviderStateMixin {
                               child: Center(
                                 child: Transform.scale(
                                   scale: 1.15 - 0.15 * open,
-                                  child: Icon(_icons[tab].$2, color: C.accent(context), size: 30),
+                                  child: _animIcon(tab, Icon(_icons[tab].$2, color: C.accent(context), size: 30), true),
                                 ),
                               ),
                             ),
@@ -365,6 +368,43 @@ class _ShellState extends State<Shell> with TickerProviderStateMixin {
     );
   }
 
+  /// Each tab's icon has its own motion: the sun turns with the reading,
+  /// the browse cube turns over, the quill writes and the account ring turns.
+  Widget _animIcon(int i, Widget icon, bool on) {
+    switch (i) {
+      case 0:
+        return ValueListenableBuilder<double>(
+          valueListenable: _spin,
+          builder: (context, a, child) => Transform.rotate(angle: a, child: child),
+          child: icon,
+        );
+      case 1:
+        return TweenAnimationBuilder<double>(
+          tween: Tween(end: on ? math.pi : 0.0),
+          duration: const Duration(milliseconds: 620),
+          curve: Curves.easeOutBack,
+          builder: (context, v, child) => Transform(alignment: Alignment.center, transform: Matrix4.rotationY(v), child: child),
+          child: icon,
+        );
+      case 2:
+        return TweenAnimationBuilder<double>(
+          tween: Tween(end: on ? -0.32 : 0.0),
+          duration: const Duration(milliseconds: 700),
+          curve: Curves.elasticOut,
+          builder: (context, v, child) => Transform.rotate(angle: v, child: child),
+          child: icon,
+        );
+      case 3:
+        return AnimatedRotation(
+          turns: on ? 1 : 0,
+          duration: const Duration(milliseconds: 780),
+          curve: Curves.easeOutCubic,
+          child: icon,
+        );
+    }
+    return icon;
+  }
+
   Widget _item(BuildContext context, int i) {
     final on = tab == i;
     final (icon, active, label) = _icons[i];
@@ -380,7 +420,7 @@ class _ShellState extends State<Shell> with TickerProviderStateMixin {
             curve: Curves.easeOutBack,
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 220),
-              child: Icon(on ? active : icon, key: ValueKey(on), color: color, size: 27),
+              child: _animIcon(i, Icon(on ? active : icon, key: ValueKey(on), color: color, size: 27), on),
             ),
           ),
           const SizedBox(height: 2),
