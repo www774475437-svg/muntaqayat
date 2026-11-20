@@ -837,7 +837,7 @@ class _DuelPersonScreenState extends State<DuelPersonScreen> {
           builder: (context, snap) {
             if (snap.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
             final me = Cloud.i.uid;
-            final between = [for (final d in snap.data ?? []) if (duelHasUid(d, widget.uid)) d];
+            final between = <Doc>[for (final d in snap.data ?? <Doc>[]) if (duelHasUid(d, widget.uid)) d];
             var won = 0, lost = 0, tied = 0, pendingToMe = 0;
             for (final d in between) {
               final r = d['results'] as Map? ?? {};
@@ -850,7 +850,7 @@ class _DuelPersonScreenState extends State<DuelPersonScreen> {
               if (x < y) lost++;
               if (x == y) tied++;
             }
-            final pending = [for (final d in between) if (d['teacher'] != me && (d['results'] as Map? ?? {})[me] == null) d];
+            final pending = <Doc>[for (final d in between) if (d['teacher'] != me && (d['results'] as Map? ?? {})[me] == null) d];
             final following = Cloud.i.following.containsKey(widget.publicId);
             return ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 40), children: [
               SoftCard(
