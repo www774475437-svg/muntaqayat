@@ -149,6 +149,12 @@ class Cloud extends ChangeNotifier {
         await _createProfile();
       }
       _cacheProfile();
+      // The developer's account carries the golden mark for everyone to see.
+      if (isDev && grants['dev'] != true) {
+        await ref.update({'grants.dev': true});
+        profile['grants'] = {...grants, 'dev': true};
+        _cacheProfile();
+      }
     } catch (_) {}
   }
 
@@ -488,6 +494,8 @@ class Cloud extends ChangeNotifier {
         'b': l.length > 1 ? l[1] : '',
         'poet': p.poet,
         'hue': profile['hue'] ?? 0,
+        'mark': mark,
+        'titles': grants['titles'] ?? [],
         'likes': 0,
         'at': _now,
       };
@@ -575,6 +583,8 @@ class Cloud extends ChangeNotifier {
         'b': lines.first.length > 1 ? lines.first[1].trim() : '',
         'poet': name,
         'hue': profile['hue'] ?? 0,
+        'mark': mark,
+        'titles': grants['titles'] ?? [],
         'meter': meter,
         'purpose': purpose,
         'likes': 0,
@@ -992,6 +1002,13 @@ class Cloud extends ChangeNotifier {
       return false;
     }
   }
+
+  /// Badges the developer gives a reader («الشارح», «المقتبس»…). Kept in
+  /// «grants», which only the developer and the supervisors may change.
+  Future<bool> setTitles(String userUid, List<String> titles) => _mod(userUid, {'grants.titles': titles});
+
+  /// «gold» for the developer, «blue» for a subscriber, '' otherwise.
+  String get mark => isDev ? 'gold' : (plus ? 'blue' : '');
 
   /// A written warning: it reaches the reader in his messages.
   Future<bool> warnUser(String userUid, String text) => _mod(userUid, {

@@ -46,6 +46,95 @@ const countries = [
 
 String flagOf(String country) => countries.where((c) => c.$2 == country).map((c) => c.$1).firstOrNull ?? '';
 
+// ------------------------------------------------------------ marks and badges
+
+/// «gold» for the developer, «blue» for a subscriber.
+String markOf(Map u) {
+  final g = u['grants'];
+  if (g is Map && g['dev'] == true) return 'gold';
+  return u['plus'] == true ? 'blue' : '';
+}
+
+List<String> titlesOf(Map u) {
+  final g = u['grants'];
+  return g is Map && g['titles'] is List ? [for (final t in g['titles'] as List) '$t'] : [];
+}
+
+/// The verification mark beside a name: golden for the developer, blue for subscribers.
+class VerifiedMark extends StatelessWidget {
+  final String kind;
+  final double size;
+  const VerifiedMark(this.kind, {super.key, this.size = 18});
+  @override
+  Widget build(BuildContext context) {
+    if (kind != 'gold' && kind != 'blue') return const SizedBox.shrink();
+    final gold = kind == 'gold';
+    return Tooltip(
+      message: gold ? 'حساب المطوّر' : 'مشترك',
+      child: Padding(
+        padding: const EdgeInsetsDirectional.only(start: 4),
+        child: ShaderMask(
+          shaderCallback: (r) => LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: gold ? const [Color(0xFFFFE08A), Color(0xFFD4A72C), Color(0xFF9C7314)] : const [Color(0xFF6CC4FF), Color(0xFF1D9BF0), Color(0xFF0F6FB8)],
+          ).createShader(r),
+          child: Icon(Icons.verified_rounded, size: size, color: Colors.white),
+        ),
+      ),
+    );
+  }
+}
+
+/// A name followed by its mark, on one line.
+class MarkedName extends StatelessWidget {
+  final String name;
+  final String mark;
+  final TextStyle style;
+  const MarkedName(this.name, this.mark, {super.key, required this.style});
+  @override
+  Widget build(BuildContext context) => Row(mainAxisSize: MainAxisSize.min, children: [
+        Flexible(child: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: style)),
+        VerifiedMark(mark, size: (style.fontSize ?? 16) * 0.85),
+      ]);
+}
+
+/// Badges the developer gives («الشارح», «المقتبس»…).
+const titlePresets = {
+  'الشارح': Icons.menu_book_rounded,
+  'المقتبس': Icons.format_quote_rounded,
+  'شاعر موثّق': Icons.history_edu_rounded,
+  'الناقد': Icons.rate_review_outlined,
+  'الراوية': Icons.record_voice_over_outlined,
+  'المحقّق': Icons.fact_check_outlined,
+  'المعلّم': Icons.school_outlined,
+  'المشرف': Icons.admin_panel_settings_outlined,
+  'صديق التطبيق': Icons.handshake_outlined,
+};
+
+class TitleBadge extends StatelessWidget {
+  final String title;
+  const TitleBadge(this.title, {super.key});
+  @override
+  Widget build(BuildContext context) {
+    const gold = Color(0xFFD9B45A);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        gradient: const LinearGradient(colors: [Color(0xFF2A211A), Color(0xFF3B2E22)]),
+        border: Border.all(color: gold, width: 1.2),
+        boxShadow: [BoxShadow(color: gold.withValues(alpha: 0.25), blurRadius: 8)],
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(titlePresets[title] ?? Icons.workspace_premium_rounded, size: 15, color: gold),
+        const SizedBox(width: 5),
+        Text(title, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: Color(0xFFF3DFA6))),
+      ]),
+    );
+  }
+}
+
 /// The colours a reader may choose for his monogram (no pictures in the app).
 const inks = [
   Color(0xFF8C4A2F), Color(0xFFB08A3E), Color(0xFF2F6B4F), Color(0xFF23395B), //
@@ -727,12 +816,14 @@ class _WallPageState extends State<WallPage> with TickerProviderStateMixin {
                   push(context, PoetScreen(name: it.poet));
                 }
               },
-              child: Text(it.poet, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontFamily: verseFont, fontSize: 21, fontWeight: FontWeight.w700, color: C.ink(context))),
+              child: MarkedName(it.poet, it.own ? '${p!['mark'] ?? ''}' : '',
+                  style: TextStyle(fontFamily: verseFont, fontSize: 21, fontWeight: FontWeight.w700, color: C.ink(context))),
             ),
             if (p != null && !it.own)
               GestureDetector(
                 onTap: () => openMember(context, uid: '${p['uid']}', name: '${p['name']}', publicId: '${p['publicId'] ?? ''}'),
-                child: Text('اقتبسه ${p['name']} · ${ago(p['at'])}', style: TextStyle(fontSize: 13, color: C.accent(context), fontWeight: FontWeight.w700)),
+                child: MarkedName('اقتبسه ${p['name']} · ${ago(p['at'])}', '${p['mark'] ?? ''}',
+                    style: TextStyle(fontSize: 13, color: C.accent(context), fontWeight: FontWeight.w700)),
               )
             else if (it.own)
               Text('من شعره · ${ago(p!['at'])}', style: TextStyle(fontSize: 13, color: C.accent(context), fontWeight: FontWeight.w700))
@@ -803,7 +894,8 @@ class OwnPoemScreen extends StatelessWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('${post['name']}', style: TextStyle(fontFamily: verseFont, fontSize: 21, fontWeight: FontWeight.w700, color: C.ink(context))),
+                    MarkedName('${post['name']}', '${post['mark'] ?? ''}',
+                        style: TextStyle(fontFamily: verseFont, fontSize: 21, fontWeight: FontWeight.w700, color: C.ink(context))),
                     Text(ago(post['at']), style: TextStyle(color: C.muted(context))),
                   ]),
                 ),
@@ -1096,7 +1188,11 @@ class _MemberScreenState extends State<MemberScreen> {
       const SizedBox(height: 8),
       Monogram(name: name, hue: _n(u['hue']), points: _n(u['points']), size: 118),
       const SizedBox(height: 12),
-      Text(name, textAlign: TextAlign.center, style: TextStyle(fontFamily: verseFont, fontSize: 32, fontWeight: FontWeight.w700, color: C.ink(context), height: 1.3)),
+      MarkedName(name, markOf(u), style: TextStyle(fontFamily: verseFont, fontSize: 32, fontWeight: FontWeight.w700, color: C.ink(context), height: 1.3)),
+      if (titlesOf(u).isNotEmpty) ...[
+        const SizedBox(height: 8),
+        Wrap(alignment: WrapAlignment.center, spacing: 6, runSpacing: 6, children: [for (final t in titlesOf(u)) TitleBadge(t)]),
+      ],
       const SizedBox(height: 4),
       Wrap(alignment: WrapAlignment.center, crossAxisAlignment: WrapCrossAlignment.center, spacing: 12, children: [
         if (country.isNotEmpty) Text('${flagOf(country)} $country', style: TextStyle(fontSize: 16, color: C.muted(context))),
@@ -1383,6 +1479,64 @@ class _MemberScreenState extends State<MemberScreen> {
     );
   }
 
+  Future<void> _grantTitles(BuildContext context) async {
+    final chosen = [...titlesOf(u)];
+    final custom = TextEditingController();
+    final saved = await showModalBottomSheet<List<String>>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (s) => StatefulBuilder(
+        builder: (s, set) => Padding(
+          padding: EdgeInsets.fromLTRB(20, 0, 20, 20 + MediaQuery.viewInsetsOf(s).bottom),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Text('شارات $name', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 4),
+            Text('تظهر في صفحته تحت اسمه، وعلى ما ينشره بعد الآن. لا يقدر على تغييرها إلا أنت.', style: TextStyle(color: C.muted(s), height: 1.5)),
+            const SizedBox(height: 12),
+            Wrap(spacing: 8, runSpacing: 8, children: [
+              for (final t in {...titlePresets.keys, ...chosen})
+                FilterChip(
+                  avatar: Icon(titlePresets[t] ?? Icons.workspace_premium_rounded, size: 18),
+                  label: Text(t),
+                  selected: chosen.contains(t),
+                  onSelected: (on) => set(() => on ? chosen.add(t) : chosen.remove(t)),
+                ),
+            ]),
+            const SizedBox(height: 12),
+            Row(children: [
+              Expanded(child: TextField(controller: custom, maxLength: 20, decoration: const InputDecoration(hintText: 'شارة أخرى تكتبها', counterText: ''))),
+              IconButton(
+                onPressed: () {
+                  final t = custom.text.trim();
+                  if (t.isNotEmpty && !chosen.contains(t)) set(() => chosen.add(t));
+                  custom.clear();
+                },
+                icon: const Icon(Icons.add_circle_outline_rounded),
+              ),
+            ]),
+            const SizedBox(height: 12),
+            FilledButton(onPressed: () => Navigator.pop(s, chosen), child: const Text('احفظ الشارات')),
+          ]),
+        ),
+      ),
+    );
+    custom.dispose();
+    if (saved == null || !mounted) return;
+    final ok = await Cloud.i.setTitles(widget.uid, saved);
+    if (!mounted) return;
+    if (ok) {
+      setState(() {
+        if (mine) {
+          Cloud.i.profile['grants'] = {...Cloud.i.grants, 'titles': saved};
+        } else if (user != null) {
+          user!['grants'] = {...(user!['grants'] as Map? ?? {}), 'titles': saved};
+        }
+      });
+    }
+    toast(this.context, ok ? 'حُفظت الشارات' : 'تعذّر الحفظ');
+  }
+
   void _menu(BuildContext context) {
     final c = Cloud.i;
     showModalBottomSheet(
@@ -1417,6 +1571,16 @@ class _MemberScreenState extends State<MemberScreen> {
                 Navigator.pop(s);
                 final ok = await c.report('اسم', publicId, name, ofUid: widget.uid);
                 if (context.mounted) toast(context, ok ? 'وصل بلاغك إلى المشرفين' : 'تعذّر الإرسال');
+              },
+            ),
+          if (c.isDev && (mine || user != null))
+            ListTile(
+              leading: const Icon(Icons.workspace_premium_outlined, color: Color(0xFFB08A3E)),
+              title: const Text('امنحه شارات'),
+              subtitle: const Text('الشارح، المقتبس، شاعر موثّق… أو شارة تكتبها'),
+              onTap: () {
+                Navigator.pop(s);
+                _grantTitles(context);
               },
             ),
           if (!mine && user != null && (c.isDev || c.can('حظر')))
