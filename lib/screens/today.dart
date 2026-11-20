@@ -10,6 +10,7 @@ import 'plus.dart';
 import 'poem.dart';
 import '../services/device.dart';
 import '../services/words.dart';
+import 'proverbs_quiz.dart';
 
 class TodayScreen extends StatelessWidget {
   final VoidCallback onBrowse;
@@ -57,6 +58,23 @@ class TodayScreen extends StatelessWidget {
                 ),
         ),
         const WordOfDayCard(),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(18),
+            onTap: () => push(context, const ProverbQuizScreen()),
+            child: Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(color: C.soft(context), borderRadius: BorderRadius.circular(18)),
+              child: Row(children: [
+                Icon(Icons.quiz_rounded, color: C.accent(context)),
+                const SizedBox(width: 12),
+                Expanded(child: Text('مسابقة الأمثال: سؤالان كل يوم', style: TextStyle(fontSize: 16, color: C.ink(context), fontWeight: FontWeight.w700))),
+                Icon(Icons.chevron_left_rounded, color: C.muted(context)),
+              ]),
+            ),
+          ),
+        ),
         const SizedBox(height: 26),
         Center(child: Text(Hijri.today(), style: TextStyle(fontSize: 15, color: C.muted(context)))),
         const SizedBox(height: 10),
