@@ -13,6 +13,7 @@ import 'majlis_plus.dart';
 import 'mutun.dart';
 import 'poem.dart';
 import 'qawafi.dart' show titlePresets, MemberScreen;
+import 'sharh.dart';
 
 // Screens that talk to the server: accounts, quotes, tests by number,
 // messages, reports, subscribers and statistics.
@@ -128,6 +129,11 @@ class ProfileScreen extends StatelessWidget {
                   ]),
                   const SizedBox(height: 12),
                   const GoldenSummary(),
+                  if (c.signedIn)
+                    Wrap(alignment: WrapAlignment.center, spacing: 4, children: [
+                      if (c.hasTitle('الشارح')) TextButton.icon(onPressed: () => push(context, SharhListScreen(uid: c.uid, name: c.name)), icon: const Icon(Icons.menu_book_rounded, size: 18), label: const Text('شروحي')),
+                      TextButton.icon(onPressed: () => requestBadge(context), icon: const Icon(Icons.workspace_premium_outlined, size: 18), label: const Text('اطلب شارة')),
+                    ]),
                   if (c.signedIn) ...[
                     const SizedBox(height: 12),
                     Row(children: [
@@ -1855,7 +1861,11 @@ class _DevReportsScreenState extends State<DevReportsScreen> {
                     if (snap.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
                     final all = snap.data ?? <Doc>[];
                     final muted = Cloud.i.mutedReporters;
-                    final open = <Doc>[for (final r in all) if (r['closed'] != true && !muted.contains('${r['by']}')) r];
+                    bool trusted(Doc r) => (r['byTitles'] as List? ?? const []).any((t) => t == 'الكاشف' || t == 'المراقب');
+                    final open = <Doc>[
+                      for (final r in all) if (r['closed'] != true && !muted.contains('${r['by']}') && trusted(r)) r,
+                      for (final r in all) if (r['closed'] != true && !muted.contains('${r['by']}') && !trusted(r)) r,
+                    ];
                     final fromMuted = <Doc>[for (final r in all) if (r['closed'] != true && muted.contains('${r['by']}')) r];
                     final archive = <Doc>[for (final r in all) if (r['closed'] == true) r];
                     Widget list(List<Doc> l, String empty, int tab) => l.isEmpty
@@ -1881,7 +1891,7 @@ class _DevReportsScreenState extends State<DevReportsScreen> {
           Text('بلاغ عن ${r['kind']} · ${ago(r['at'])}', style: TextStyle(fontWeight: FontWeight.w700, color: C.accent(context))),
           Text('${r['text']}', style: TextStyle(fontSize: 16, height: 1.6, color: C.ink(context))),
           if ('${r['target'] ?? ''}'.isNotEmpty) Text('الموضع: ${r['target']}', style: TextStyle(fontSize: 13, color: C.muted(context))),
-          Text('المبلِّغ: ${r['byName']}', style: TextStyle(color: C.muted(context))),
+          Text('المبلِّغ: ${r['byName']}${(r['byTitles'] as List? ?? const []).isEmpty ? '' : ' (${(r['byTitles'] as List).join('، ')})'}', style: TextStyle(color: C.muted(context))),
           Wrap(spacing: 4, children: [
             if (tab != 2 && r['kind'] == 'اقتباس')
               TextButton(

@@ -126,8 +126,8 @@ List<_GQ> _goldenQuestions(Poem p, {int? day}) {
   // 2. Who said it? The other names come from the same era when there are enough.
   if (p.poet.isNotEmpty && !p.unattributed) {
     bool usable(Poem o) => o.poet.isNotEmpty && !o.unattributed && o.poet != p.poet && !p.poetNote.contains(o.poet);
-    final same = <String>{for (final o in Library.poems) if (usable(o) && o.era == p.era) o.poet}.toList()..shuffle(rnd);
-    final any = <String>{for (final o in Library.poems) if (usable(o)) o.poet}.toList()..shuffle(rnd);
+    final same = <String>{for (final o in Library.all) if (usable(o) && o.era == p.era) o.poet}.toList()..shuffle(rnd);
+    final any = <String>{for (final o in Library.all) if (usable(o)) o.poet}.toList()..shuffle(rnd);
     final wrong = <String>[...same.take(3)];
     for (final a in any) {
       if (wrong.length >= 3) break;
@@ -140,7 +140,7 @@ List<_GQ> _goldenQuestions(Poem p, {int? day}) {
   if (second.isNotEmpty) {
     final seen = <String>{Ar.plain(second)};
     final sameRhyme = <String>[], other = <String>[];
-    for (final o in ([...Library.poems]..shuffle(rnd))) {
+    for (final o in ([...Library.all]..shuffle(rnd))) {
       if (o.id == p.id || o.lines.isEmpty || o.lines.first.length != 2) continue;
       final s = o.lines.first[1].trim();
       if (s.isEmpty || !seen.add(Ar.plain(s))) continue;
@@ -156,7 +156,7 @@ List<_GQ> _goldenQuestions(Poem p, {int? day}) {
 
   // 5. When the poet died, when the book records it.
   if (p.death.isNotEmpty && !p.unattributed) {
-    final deaths = <String>{for (final o in Library.poems) if (o.death.isNotEmpty && o.death != p.death && o.poet != p.poet) o.death}.toList()..shuffle(rnd);
+    final deaths = <String>{for (final o in Library.all) if (o.death.isNotEmpty && o.death != p.death && o.poet != p.poet) o.death}.toList()..shuffle(rnd);
     if (deaths.length >= 3) qs.add(pick('متى توفي ${p.poet}؟', const [], p.death, deaths.take(3).toList()));
   }
 
@@ -175,7 +175,7 @@ List<_GQ> _goldenQuestions(Poem p, {int? day}) {
       'حديث': ['عثماني'],
     };
     final skip = overlap[p.era] ?? const <String>[];
-    final eras = <String>{for (final o in Library.poems) if (o.era.isNotEmpty && o.era != p.era && !skip.contains(o.era)) o.era}.toList()..shuffle(rnd);
+    final eras = <String>{for (final o in Library.all) if (o.era.isNotEmpty && o.era != p.era && !skip.contains(o.era)) o.era}.toList()..shuffle(rnd);
     if (eras.length >= 3) qs.add(pick('في أي عصر عاش ${p.poet}؟', const [], p.era, eras.take(3).toList()));
   }
 

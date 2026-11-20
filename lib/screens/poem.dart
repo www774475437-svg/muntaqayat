@@ -12,6 +12,8 @@ import '../services/explain.dart';
 import '../ui.dart';
 import 'cloud_ui.dart';
 import 'extras.dart';
+import 'golden.dart' show reportDialog;
+import 'sharh.dart';
 import 'plus.dart';
 import 'lists.dart';
 
@@ -409,6 +411,9 @@ class _PoemScreenState extends State<PoemScreen> {
                           else
                             row(Icons.bookmark_add_outlined, 'حفظ في مجموعة', () => collectionSheet(context, p)),
                           row(Icons.school_outlined, 'احفظه غيباً', () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => MemorizeScreen(poem: p)))),
+                          row(Icons.menu_book_outlined, Cloud.i.hasTitle('الشارح') ? 'شروح القرّاء، واكتب شرحك' : 'شروح القرّاء', () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => PoemSharhScreen(poem: p)))),
+                          if (Cloud.i.hasTitle('المشكِّل')) row(Icons.spellcheck_rounded, 'اقترح ضبطاً للتشكيل', () => reportDialog(context, 'ضبط التشكيل', 'المقطع رقم ${p.id}')),
+                          if (Cloud.i.hasTitle('الموثِّق')) row(Icons.source_outlined, 'أضف مصدر البيت', () => reportDialog(context, 'مصدر البيت', 'المقطع رقم ${p.id}')),
                           line(),
                           if (liked)
                             row(Icons.remove_circle_outline_rounded, 'إزالة من الإعجاب', () => Store.i.toggleLike(p.id), color: const Color(0xFFD9534F))

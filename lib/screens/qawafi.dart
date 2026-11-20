@@ -15,6 +15,7 @@ import 'majlis.dart';
 import 'majlis_plus.dart';
 import 'medals.dart';
 import 'poem.dart';
+import 'sharh.dart';
 
 // «قوافي»: the middle tab. A wall of verses that scrolls one page at a time:
 // verses quoted from the library and poems the members wrote themselves.
@@ -118,6 +119,7 @@ const titlePresets = {
   'المشكِّل': Icons.spellcheck_rounded,
   'الموثِّق': Icons.source_outlined,
   'الحافظ': Icons.workspace_premium_outlined,
+  'تحت التجربة': Icons.hourglass_bottom_rounded,
 };
 
 class TitleBadge extends StatelessWidget {
@@ -1201,6 +1203,8 @@ class _MemberScreenState extends State<MemberScreen> {
         const SizedBox(height: 8),
         Wrap(alignment: WrapAlignment.center, spacing: 6, runSpacing: 6, children: [for (final t in titlesOf(u)) TitleBadge(t)]),
       ],
+      if (titlesOf(u).contains('الشارح'))
+        TextButton.icon(onPressed: () => push(context, SharhListScreen(uid: widget.uid, name: name)), icon: const Icon(Icons.menu_book_rounded, size: 18), label: const Text('شروحه للأبيات')),
       if (widget.uid != Cloud.i.uid) Padding(padding: const EdgeInsets.fromLTRB(16, 10, 16, 0), child: GoldenCompare(uid: widget.uid, name: name)),
       const SizedBox(height: 4),
       Wrap(alignment: WrapAlignment.center, crossAxisAlignment: WrapCrossAlignment.center, spacing: 12, children: [

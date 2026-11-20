@@ -425,6 +425,7 @@ class Cloud extends ChangeNotifier {
         _p.setStringList('bannedDevices', List<String>.from(a['bannedDevices'] as List? ?? []));
         _p.setString('mods', a['mods'] is String ? a['mods'] as String : '{}');
         if (a['mutedReporters'] is List) _p.setStringList('mutedReporters', List<String>.from(a['mutedReporters'] as List));
+        if (a['acceptedSharh'] is List) _p.setStringList('acceptedSharh', List<String>.from(a['acceptedSharh'] as List));
       }
       Store.i.applyCloud(
         verified: marks.exists ? List<String>.from(m['verified'] as List? ?? []) : null,
@@ -463,6 +464,7 @@ class Cloud extends ChangeNotifier {
         'bannedDevices': bannedDevices,
         'mods': jsonEncode(mods),
         'mutedReporters': mutedReporters,
+        'acceptedSharh': acceptedSharh,
         'at': _now,
       });
       // The supervisors as a map, for the server rules to read.
@@ -510,12 +512,81 @@ class Cloud extends ChangeNotifier {
   Future<List<Doc>> quotes({String? of, bool refresh = false}) async {
     if (!ready) return [];
     try {
-      if (of != null) return _docs(await _db.collection('quotes').where('uid', isEqualTo: of).limit(60).get());
+      if (of != null) return _docs(await _db.collection('quotes').where('uid', isEqualTo: of).limit(60).get()).where(_notSharh).toList();
       if (_feed != null && !refresh) return _feed!;
-      return _feed = _docs(await _db.collection('quotes').orderBy('at', descending: true).limit(30).get());
+      return _feed = _docs(await _db.collection('quotes').orderBy('at', descending: true).limit(30).get()).where(_notSharh).toList();
     } catch (_) {
       return _feed ?? [];
     }
+  }
+
+  // Readers' explanations live beside the quotes, marked «sharh», and stay out of the quote lists.
+  static bool _notSharh(Doc d) => d['kind'] != 'sharh';
+
+  /// Whether this account carries a badge (the developer carries them all).
+  bool hasTitle(String t) => isDev || ((grants['titles'] as List?)?.contains(t) ?? false);
+
+  /// An explanation of one verse, by a reader who carries «الشارح».
+  /// While he also carries «تحت التجربة», only he and the developer see it.
+  Future<String?> publishSharh(Poem p, int verse, String text) async {
+    if (!signedIn) return 'ادخل بحسابك أولاً.';
+    if (!hasTitle('الشارح')) return 'الشرح لمن يحمل شارة «الشارح».';
+    if (!canPost) return 'حسابك موقوف عن النشر.';
+    if (text.trim().length < 10) return 'اكتب شرحاً أوفى.';
+    final l = p.lines[verse];
+    try {
+      await _db.collection('quotes').add({
+        'kind': 'sharh',
+        'uid': uid,
+        'name': name,
+        'publicId': publicId,
+        'poem': p.id,
+        'v': verse,
+        'a': l[0],
+        'b': l.length > 1 ? l[1] : '',
+        'poet': p.poet,
+        'text': text.trim(),
+        'trial': !isDev && hasTitle('تحت التجربة'),
+        'hue': profile['hue'] ?? 0,
+        'mark': mark,
+        'titles': grants['titles'] ?? [],
+        'likes': 0,
+        'at': _now,
+      });
+      return null;
+    } catch (_) {
+      return 'تعذّر النشر. تحقّق من الإنترنت.';
+    }
+  }
+
+  /// Trial explanations the developer accepted (kept with the app's settings, which everyone reads).
+  List<String> get acceptedSharh => _p.getStringList('acceptedSharh') ?? [];
+  bool sharhOnTrial(Doc x) => x['trial'] == true && !acceptedSharh.contains(x['id']);
+  List<Doc> _visibleSharh(List<Doc> l) => [for (final x in l) if (!sharhOnTrial(x) || isDev || x['uid'] == uid) x];
+
+  Future<List<Doc>> sharhOf(int poemId) async {
+    if (!ready) return [];
+    try {
+      return _visibleSharh(_docs(await _db.collection('quotes').where('kind', isEqualTo: 'sharh').where('poem', isEqualTo: poemId).limit(60).get()));
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<List<Doc>> sharhBy(String userUid) async {
+    if (!ready) return [];
+    try {
+      return _visibleSharh(_docs(await _db.collection('quotes').where('kind', isEqualTo: 'sharh').where('uid', isEqualTo: userUid).limit(100).get()));
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// The developer accepts a trial explanation: everyone sees it from then on.
+  void acceptSharh(String id) {
+    _p.setStringList('acceptedSharh', {...acceptedSharh, id}.toList());
+    notifyListeners();
+    _schedulePush();
   }
 
   Future<String?> publishQuote(Poem p, int verse) async {
@@ -591,7 +662,8 @@ class Cloud extends ChangeNotifier {
       if (more && _wallLast != null) q = q.startAfterDocument(_wallLast!);
       final snap = await q.get();
       final docs = [
-        for (final d in snap.docs) {...d.data(), 'id': d.id}
+        for (final d in snap.docs)
+          if (d.data()['kind'] != 'sharh') {...d.data(), 'id': d.id}
       ];
       if (snap.docs.isNotEmpty) _wallLast = snap.docs.last;
       wallEnd = snap.docs.length < 40;
@@ -678,7 +750,7 @@ class Cloud extends ChangeNotifier {
   Future<bool> report(String kind, String target, String text, {String ofUid = ''}) async {
     if (!signedIn) return false;
     try {
-      await _db.collection('reports').add({'kind': kind, 'target': target, 'text': text, 'ofUid': ofUid, 'by': uid, 'byName': name, 'at': _now});
+      await _db.collection('reports').add({'kind': kind, 'target': target, 'text': text, 'ofUid': ofUid, 'by': uid, 'byName': name, 'byTitles': grants['titles'] ?? [], 'at': _now});
       return true;
     } catch (_) {
       return false;
