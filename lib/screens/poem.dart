@@ -713,7 +713,6 @@ class _ShareCardScreenState extends State<ShareCardScreen> {
   Size _box = Size.zero;
   bool tashkeel = true;
   bool frame = true;
-  bool logo = true; // the pen picture «منتقيات الشعر» beside the poet's name
   bool busy = false;
   bool shared = false; // the move arrows disappear after sharing
 
@@ -743,7 +742,7 @@ class _ShareCardScreenState extends State<ShareCardScreen> {
     final ratio = _cardShapes[shape].$2;
     final count = widget.lines.length;
     final many = count > 2;
-    final size = count == 1 ? 26.0 : count == 2 ? 23.0 : count == 3 ? 20.0 : 16.0;
+    final size = count == 1 ? 34.0 : count == 2 ? 30.0 : count == 3 ? 26.0 : 20.0;
     final canMove = !many;
     final fam = _cardFonts[font].$2;
     final lastVerse = count - 1;
@@ -757,7 +756,7 @@ class _ShareCardScreenState extends State<ShareCardScreen> {
             padding: EdgeInsetsDirectional.only(start: hi == 1 ? size * 2 : 0, top: 4, bottom: 4),
             child: Text(_t(line[hi].trim()),
                 textAlign: TextAlign.start,
-                style: TextStyle(fontFamily: fam, fontSize: size, height: 1.9, color: inkColor ?? s.ink)),
+                style: TextStyle(fontFamily: fam, fontSize: size, height: 1.7, fontWeight: FontWeight.w700, color: inkColor ?? s.ink)),
           ),
       ]));
       if (vi < lastVerse) {
@@ -817,13 +816,10 @@ class _ShareCardScreenState extends State<ShareCardScreen> {
                                           ...verses,
                                           const SizedBox(height: 14),
                                           // the poet's name and the app mark side by side, small and elegant
-                                          Row(mainAxisAlignment: MainAxisAlignment.center, mainAxisSize: MainAxisSize.min, children: [
+                                          Row(mainAxisAlignment: MainAxisAlignment.start, children: [
                                             Text(widget.poem.poet,
-                                                style: TextStyle(fontFamily: fam, fontSize: 12, fontWeight: FontWeight.w700, color: s.mark)),
+                                                style: TextStyle(fontFamily: fam, fontSize: 13, fontWeight: FontWeight.w700, color: s.mark)),
                                             const SizedBox(width: 10),
-                                            if (logo)
-                                              Image.asset('assets/images/share_logo.png', width: 54, height: 54, filterQuality: FilterQuality.high)
-                                            else
                                             Container(
                                               width: 34,
                                               height: 34,
@@ -910,13 +906,6 @@ class _ShareCardScreenState extends State<ShareCardScreen> {
           title: const Text('الإطار'),
           value: frame,
           onChanged: (v) => setState(() => frame = v),
-        ),
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          title: const Text('صورة الشعار'),
-          subtitle: const Text('القلم و«منتقيات الشعر» بجانب اسم الشاعر، وإن أطفأتها ظهرت الدائرة الصغيرة'),
-          value: logo,
-          onChanged: (v) => setState(() => logo = v),
         ),
         const SizedBox(height: 10),
         FilledButton.icon(
