@@ -543,7 +543,7 @@ class DeveloperHub extends StatelessWidget {
             }),
             const Divider(height: 28),
             Text('مجلس الشعر: شغّل وأوقف', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: C.accent(context))),
-            for (final (k, t) in const [('tasks', 'المهام اليومية'), ('duel', 'المبارزة'), ('friday', 'جولة الجمعة المضاعفة'), ('weekly', 'شاعر الأسبوع')])
+            for (final (k, t) in const [('tasks', 'المهام اليومية'), ('duel', 'المبارزة'), ('friday', 'جولة الجمعة المضاعفة'), ('weekly', 'شاعر الأسبوع'), ('golden', 'بيت الذهب')])
               SwitchListTile(contentPadding: EdgeInsets.zero, dense: true, value: Store.i.feature(k), onChanged: (v) => Store.i.setFeature(k, v), title: Text(t, style: const TextStyle(fontSize: 16))),
             const Divider(height: 28),
             SwitchListTile(
