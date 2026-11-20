@@ -762,7 +762,7 @@ class _ShareCardScreenState extends State<ShareCardScreen> {
       if (vi < lastVerse) {
         verses.add(Padding(
           padding: const EdgeInsets.symmetric(vertical: 6),
-          child: Text('..', style: TextStyle(fontSize: size, color: s.mark)),
+          child: Center(child: Text('..', style: TextStyle(fontSize: size, color: s.mark))),
         ));
       }
     }
@@ -810,9 +810,8 @@ class _ShareCardScreenState extends State<ShareCardScreen> {
                                     offset: Offset(_off.dx * c.maxWidth, _off.dy * c.maxHeight),
                                     child: FittedBox(
                                       fit: BoxFit.scaleDown,
-                                      child: SizedBox(
-                                        width: c.maxWidth,
-                                        child: Column(mainAxisSize: MainAxisSize.min, children: [
+                                      child: IntrinsicWidth(
+                                        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
                                           ...verses,
                                           const SizedBox(height: 14),
                                           // the poet's name and the app mark side by side, small and elegant
