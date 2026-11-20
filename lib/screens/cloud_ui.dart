@@ -1351,12 +1351,19 @@ class _DevChatScreenState extends State<DevChatScreen> {
   bool busy = false;
   late Doc? user = widget.user;
   late List inbox = [...((widget.user?['grants'] as Map?)?['inbox'] as List? ?? [])];
-  String get name => '${user?['name'] ?? (widget.msgs.isEmpty ? 'قارئ' : widget.msgs.first['name'])}';
-  String get publicId => '${user?['publicId'] ?? (widget.msgs.isEmpty ? '' : widget.msgs.first['publicId'])}';
+  late List<Doc> msgs = widget.msgs;
+  String get name => '${user?['name'] ?? (msgs.isEmpty ? 'قارئ' : msgs.first['name'])}';
+  String get publicId => '${user?['publicId'] ?? (msgs.isEmpty ? '' : msgs.first['publicId'])}';
 
   @override
   void initState() {
     super.initState();
+    final uidOf = user?['uid'];
+    if (msgs.isEmpty && uidOf != null) {
+      Cloud.i.messagesOf('$uidOf').then((m) {
+        if (mounted && m.isNotEmpty) setState(() => msgs = m);
+      });
+    }
     if (user == null && publicId.isNotEmpty) {
       Cloud.i.findUser(publicId).then((u) {
         if (mounted && u != null) {
@@ -1375,9 +1382,9 @@ class _DevChatScreenState extends State<DevChatScreen> {
     setState(() => busy = true);
     final now = DateTime.now().millisecondsSinceEpoch;
     bool ok;
-    if (widget.msgs.isNotEmpty) {
+    if (msgs.isNotEmpty) {
       // The reply hangs on the reader's latest message (the list is newest first).
-      final last = widget.msgs.first;
+      final last = msgs.first;
       ok = await Cloud.i.reply('${last['id']}', text);
       if (ok) {
         last['replies'] = [
@@ -1410,7 +1417,7 @@ class _DevChatScreenState extends State<DevChatScreen> {
               onPressed: () => user != null ? push(context, UserScreen(user: user!)) : _openUser(context, publicId),
               icon: const Icon(Icons.badge_outlined),
             ),
-            if (widget.msgs.isNotEmpty)
+            if (msgs.isNotEmpty)
               IconButton(
                 tooltip: 'احذف المحادثة',
                 icon: const Icon(Icons.delete_outline_rounded),
@@ -1425,7 +1432,7 @@ class _DevChatScreenState extends State<DevChatScreen> {
                         style: FilledButton.styleFrom(backgroundColor: const Color(0xFFB3261E)),
                         onPressed: () async {
                           Navigator.pop(d);
-                          for (final m in widget.msgs) {
+                          for (final m in msgs) {
                             await Cloud.i.deleteMessage('${m['id']}');
                           }
                           if (context.mounted) Navigator.pop(context);
@@ -1440,9 +1447,9 @@ class _DevChatScreenState extends State<DevChatScreen> {
         ),
         body: Column(children: [
           Expanded(
-            child: widget.msgs.isEmpty && inbox.isEmpty
+            child: msgs.isEmpty && inbox.isEmpty
                 ? const EmptyNote(Icons.forum_outlined, 'اكتب له أول رسالة. تصله في «راسل المطوّر».')
-                : _Bubbles(_thread(widget.msgs, inbox), dev: true),
+                : _Bubbles(_thread(msgs, inbox), dev: true),
           ),
           _ChatInput(ctl: c, busy: busy, hint: 'اكتب رسالتك له', onSend: _send),
         ]),

@@ -583,6 +583,15 @@ class Cloud extends ChangeNotifier {
     }
   }
 
+  /// The messages of one reader (for the developer's conversation with him).
+  Future<List<Doc>> messagesOf(String uid) async {
+    try {
+      return _docs(await _db.collection('messages').where('uid', isEqualTo: uid).limit(60).get());
+    } catch (_) {
+      return [];
+    }
+  }
+
   Future<List<Doc>> myMessages() async {
     if (!signedIn) return [];
     try {
