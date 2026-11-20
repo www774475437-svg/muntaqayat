@@ -585,11 +585,9 @@ class Cloud extends ChangeNotifier {
 
   /// The messages of one reader (for the developer's conversation with him).
   Future<List<Doc>> messagesOf(String uid) async {
-    try {
-      return _docs(await _db.collection('messages').where('uid', isEqualTo: uid).limit(60).get());
-    } catch (_) {
-      return [];
-    }
+    // Same query the developer's list uses, filtered here by the reader's id.
+    final all = await allMessages();
+    return [for (final m in all) if ('${m['uid']}' == uid) m];
   }
 
   Future<List<Doc>> myMessages() async {
