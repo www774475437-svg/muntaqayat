@@ -387,19 +387,37 @@ class _ShellState extends State<Shell> with TickerProviderStateMixin {
           child: icon,
         );
       case 2:
-        return TweenAnimationBuilder<double>(
-          tween: Tween(end: on ? -0.32 : 0.0),
-          duration: const Duration(milliseconds: 700),
-          curve: Curves.elasticOut,
-          builder: (context, v, child) => Transform.rotate(angle: v, child: child),
-          child: icon,
+        // the quill tilts and keeps writing while its tab is open
+        if (!on) return icon;
+        return _Loop(
+          period: const Duration(milliseconds: 1400),
+          builder: (context, t) => Transform.rotate(angle: -0.32 + 0.14 * math.sin(t * math.pi * 2), child: icon),
         );
       case 3:
-        return AnimatedRotation(
-          turns: on ? 1 : 0,
-          duration: const Duration(milliseconds: 780),
-          curve: Curves.easeOutCubic,
-          child: icon,
+        // a gold ring turns around the account icon while its tab is open
+        if (!on) return icon;
+        return _Loop(
+          period: const Duration(milliseconds: 2400),
+          builder: (context, t) => Stack(alignment: Alignment.center, children: [
+            Transform.rotate(
+              angle: t * math.pi * 2,
+              child: Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: SweepGradient(colors: [
+                    const Color(0xFFD9A441),
+                    C.accent(context),
+                    const Color(0xFFF2D48A),
+                    const Color(0xFFD9A441),
+                  ]),
+                ),
+                child: Center(child: Container(width: 30, height: 30, decoration: BoxDecoration(shape: BoxShape.circle, color: C.bar(context)))),
+              ),
+            ),
+            icon,
+          ]),
         );
     }
     return icon;
@@ -602,4 +620,24 @@ class _TabRoutes extends NavigatorObserver {
     }
     onChange();
   }
+}
+
+/// Repeats a motion forever, passing the progress from 0 to 1 to [builder].
+class _Loop extends StatefulWidget {
+  final Duration period;
+  final Widget Function(BuildContext, double) builder;
+  const _Loop({required this.period, required this.builder});
+  @override
+  State<_Loop> createState() => _LoopState();
+}
+
+class _LoopState extends State<_Loop> with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(vsync: this, duration: widget.period)..repeat();
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(animation: _c, builder: (context, _) => widget.builder(context, _c.value));
 }
