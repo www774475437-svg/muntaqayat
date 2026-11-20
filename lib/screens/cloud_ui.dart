@@ -660,12 +660,22 @@ class _DuelsScreenState extends State<DuelsScreen> {
                     const SizedBox(height: 6),
                     TextButton.icon(onPressed: () => push(context, const FollowingScreen()), icon: const Icon(Icons.search_rounded), label: const Text('ابحث برقم شخصي')),
                     _statsCard(context, list),
+                    if (_pending(list).isNotEmpty) ...[
+                      _section(context, 'تحديات تنتظر ردّك (${Ar.num(_pending(list).length)})'),
+                      for (final d in _pending(list)) _card(context, d),
+                    ],
                     if (list.isEmpty) const EmptyNote(Icons.sports_kabaddi_rounded, 'لا مبارزات بعد.'),
-                    for (final d in list) _card(context, d),
+                    for (final d in list.where((d) => !_pending(list).contains(d))) _card(context, d),
                   ]);
                 },
               ),
       );
+
+  /// Challenges sent to me that I have not played yet, shown first.
+  List<Doc> _pending(List<Doc> list) => [
+        for (final d in list)
+          if (d['teacher'] != Cloud.i.uid && (d['results'] as Map? ?? {})[Cloud.i.uid] == null) d
+      ];
 
   /// My numbers: how many challenges I sent and finished, my wins and losses,
   /// and the win rate among the finished ones. A duel counts only when both finished.
