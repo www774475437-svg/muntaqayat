@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../data.dart';
@@ -108,12 +109,17 @@ class _AmthalScreenState extends State<AmthalScreen> {
                   child: Row(children: [
                     Expanded(
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        VerseLines(line, size: 20),
-                        Text((x[0] as String).isNotEmpty ? x[0] as String : 'لم يُنسب في المصدر', style: TextStyle(fontSize: 13.5, color: (x[0] as String).isNotEmpty ? C.accent(context) : C.muted(context))),
-                        if (x.length > 3 && '${x[3]}'.isNotEmpty) Text('${x[3]}', style: TextStyle(fontSize: 12, color: C.muted(context))),
+                        VerseLines(line, size: 22),
+                        const SizedBox(height: 4),
+                        Text((x[0] as String).isNotEmpty ? x[0] as String : 'لم يُنسب في المصدر', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: (x[0] as String).isNotEmpty ? C.accent(context) : C.muted(context))),
+                        if (x.length > 3 && '${x[3]}'.isNotEmpty) Text('${x[3]}', style: TextStyle(fontSize: 12.5, height: 1.5, color: C.muted(context))),
                       ]),
                     ),
                     IconButton(onPressed: () => copySheet(context, [line]), icon: Icon(Icons.copy_rounded, size: 19, color: C.muted(context))),
+                    IconButton(
+                      onPressed: () => Share.share('${line[0]}\n${line[1]}\n\n${(x[0] as String).isNotEmpty ? x[0] : 'لم يُنسب في المصدر'} — منتقيات الشعر'),
+                      icon: Icon(Icons.ios_share_rounded, size: 19, color: C.muted(context)),
+                    ),
                   ]),
                 ),
               );
