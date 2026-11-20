@@ -705,7 +705,7 @@ String plainText(String t) => t.replaceAll(RegExp('[\\u064B-\\u065F\\u0670]'), '
 
 class _ShareCardScreenState extends State<ShareCardScreen> {
   final _key = GlobalKey();
-  int style = _styles.indexWhere((x) => x.name == 'أبيض');
+  int style = _styles.indexWhere((x) => x.name == 'ليل');
   int shape = 4; // أفقي
   int font = 1; // رقعة
   Color? inkColor; // null = the style's own text color
