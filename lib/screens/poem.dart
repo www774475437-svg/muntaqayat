@@ -705,7 +705,8 @@ class _ShareCardScreenState extends State<ShareCardScreen> {
   int style = 0;
   int shape = 2;
   int font = 0;
-  int pos = 1; // 0 top, 1 middle, 2 bottom (used for one or two verses)
+  Offset _off = Offset.zero; // dragged position of the verse, as a fraction of the card
+  Size _box = Size.zero;
   bool tashkeel = true;
   bool frame = true;
   bool busy = false;
@@ -731,8 +732,6 @@ class _ShareCardScreenState extends State<ShareCardScreen> {
 
   String _t(String x) => tashkeel ? x : plainText(x);
 
-  void _move(int d) => setState(() => pos = (pos + d).clamp(0, 2));
-
   @override
   Widget build(BuildContext context) {
     final s = _styles[style];
@@ -740,27 +739,22 @@ class _ShareCardScreenState extends State<ShareCardScreen> {
     final count = widget.lines.length;
     final many = count > 2;
     final size = count == 1 ? 26.0 : count == 2 ? 23.0 : count == 3 ? 20.0 : 16.0;
-    final where = many || pos == 1 ? Alignment.center : (pos == 0 ? Alignment.topCenter : Alignment.bottomCenter);
     final canMove = !many;
     final fam = _cardFonts[font].$2;
-    // same closing mark as the copied text: subscribers may remove it
-    final endMark = Cloud.i.noMark ? '' : '،.🪶';
     final lastVerse = count - 1;
+    // the verses in the layout of the copied text: first hemistich, second indented, «..» between verses
     final verses = <Widget>[];
     for (var vi = 0; vi <= lastVerse; vi++) {
       final line = widget.lines[vi];
-      for (var hi = 0; hi < line.length; hi++) {
-        final isLastHalf = vi == lastVerse && hi == line.length - 1;
-        verses.add(Padding(
-          // second hemistich indented, as in the copied layout
-          padding: EdgeInsetsDirectional.only(start: hi == 1 ? 40 : 0, top: 4, bottom: 4),
-          child: Text(
-            _t(line[hi].trim()) + (isLastHalf ? endMark : ''),
-            textAlign: TextAlign.center,
-            style: TextStyle(fontFamily: fam, fontSize: size, height: 1.9, color: s.ink),
+      verses.add(Column(crossAxisAlignment: CrossAxisAlignment.end, mainAxisSize: MainAxisSize.min, children: [
+        for (var hi = 0; hi < line.length; hi++)
+          Padding(
+            padding: EdgeInsetsDirectional.only(start: hi == 1 ? size * 2 : 0, top: 4, bottom: 4),
+            child: Text(_t(line[hi].trim()),
+                textAlign: TextAlign.start,
+                style: TextStyle(fontFamily: fam, fontSize: size, height: 1.9, color: s.ink)),
           ),
-        ));
-      }
+      ]));
       if (vi < lastVerse) {
         verses.add(Padding(
           padding: const EdgeInsets.symmetric(vertical: 6),
@@ -780,10 +774,13 @@ class _ShareCardScreenState extends State<ShareCardScreen> {
                 Positioned.fill(
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
-                    onVerticalDragEnd: canMove
+                    onPanUpdate: canMove
                         ? (d) {
-                            if ((d.primaryVelocity ?? 0) < -60) _move(-1);
-                            if ((d.primaryVelocity ?? 0) > 60) _move(1);
+                            if (_box.isEmpty) return;
+                            setState(() => _off = Offset(
+                                  (_off.dx + d.delta.dx / _box.width).clamp(-0.5, 0.5),
+                                  (_off.dy + d.delta.dy / _box.height).clamp(-0.5, 0.5),
+                                ));
                           }
                         : null,
                     child: RepaintBoundary(
@@ -792,39 +789,52 @@ class _ShareCardScreenState extends State<ShareCardScreen> {
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(color: s.bg, borderRadius: BorderRadius.circular(24)),
                         child: Container(
+                          clipBehavior: Clip.hardEdge,
                           decoration: frame
                               ? BoxDecoration(border: Border.all(color: s.mark, width: 1.4), borderRadius: BorderRadius.circular(18))
                               : null,
-                          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 22),
-                          child: LayoutBuilder(
-                            builder: (context, c) => SizedBox(
-                              width: c.maxWidth,
-                              height: c.maxHeight,
-                              // shrinks the whole card content when a shape is too short for it
-                              child: FittedBox(
-                                fit: BoxFit.scaleDown,
-                                alignment: where,
-                                child: SizedBox(
+                          padding: const EdgeInsets.all(6),
+                          child: Container(
+                            decoration: frame
+                                ? BoxDecoration(border: Border.all(color: s.mark.withValues(alpha: 0.35), width: 0.8), borderRadius: BorderRadius.circular(14))
+                                : null,
+                            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 22),
+                            child: LayoutBuilder(
+                              builder: (context, c) {
+                                _box = Size(c.maxWidth, c.maxHeight);
+                                return SizedBox(
                                   width: c.maxWidth,
-                                  child: Column(mainAxisSize: MainAxisSize.min, children: [
-                                    ...verses,
-                                    const SizedBox(height: 12),
-                                    Text(widget.poem.poet,
-                                        textAlign: TextAlign.center,
-                                        style: TextStyle(fontFamily: fam, fontSize: 16, fontWeight: FontWeight.w700, color: s.mark)),
-                                    const SizedBox(height: 10),
-                                    Container(
-                                      width: 52,
-                                      height: 52,
-                                      alignment: Alignment.center,
-                                      decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: s.mark, width: 1.4)),
-                                      child: Text('منتقيات\nالشعر',
-                                          textAlign: TextAlign.center,
-                                          style: TextStyle(fontFamily: verseFont, fontSize: 11, height: 1.25, fontWeight: FontWeight.w700, color: s.mark)),
+                                  height: c.maxHeight,
+                                  child: Transform.translate(
+                                    offset: Offset(_off.dx * c.maxWidth, _off.dy * c.maxHeight),
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: SizedBox(
+                                        width: c.maxWidth,
+                                        child: Column(mainAxisSize: MainAxisSize.min, children: [
+                                          ...verses,
+                                          const SizedBox(height: 14),
+                                          // the poet's name and the app mark side by side, small and elegant
+                                          Row(mainAxisAlignment: MainAxisAlignment.center, mainAxisSize: MainAxisSize.min, children: [
+                                            Text(widget.poem.poet,
+                                                style: TextStyle(fontFamily: fam, fontSize: 12, fontWeight: FontWeight.w700, color: s.mark)),
+                                            const SizedBox(width: 10),
+                                            Container(
+                                              width: 34,
+                                              height: 34,
+                                              alignment: Alignment.center,
+                                              decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: s.mark, width: 1)),
+                                              child: Text('منتقيات\nالشعر',
+                                                  textAlign: TextAlign.center,
+                                                  style: TextStyle(fontFamily: verseFont, fontSize: 7.5, height: 1.2, fontWeight: FontWeight.w700, color: s.mark)),
+                                            ),
+                                          ]),
+                                        ]),
+                                      ),
                                     ),
-                                  ]),
-                                ),
-                              ),
+                                  ),
+                                );
+                              },
                             ),
                           ),
                         ),
