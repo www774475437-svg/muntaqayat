@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'data.dart';
+import 'services/review.dart';
 import 'screens/account.dart';
 import 'screens/browse.dart';
 import 'screens/cloud_ui.dart' show BlockedScreen;
@@ -22,6 +23,8 @@ import 'ui.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Future.wait([Library.load(), Store.i.load()]);
+  await Review.load();
+  Review.applyPending();
   Library.refresh();
   runApp(const MuntaqayatApp());
   Device.init();

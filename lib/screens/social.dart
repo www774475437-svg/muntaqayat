@@ -6,11 +6,13 @@ export 'cloud_ui.dart';
 
 import '../data.dart';
 import '../services/cloud.dart';
+import '../services/review.dart';
 import '../ui.dart';
 import 'cloud_ui.dart';
 import 'lists.dart';
 import 'marks.dart';
 import 'mutun.dart';
+import 'review.dart';
 import 'plus.dart';
 import 'poem.dart' show siteUrl;
 
@@ -488,6 +490,14 @@ class DeveloperHub extends StatelessWidget {
         builder: (context, _) => Scaffold(
           appBar: AppBar(title: const Text('خانة المطوّر')),
           body: ListView(padding: const EdgeInsets.fromLTRB(16, 0, 16, 40), children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: FilledButton.icon(
+                onPressed: () => push(context, const ReviewScreen()),
+                icon: const Icon(Icons.rule_rounded),
+                label: Text('مراجعة الأبيات المعلّقة (${Review.pending.length})'),
+              ),
+            ),
             Padding(
               padding: const EdgeInsets.only(bottom: 10),
               child: SoftCard(
