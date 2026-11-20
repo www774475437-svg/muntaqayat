@@ -46,12 +46,12 @@ class _ProverbQuizScreenState extends State<ProverbQuizScreen> {
 
   Future<void> _load() async {
     final book = jsonDecode(await rootBundle.loadString('assets/data/proverbs_book.json')) as List;
-    final notes = jsonDecode(await rootBundle.loadString('assets/data/proverbs.json')) as List;
-    final byText = <String, Map<String, dynamic>>{for (final x in notes) (x as Map)['full'] as String: Map<String, dynamic>.from(x)};
+    final notes = jsonDecode(await rootBundle.loadString('assets/data/proverb_notes.json')) as List;
+    final byNumber = <int, Map<String, dynamic>>{for (final x in notes) (x as Map)['n'] as int: Map<String, dynamic>.from(x)};
     final list = <_Proverb>[];
     for (final x in book) {
       final m = Map<String, dynamic>.from(x as Map);
-      final note = byText[m['full'] as String];
+      final note = byNumber[m['n'] as int];
       list.add(_Proverb(m['n'] as int, m['full'] as String, (note?['meaning'] ?? '') as String, (note?['story'] ?? '') as String));
     }
     if (!mounted) return;
