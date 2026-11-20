@@ -4,6 +4,9 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 
+import '../services/cloud.dart';
+import 'boards.dart';
+import 'lists.dart';
 import '../ui.dart';
 
 /// «أمثال العرب»: three questions every day, two attempts for each.
@@ -91,6 +94,7 @@ class _ProverbQuizScreenState extends State<ProverbQuizScreen> {
     final q = questions[step];
     if (choice == q.correct) {
       setState(() => revealed = true);
+      Cloud.i.countQuizAnswer(true);
       Future.delayed(const Duration(milliseconds: 900), _next);
       return;
     }
@@ -100,6 +104,7 @@ class _ProverbQuizScreenState extends State<ProverbQuizScreen> {
     });
     if (tries == 0) {
       setState(() => revealed = true);
+      Cloud.i.countQuizAnswer(false);
       Future.delayed(const Duration(milliseconds: 1400), _next);
     } else {
       Future.delayed(const Duration(milliseconds: 700), () {
@@ -122,7 +127,7 @@ class _ProverbQuizScreenState extends State<ProverbQuizScreen> {
   Widget build(BuildContext context) {
     final list = all;
     return Scaffold(
-      appBar: AppBar(title: const Text('أمثال العرب')),
+      appBar: AppBar(title: const Text('أمثال العرب'), actions: [IconButton(tooltip: 'المتصدرون', icon: const Icon(Icons.emoji_events_outlined), onPressed: () => push(context, const BoardsScreen()))]),
       body: list == null
           ? const Center(child: CircularProgressIndicator())
           : ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 40), children: [

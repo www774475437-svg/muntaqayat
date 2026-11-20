@@ -364,6 +364,44 @@ class Cloud extends ChangeNotifier {
     return list;
   }
 
+  /// Writes my own totals to the shared board. Only these numbers leave the device.
+  Future<void> publishStats(Map<String, num> stats) async {
+    if (!signedIn) return;
+    try {
+      await _db.collection('board').doc(uid).set({'name': name, 'publicId': publicId, ...stats}, SetOptions(merge: true));
+    } catch (_) {}
+  }
+
+  /// One ranking by a single field. Read from the server once a day, like [board].
+  Future<List<Doc>> statBoard(String field) async {
+    final key = 'stat:$field';
+    final cached = _p.getString(key);
+    List<Doc> fromCache() => cached == null ? [] : [for (final x in jsonDecode(cached) as List) Map<String, dynamic>.from(x as Map)];
+    if (cached != null && _p.getInt('$key:day') == Store.today) return fromCache();
+    if (!ready) return fromCache();
+    try {
+      final q = await _db.collection('board').orderBy(field, descending: true).limit(20).get();
+      final list = [
+        for (final d in q.docs)
+          if (((d.data()[field] ?? 0) as num) > 0) {'uid': d.id, 'name': d.data()['name'], 'publicId': d.data()['publicId'], 'v': d.data()[field]}
+      ];
+      await _p.setString(key, jsonEncode(list));
+      await _p.setInt('$key:day', Store.today);
+      return list;
+    } catch (_) {
+      return fromCache();
+    }
+  }
+
+  /// Counts one answered question of the proverb quiz and publishes the totals.
+  Future<void> countQuizAnswer(bool correct) async {
+    final a = (_p.getInt('quiz:answered') ?? 0) + 1;
+    final c = (_p.getInt('quiz:correct') ?? 0) + (correct ? 1 : 0);
+    await _p.setInt('quiz:answered', a);
+    await _p.setInt('quiz:correct', c);
+    await publishStats({'quizAnswered': a, 'quizCorrect': c});
+  }
+
   // ------------------------------------------------------------ developer marks and settings (for everyone)
 
   Future<void> pullConfig({bool force = false}) async {

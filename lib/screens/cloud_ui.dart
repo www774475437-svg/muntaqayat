@@ -5,6 +5,7 @@ import '../data.dart';
 import '../services/cloud.dart';
 import '../services/device.dart';
 import '../ui.dart';
+import 'boards.dart';
 import 'lists.dart';
 import 'majlis.dart';
 import 'majlis_plus.dart';
@@ -649,6 +650,7 @@ class _DuelsScreenState extends State<DuelsScreen> {
   @override
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(title: const Text('المبارزات'), actions: [
+          IconButton(tooltip: 'المتصدرون', onPressed: () => push(context, const BoardsScreen()), icon: const Icon(Icons.emoji_events_outlined)),
           IconButton(onPressed: () => setState(() => job = Cloud.i.duels()), icon: const Icon(Icons.refresh_rounded)),
         ]),
         body: !Cloud.i.signedIn
@@ -672,7 +674,10 @@ class _DuelsScreenState extends State<DuelsScreen> {
                 builder: (context, snap) {
                   if (snap.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
                   final list = snap.data ?? [];
-                  WidgetsBinding.instance.addPostFrameCallback((_) => _countWins(list));
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    _countWins(list);
+                    _publish(list);
+                  });
                   return ListView(padding: const EdgeInsets.fromLTRB(16, 0, 16, 40), children: [
                     SoftCard(
                       padding: const EdgeInsets.all(14),
@@ -702,6 +707,25 @@ class _DuelsScreenState extends State<DuelsScreen> {
                 },
               ),
       );
+
+  /// Publishes my duel totals for the board: challenges sent, finished, and won.
+  void _publish(List<Doc> list) {
+    final me = Cloud.i.uid;
+    var sent = 0, done = 0, won = 0;
+    for (final d in list) {
+      final r = d['results'] as Map? ?? {};
+      final mine = r[me] as Map?;
+      if (d['teacher'] == me) {
+        sent++;
+      }
+      if (mine == null) continue;
+      done++;
+      final others = r.entries.where((e) => e.key != me).toList();
+      if (others.isEmpty) continue;
+      if (_n(mine['r']) > _n((others.first.value as Map)['r'])) won++;
+    }
+    Cloud.i.publishStats({'duelSent': sent, 'duelDone': done, 'duelWon': won});
+  }
 
   /// Challenges sent to me that I have not played yet, shown first.
   List<Doc> _pending(List<Doc> list) => [
