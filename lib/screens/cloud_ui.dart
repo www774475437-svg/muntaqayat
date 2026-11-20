@@ -659,12 +659,52 @@ class _DuelsScreenState extends State<DuelsScreen> {
                     ),
                     const SizedBox(height: 6),
                     TextButton.icon(onPressed: () => push(context, const FollowingScreen()), icon: const Icon(Icons.search_rounded), label: const Text('ابحث برقم شخصي')),
+                    _statsCard(context, list),
                     if (list.isEmpty) const EmptyNote(Icons.sports_kabaddi_rounded, 'لا مبارزات بعد.'),
                     for (final d in list) _card(context, d),
                   ]);
                 },
               ),
       );
+
+  /// My numbers: how many challenges I sent and finished, my wins and losses,
+  /// and the win rate among the finished ones. A duel counts only when both finished.
+  Widget _statsCard(BuildContext context, List<Doc> list) {
+    final me = Cloud.i.uid;
+    var sent = 0, sentDone = 0, played = 0, won = 0, lost = 0, waiting = 0;
+    for (final d in list) {
+      final r = d['results'] as Map? ?? {};
+      final mine = r[me] as Map?;
+      if (d['teacher'] == me) {
+        sent++;
+        if (mine != null) sentDone++;
+      } else if (mine == null) {
+        waiting++;
+      }
+      if (mine == null) continue;
+      played++;
+      final others = r.entries.where((e) => e.key != me).toList();
+      if (others.isEmpty) continue;
+      final a = _n(mine['r']), b = _n((others.first.value as Map)['r']);
+      if (a > b) won++;
+      if (a < b) lost++;
+    }
+    int pct(int a, int b) => b == 0 ? 0 : (a * 100 / b).round();
+    final finished = won + lost;
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      SoftCard(
+        padding: const EdgeInsets.all(14),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('إحصائياتك', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: C.ink(context))),
+          const SizedBox(height: 8),
+          Text('أرسلتَ ${Ar.num(sent)} تحدياً، أنجزتَ ${Ar.num(sentDone)} منها (${Ar.num(pct(sentDone, sent))}٪)', style: TextStyle(height: 1.7, color: C.ink(context))),
+          Text('فزتَ في ${Ar.num(won)}، وخسرتَ في ${Ar.num(lost)}، ونسبة فوزك ${Ar.num(pct(won, finished))}٪ من المكتملة', style: TextStyle(height: 1.7, color: C.ink(context))),
+          if (waiting > 0) Text('لديك ${Ar.num(waiting)} تحدياً بانتظار ردّك', style: TextStyle(height: 1.7, color: C.accent(context), fontWeight: FontWeight.w700)),
+        ]),
+      ),
+      const SizedBox(height: 6),
+    ]);
+  }
 
   Widget _card(BuildContext context, Doc d) {
     final me = Cloud.i.uid;
@@ -676,8 +716,8 @@ class _DuelsScreenState extends State<DuelsScreen> {
     final otherName = iStarted ? '${d['oppName'] ?? 'صاحبك'}' : '${d['teacherName'] ?? 'صاحبك'}';
     final picks = _picks(d);
     String verdict() {
-      if (mine == null) return 'دورك: العب لترى النتيجة';
-      if (other == null) return 'لعبتَ. ننتظر $otherName';
+      if (mine == null) return iStarted ? 'لم تُكمل تحديك بعد' : 'بانتظار ردّك: العب لترى النتيجة';
+      if (other == null) return 'أكملتَ. ننتظر $otherName';
       final a = _n(mine['r']), b = _n(other['r']);
       return a > b ? 'فزتَ على $otherName' : (a == b ? 'تعادلتما' : 'فاز $otherName');
     }
