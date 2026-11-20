@@ -304,13 +304,14 @@ class MajlisScreen extends StatelessWidget {
     push(context, ChallengeScreen(picks: Majlis.pick(), day: Store.today));
   }
 
-  Widget _tile(BuildContext context, IconData icon, String title, String sub, VoidCallback onTap, {Color? color}) => SoftCard(
+  /// [big]: the key entries of the page are drawn a little larger, so they stand out.
+  Widget _tile(BuildContext context, IconData icon, String title, String sub, VoidCallback onTap, {Color? color, bool big = false}) => SoftCard(
         padding: const EdgeInsets.all(12),
         onTap: onTap,
         child: Column(children: [
-          Icon(icon, color: color ?? C.accent(context), size: 28),
+          Icon(icon, color: color ?? C.accent(context), size: big ? 34 : 28),
           const SizedBox(height: 4),
-          Text(title, textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w700, color: C.ink(context))),
+          Text(title, textAlign: TextAlign.center, style: TextStyle(fontSize: big ? 17 : 14, fontWeight: FontWeight.w700, color: C.ink(context))),
           Text(sub, textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12.5, color: C.muted(context))),
         ]),
       );
@@ -424,7 +425,7 @@ class MajlisScreen extends StatelessWidget {
               const SizedBox(height: 10),
               GridView.count(crossAxisCount: 3, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), mainAxisSpacing: 10, crossAxisSpacing: 10, childAspectRatio: 1.05, children: [
                 ...[
-                  _tile(context, Icons.emoji_events_outlined, 'الصدارة', 'أسبوعك: ${Ar.num(Majlis.sum(Majlis.weekStart))}', () => push(context, const LeaderboardScreen()), color: Majlis.gold),
+                  _tile(context, Icons.emoji_events_outlined, 'الصدارة', 'أسبوعك: ${Ar.num(Majlis.sum(Majlis.weekStart))}', () => push(context, const LeaderboardScreen()), color: Majlis.gold, big: true),
                   if (f('weekly') && Majlis.weeklyPoet.isNotEmpty)
                     _tile(context, Icons.star_outline_rounded, 'شاعر الأسبوع', Majlis.weeklyDone ? 'أتممتها' : Majlis.weeklyPoet, () {
                       if (Majlis.weeklyDone) {
