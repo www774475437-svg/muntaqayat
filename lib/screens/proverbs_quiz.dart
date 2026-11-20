@@ -142,9 +142,9 @@ class _ProverbQuizScreenState extends State<ProverbQuizScreen> {
                 SoftCard(
                   padding: const EdgeInsets.all(16),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('أتممت أسئلة اليوم: ${Ar.num(right)} من ${Ar.num(qs.length)}', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: C.accent(context))),
+                    Text('درجتك اليوم ${Ar.num((right * 100 / qs.length).floor())}٪: ${Ar.num(right)} من ${Ar.num(qs.length)}', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: C.accent(context))),
                     const SizedBox(height: 4),
-                    Text('أسئلة جديدة غداً.', style: TextStyle(color: C.muted(context))),
+                    Text('لا تُعاد أسئلة اليوم. أمثال جديدة غداً، وهي واحدة عند الجميع.', style: TextStyle(color: C.muted(context))),
                     const SizedBox(height: 10),
                     Row(children: [
                       Expanded(child: FilledButton.icon(onPressed: () => push(context, const BoardsScreen()), icon: const Icon(Icons.emoji_events_outlined), label: const Text('المتصدرون'))),

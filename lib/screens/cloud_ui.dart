@@ -6,6 +6,7 @@ import '../services/cloud.dart';
 import '../services/device.dart';
 import '../ui.dart';
 import 'boards.dart';
+import 'golden.dart';
 import 'lists.dart';
 import 'majlis.dart';
 import 'majlis_plus.dart';
@@ -124,6 +125,8 @@ class ProfileScreen extends StatelessWidget {
                     if (c.isDev) const Tag('حساب المطوّر'),
                     if (c.plus) const Tag('مشترك'),
                   ]),
+                  const SizedBox(height: 12),
+                  const GoldenSummary(),
                   if (c.signedIn) ...[
                     const SizedBox(height: 12),
                     Row(children: [

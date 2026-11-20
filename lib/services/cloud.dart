@@ -330,7 +330,7 @@ class Cloud extends ChangeNotifier {
         'm$_monthStart': _sum(_monthStart),
         'streak': _streak,
         'at': _now,
-      });
+      }, SetOptions(merge: true));
     } catch (_) {}
   }
 

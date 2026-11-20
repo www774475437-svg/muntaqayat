@@ -440,13 +440,7 @@ class MajlisScreen extends StatelessWidget {
                   _tile(context, Icons.refresh_rounded, 'أخطائي', '${Ar.num(Majlis.mistakes.length)} بيتاً', () => push(context, const MistakesScreen())),
                   _tile(context, Icons.fitness_center_rounded, 'تدريب', 'بلا نقاط', () => push(context, ChallengeScreen(picks: Majlis.pick()))),
                   if (f('golden'))
-                    _tile(context, Icons.auto_awesome_rounded, 'بيت الذهب', goldenDoneToday() ? 'أُنجز اليوم' : 'عشر مراحل', () {
-                      if (goldenDoneToday()) {
-                        toast(context, 'أنجزت بيت الذهب اليوم. يتجدد غداً.');
-                        return;
-                      }
-                      push(context, const GoldenScreen());
-                    }, color: Majlis.gold, big: true),
+                    _tile(context, Icons.auto_awesome_rounded, 'بيت الذهب', goldenDoneToday() ? 'أُنجز اليوم: شاهد بيتك' : 'أسئلة عن بيت اليوم', () => push(context, const GoldenScreen()), color: Majlis.gold, big: true),
                   _tile(context, Icons.menu_book_outlined, 'التعليمات', 'كيف تُحسب النقاط', () => push(context, const GuideScreen())),
                 ],
               ]),

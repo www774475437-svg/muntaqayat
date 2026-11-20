@@ -14,6 +14,8 @@ class BoardsScreen extends StatefulWidget {
 
 class _BoardsScreenState extends State<BoardsScreen> {
   static const rankings = <(String, String, String)>[
+    ('goldFull', 'بيت الذهب: أكثر البيوت المكتملة', 'بيتاً'),
+    ('goldRight', 'بيت الذهب: أكثر إجابة صحيحة', 'إجابة'),
     ('quizAnswered', 'الأمثال: أكثر من أجاب', 'سؤالاً'),
     ('quizCorrect', 'الأمثال: أكثر إجابة صحيحة', 'صحيحة'),
     ('duelWon', 'المبارزات: أكثر من فاز', 'فوزاً'),

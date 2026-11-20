@@ -10,6 +10,7 @@ import 'plus.dart';
 import 'poem.dart';
 import '../services/device.dart';
 import '../services/words.dart';
+import 'golden.dart';
 import 'proverbs_quiz.dart';
 
 class TodayScreen extends StatelessWidget {
@@ -92,6 +93,16 @@ class TodayScreen extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 14),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 22),
+          child: OutlinedButton.icon(
+            onPressed: () => push(context, const GoldenScreen()),
+            icon: const Icon(Icons.auto_awesome_rounded, size: 18, color: Color(0xFFB08A3E)),
+            label: Text(goldenDoneToday() ? 'بيت الذهب: شاهد بيتك اليوم' : 'بيت الذهب: اختبر نفسك في هذا البيت لتناله'),
+            style: OutlinedButton.styleFrom(side: const BorderSide(color: Color(0xFFB08A3E))),
+          ),
+        ),
+        const SizedBox(height: 10),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 22),
           child: Row(children: [
