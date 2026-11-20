@@ -670,6 +670,8 @@ const _styles = [
   _Style('زيتوني', Color(0xFF26301F), Color(0xFFF2F0E4), Color(0xFFC9B77A)),
   _Style('نيلي', Color(0xFF1B2140), Color(0xFFEEF0FA), Color(0xFFB7BEE8)),
   _Style('أبيض', Color(0xFFFFFFFF), Color(0xFF111111), Color(0xFF555555)),
+  _Style('بيج', Color(0xFFC8B89A), Color(0xFF1B2A8C), Color(0xFF1B2A8C)),
+  _Style('أسود', Color(0xFF0B0B0D), Color(0xFFFFFFFF), Color(0xFFBDBDBD)),
 ];
 
 void shareSheet(BuildContext context, Poem p, List<String> line) {
@@ -685,7 +687,7 @@ class ShareCardScreen extends StatefulWidget {
 }
 
 /// Shapes of the card: (name, width ÷ height).
-const _cardShapes = [('مربع', 1.0), ('ستوري', 9 / 16), ('طولي', 4 / 5), ('A4', 1 / 1.414)];
+const _cardShapes = [('مربع', 1.0), ('ستوري', 9 / 16), ('طولي', 4 / 5), ('A4', 1 / 1.414), ('أفقي', 1102 / 573)];
 
 /// Fonts of the card: (name, family in pubspec).
 const _cardFonts = [('أميري', 'Amiri'), ('رقعة', 'ArefRuqaa'), ('نستعليق', 'NotoNastaliq'), ('كوفي', 'ReemKufi')];
