@@ -223,25 +223,6 @@ class _ShellState extends State<Shell> with TickerProviderStateMixin {
             ]),
           ),
         ),
-        // the content fades into the page color under the bar, on every page alike
-        if (!wideMode.value)
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          height: barSpace + 12,
-          child: IgnorePointer(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [C.bg(context).withValues(alpha: 0), C.bg(context)],
-                ),
-              ),
-            ),
-          ),
-        ),
         if (!wideMode.value)
         Positioned(
           left: 16,
