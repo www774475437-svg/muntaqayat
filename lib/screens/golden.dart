@@ -47,7 +47,7 @@ class _GoldenScreenState extends State<GoldenScreen> {
             if (v.length == 2 && v[0].trim().isNotEmpty && v[1].trim().isNotEmpty) v,
       ];
 
-  List<String> _others(List<String> all, List<String> avoid, int n, String Function(List<String>) pick) {
+  List<String> _others(List<List<String>> all, List<String> avoid, int n, String Function(List<String>) pick) {
     final out = <String>[];
     final seen = {for (final a in avoid) Ar.plain(a)};
     final shuffled = [...all]..shuffle(rnd);
