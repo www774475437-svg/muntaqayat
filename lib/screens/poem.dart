@@ -694,6 +694,9 @@ class ShareCardScreen extends StatefulWidget {
 /// Shapes of the card: (name, width ÷ height).
 const _cardShapes = [('مربع', 1.0), ('ستوري', 9 / 16), ('طولي', 4 / 5), ('A4', 1 / 1.414), ('أفقي', 1102 / 573)];
 
+/// Colors offered for the verse text; null = the theme's own color.
+const _inkChoices = <Color?>[null, Color(0xFF1B1B1B), Color(0xFF4A2C1A), Color(0xFF0F3D2E), Color(0xFF1B2A5C), Color(0xFF5C1A1A), Color(0xFF8A6A2E), Color(0xFFFFFFFF)];
+
 /// Fonts of the card: (name, family in pubspec).
 const _cardFonts = [('أميري', 'Amiri'), ('رقعة', 'ArefRuqaa'), ('نستعليق', 'NotoNastaliq'), ('كوفي', 'ReemKufi')];
 
@@ -702,9 +705,10 @@ String plainText(String t) => t.replaceAll(RegExp('[\\u064B-\\u065F\\u0670]'), '
 
 class _ShareCardScreenState extends State<ShareCardScreen> {
   final _key = GlobalKey();
-  int style = 0;
-  int shape = 2;
-  int font = 0;
+  int style = _styles.indexWhere((x) => x.name == 'أبيض');
+  int shape = 4; // أفقي
+  int font = 1; // رقعة
+  Color? inkColor; // null = the style's own text color
   Offset _off = Offset.zero; // dragged position of the verse, as a fraction of the card
   Size _box = Size.zero;
   bool tashkeel = true;
@@ -752,7 +756,7 @@ class _ShareCardScreenState extends State<ShareCardScreen> {
             padding: EdgeInsetsDirectional.only(start: hi == 1 ? size * 2 : 0, top: 4, bottom: 4),
             child: Text(_t(line[hi].trim()),
                 textAlign: TextAlign.start,
-                style: TextStyle(fontFamily: fam, fontSize: size, height: 1.9, color: s.ink)),
+                style: TextStyle(fontFamily: fam, fontSize: size, height: 1.9, color: inkColor ?? s.ink)),
           ),
       ]));
       if (vi < lastVerse) {
@@ -777,10 +781,7 @@ class _ShareCardScreenState extends State<ShareCardScreen> {
                     onPanUpdate: canMove
                         ? (d) {
                             if (_box.isEmpty) return;
-                            setState(() => _off = Offset(
-                                  (_off.dx + d.delta.dx / _box.width).clamp(-0.5, 0.5),
-                                  (_off.dy + d.delta.dy / _box.height).clamp(-0.5, 0.5),
-                                ));
+                            setState(() => _off = Offset(0, (_off.dy + d.delta.dy / _box.height).clamp(-0.5, 0.5)));
                           }
                         : null,
                     child: RepaintBoundary(
@@ -868,6 +869,29 @@ class _ShareCardScreenState extends State<ShareCardScreen> {
               selected: style == i,
               avatar: CircleAvatar(backgroundColor: _styles[i].bg, radius: 9),
               onSelected: (_) => setState(() => style = i),
+            ),
+        ]),
+        const SizedBox(height: 14),
+        const Text('لون الخط', textAlign: TextAlign.center),
+        const SizedBox(height: 8),
+        Wrap(alignment: WrapAlignment.center, spacing: 12, runSpacing: 10, children: [
+          for (final c in _inkChoices)
+            GestureDetector(
+              onTap: () => setState(() => inkColor = c),
+              child: Container(
+                width: 34,
+                height: 34,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: c ?? _styles[style].ink,
+                  border: Border.all(
+                    color: inkColor == c ? const Color(0xFFB3261E) : const Color(0xFFBDBDBD),
+                    width: inkColor == c ? 2.4 : 1,
+                  ),
+                ),
+                child: c == null ? const Text('أ', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)) : null,
+              ),
             ),
         ]),
         SwitchListTile(
