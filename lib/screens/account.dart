@@ -8,6 +8,7 @@ import '../ui.dart';
 import 'lists.dart';
 import 'plus.dart';
 import 'poem.dart';
+import 'qawafi.dart' show MemberScreen;
 import 'social.dart';
 import 'today.dart';
 import '../services/cloud.dart';
@@ -48,7 +49,9 @@ class AccountScreen extends StatelessWidget {
               width: double.infinity,
               child: OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
-                onPressed: () => Cloud.i.signedIn ? push(context, const ProfileScreen()) : needAccount(context),
+                onPressed: () => Cloud.i.signedIn
+                    ? push(context, MemberScreen(uid: Cloud.i.uid, name: Cloud.i.name, publicId: Cloud.i.publicId))
+                    : needAccount(context),
                 icon: Icon(Cloud.i.signedIn ? Icons.badge_outlined : Icons.login_rounded),
                 label: Text(Cloud.i.signedIn ? 'صفحتك الشخصية' : 'ادخل بحساب جوجل', style: const TextStyle(fontSize: 16)),
               ),
