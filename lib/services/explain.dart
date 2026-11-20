@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:firebase_ai/firebase_ai.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// شرح البيت بالذكاء الاصطناعي عبر Firebase AI Logic (مزوّد Gemini Developer API).
@@ -21,7 +22,25 @@ class Explain {
   }
 
   /// A verse explained before, read from the device without calling the service.
-  static Future<String?> saved(String key) async => (await _cache())[key];
+  static Map<String, String>? _bundled;
+
+  /// Explanations written for the book itself (assets/data/explain.json), read first.
+  static Future<Map<String, String>> _book() async {
+    if (_bundled != null) return _bundled!;
+    try {
+      final raw = await rootBundle.loadString('assets/data/explain.json');
+      _bundled = Map<String, String>.from(jsonDecode(raw) as Map);
+    } catch (_) {
+      _bundled = {};
+    }
+    return _bundled!;
+  }
+
+  static Future<String?> saved(String key) async {
+    final b = (await _book())[key];
+    if (b != null) return b;
+    return (await _cache())[key];
+  }
 
   /// Returns the saved explanation when there is one; otherwise asks the service once and saves the answer.
   static Future<String?> verse(String key, List<String> line) async {
