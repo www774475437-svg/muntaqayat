@@ -373,10 +373,21 @@ class _ShellState extends State<Shell> with TickerProviderStateMixin {
   Widget _animIcon(int i, Widget icon, bool on) {
     switch (i) {
       case 0:
-        return ValueListenableBuilder<double>(
-          valueListenable: _spin,
-          builder: (context, a, child) => Transform.rotate(angle: a, child: child),
-          child: icon,
+        // the sun turns on its own while its tab is open, and turns further with every scroll
+        if (!on) {
+          return ValueListenableBuilder<double>(
+            valueListenable: _spin,
+            builder: (context, a, child) => Transform.rotate(angle: a, child: child),
+            child: icon,
+          );
+        }
+        return _Loop(
+          period: const Duration(milliseconds: 9000),
+          builder: (context, t) => ValueListenableBuilder<double>(
+            valueListenable: _spin,
+            builder: (context, a, child) => Transform.rotate(angle: a + t * math.pi * 2, child: child),
+            child: icon,
+          ),
         );
       case 1:
         // the cubes turn over one after another while the tab is open
@@ -403,35 +414,7 @@ class _ShellState extends State<Shell> with TickerProviderStateMixin {
           ),
         );
       case 3:
-        // a gold ring turns around the account icon while its tab is open
-        if (!on) return icon;
-        return _Loop(
-          period: const Duration(milliseconds: 2400),
-          builder: (context, t) => Stack(alignment: Alignment.center, children: [
-            Transform.rotate(
-              angle: t * math.pi * 2,
-              child: Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: const SweepGradient(colors: [
-                    Color(0xFFE53935),
-                    Color(0xFFFB8C00),
-                    Color(0xFFFDD835),
-                    Color(0xFF43A047),
-                    Color(0xFF1E88E5),
-                    Color(0xFF3949AB),
-                    Color(0xFF8E24AA),
-                    Color(0xFFE53935),
-                  ]),
-                ),
-                child: Center(child: Container(width: 30, height: 30, decoration: BoxDecoration(shape: BoxShape.circle, color: C.bar(context)))),
-              ),
-            ),
-            icon,
-          ]),
-        );
+        return icon;
     }
     return icon;
   }
@@ -672,11 +655,8 @@ class _PagePainter extends CustomPainter {
       ..strokeWidth = 1.6
       ..strokeCap = StrokeCap.round;
     for (var i = 0; i < 4; i++) {
-      final start = i * 0.2;
-      final p = ((t - start) / 0.2).clamp(0.0, 1.0);
-      if (p <= 0) continue;
       final y = size.height * (0.28 + i * 0.18);
-      canvas.drawLine(Offset(size.width * 0.18, y), Offset(size.width * (0.18 + 0.64 * p), y), line);
+      canvas.drawLine(Offset(size.width * 0.18, y), Offset(size.width * 0.82, y), line);
     }
   }
   @override
