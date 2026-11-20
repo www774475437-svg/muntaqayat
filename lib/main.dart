@@ -2,7 +2,6 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
@@ -100,6 +99,10 @@ class _ShellState extends State<Shell> with TickerProviderStateMixin {
   int tab = 0;
   int from = 0;
   bool collapsed = false;
+  // Each tab keeps its own pages, so the bar stays under every inner page.
+  final _navs = List.generate(4, (_) => GlobalKey<NavigatorState>());
+  late final _obs = List.generate(4, (_) => _TabRoutes(_routesChanged));
+  int _lastScroll = 0;
   late final AnimationController _slide = AnimationController(vsync: this, duration: const Duration(milliseconds: 520), value: 1);
 
   static const _icons = [
@@ -135,13 +138,25 @@ class _ShellState extends State<Shell> with TickerProviderStateMixin {
     super.dispose();
   }
 
+  void _routesChanged() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  NavigatorState? get _nav => _navs[tab].currentState;
+
   void _go(int i) {
     HapticFeedback.selectionClick();
     if (collapsed) {
       setState(() => collapsed = false);
       if (i == tab) return;
     }
-    if (i == tab) return;
+    if (i == tab) {
+      // a second tap on the open tab goes back to its first page
+      _nav?.popUntil((r) => r.isFirst);
+      return;
+    }
     setState(() {
       from = tab;
       tab = i;
@@ -150,11 +165,17 @@ class _ShellState extends State<Shell> with TickerProviderStateMixin {
     _slide.forward(from: 0);
   }
 
-  bool _onScroll(UserScrollNotification n) {
-    if (n.metrics.axis != Axis.vertical || n.depth != 0) return false;
-    if (n.direction == ScrollDirection.reverse && !collapsed && n.metrics.pixels > 40) {
+  /// Reading down shrinks the bar to one circle; only a quick flick upwards
+  /// brings it back, a slow scroll up leaves the circle as it is.
+  bool _onScroll(ScrollNotification n) {
+    if (n.metrics.axis != Axis.vertical || n.depth != 0 || n is! ScrollUpdateNotification) return false;
+    final d = n.scrollDelta ?? 0;
+    final now = DateTime.now().microsecondsSinceEpoch;
+    final dt = (now - _lastScroll) / 1000.0;
+    _lastScroll = now;
+    if (d > 1.5 && !collapsed && n.metrics.pixels > 40) {
       setState(() => collapsed = true);
-    } else if (n.direction == ScrollDirection.forward && collapsed) {
+    } else if (collapsed && d < 0 && dt > 0 && dt < 80 && d / dt < -1.6) {
       setState(() => collapsed = false);
     }
     return false;
@@ -168,12 +189,36 @@ class _ShellState extends State<Shell> with TickerProviderStateMixin {
       const QawafiScreen(),
       const AccountScreen(),
     ];
-    return Scaffold(
+    final o = _obs[tab];
+    final keyboard = MediaQuery.viewInsetsOf(context).bottom > 0;
+    // hidden over sheets, full-screen windows and the keyboard
+    final hideBar = keyboard || o.popup || o.fullscreen;
+    final inner = o.depth > 1 && !hideBar && !wideMode.value;
+    final barSpace = 96 + MediaQuery.paddingOf(context).bottom;
+    return PopScope(
+      canPop: o.depth <= 1 && !o.popup,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _nav?.maybePop();
+      },
+      child: Scaffold(
       body: Stack(children: [
         Positioned.fill(
-          child: NotificationListener<UserScrollNotification>(
+          child: NotificationListener<ScrollNotification>(
             onNotification: _onScroll,
-            child: IndexedStack(index: tab, children: pages),
+            child: IndexedStack(index: tab, children: [
+              for (var i = 0; i < pages.length; i++)
+                AnimatedPadding(
+                  duration: const Duration(milliseconds: 260),
+                  curve: Curves.easeOut,
+                  // inner pages end above the bar, so it never covers their last lines
+                  padding: EdgeInsets.only(bottom: i == tab && inner ? barSpace : 0),
+                  child: Navigator(
+                    key: _navs[i],
+                    observers: [_obs[i]],
+                    onGenerateRoute: (s) => MaterialPageRoute(settings: s, builder: (_) => pages[i]),
+                  ),
+                ),
+            ]),
           ),
         ),
         if (!wideMode.value)
@@ -182,6 +227,12 @@ class _ShellState extends State<Shell> with TickerProviderStateMixin {
           right: 16,
           bottom: 14 + MediaQuery.paddingOf(context).bottom,
           height: 74,
+          child: AnimatedSlide(
+          duration: const Duration(milliseconds: 280),
+          curve: Curves.easeOutCubic,
+          offset: hideBar ? const Offset(0, 1.8) : Offset.zero,
+          child: IgnorePointer(
+          ignoring: hideBar,
           child: LayoutBuilder(builder: (context, box) {
             final full = box.maxWidth - 74 - 12;
             return Stack(children: [
@@ -195,7 +246,7 @@ class _ShellState extends State<Shell> with TickerProviderStateMixin {
                     customBorder: const CircleBorder(),
                     onTap: () {
                       HapticFeedback.selectionClick();
-                      Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SearchScreen()));
+                      (_nav ?? Navigator.of(context)).push(MaterialPageRoute(builder: (_) => const SearchScreen()));
                     },
                     child: Center(child: Icon(Icons.search_rounded, size: 32, color: C.ink(context))),
                   ),
@@ -246,8 +297,11 @@ class _ShellState extends State<Shell> with TickerProviderStateMixin {
               ),
             ]);
           }),
+          ),
+          ),
         ),
       ]),
+      ),
     );
   }
 
@@ -462,4 +516,48 @@ class SideNav extends StatelessWidget {
           ),
         ),
       );
+}
+
+/// Follows the pages of one tab: how deep it is, and whether a sheet or a
+/// full-screen window is on top (the bar hides for those).
+class _TabRoutes extends NavigatorObserver {
+  final VoidCallback onChange;
+  _TabRoutes(this.onChange);
+  final _stack = <Route<dynamic>>[];
+
+  int get depth => _stack.whereType<PageRoute<dynamic>>().length;
+  bool get popup => _stack.isNotEmpty && _stack.last is PopupRoute;
+  bool get fullscreen {
+    final pages = _stack.whereType<PageRoute<dynamic>>();
+    return pages.isNotEmpty && pages.last.fullscreenDialog;
+  }
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    _stack.add(route);
+    onChange();
+  }
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    _stack.remove(route);
+    onChange();
+  }
+
+  @override
+  void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    _stack.remove(route);
+    onChange();
+  }
+
+  @override
+  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
+    final i = oldRoute == null ? -1 : _stack.indexOf(oldRoute);
+    if (i >= 0 && newRoute != null) {
+      _stack[i] = newRoute;
+    } else if (newRoute != null) {
+      _stack.add(newRoute);
+    }
+    onChange();
+  }
 }

@@ -12,6 +12,7 @@ import 'cloud_ui.dart';
 import 'lists.dart';
 import 'majlis.dart';
 import 'majlis_plus.dart';
+import 'medals.dart';
 import 'poem.dart';
 
 // «قوافي»: the middle tab. A wall of verses that scrolls one page at a time:
@@ -370,8 +371,8 @@ class _QawafiScreenState extends State<QawafiScreen> {
     final top = MediaQuery.paddingOf(context).top;
     return Scaffold(
       body: NotificationListener<ScrollNotification>(
-        // the bottom bar stays as it is while turning the pages
-        onNotification: (_) => true,
+        // the sideways filters must not shrink the bottom bar
+        onNotification: (n) => n.metrics.axis == Axis.horizontal,
         child: Stack(children: [
           Positioned.fill(
             child: loading
@@ -992,6 +993,7 @@ class _MemberScreenState extends State<MemberScreen> {
   int tab = 0; // 0 his poetry, 1 his quotes
   int sort = 0; // 0 newest, 1 most liked
   Future<int>? followers;
+  int followersN = 0;
 
   bool get mine => widget.uid == Cloud.i.uid && Cloud.i.signedIn;
 
@@ -1010,6 +1012,9 @@ class _MemberScreenState extends State<MemberScreen> {
       posts = r[1] as List<Doc>;
       loading = false;
       followers = c.signedIn ? c.followersCount(widget.uid) : null;
+      followers?.then((v) {
+        if (mounted) setState(() => followersN = v);
+      });
       if (posts.where((p) => p['kind'] == 'own').isEmpty) tab = 1;
     });
   }
@@ -1040,6 +1045,11 @@ class _MemberScreenState extends State<MemberScreen> {
                     _head(context),
                     const SizedBox(height: 14),
                     _stats(context, own.length, quotes.length, likes),
+                    const SizedBox(height: 10),
+                    MedalsRow(
+                      name: name,
+                      counts: medalCounts(user: u, own: own.length, quotes: quotes.length, likes: likes, followers: followersN),
+                    ),
                     const SizedBox(height: 12),
                     _favVerse(context),
                     _fingerprint(context, own, quotes),
@@ -1147,6 +1157,9 @@ class _MemberScreenState extends State<MemberScreen> {
               if (!await needAccount(context, 'تتابع القرّاء فيظهر شعرهم في «أتابعهم».')) return;
               c.follow(publicId, name, !following, ofUid: widget.uid);
               setState(() => followers = c.followersCount(widget.uid));
+              followers?.then((v) {
+                if (mounted) setState(() => followersN = v);
+              });
             },
             child: Text(following ? 'تتابعه' : 'متابعة', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
           ),
