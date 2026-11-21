@@ -1125,7 +1125,7 @@ class _QuotesListState extends State<QuotesList> {
               onPressed: () async {
                 if (await needAccount(context)) c.likeQuote(q);
               },
-              icon: Icon(liked ? Icons.favorite_rounded : Icons.favorite_border, color: liked ? const Color(0xFFB3261E) : null),
+              icon: Icon(liked ? Icons.thumb_up_alt_rounded : Icons.thumb_up_alt_outlined, color: liked ? const Color(0xFFB3261E) : null),
             ),
             Text(Ar.num(_n(q['likes'])), style: TextStyle(color: C.muted(context))),
             IconButton(

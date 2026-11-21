@@ -106,7 +106,7 @@ class _PoemScreenState extends State<PoemScreen> {
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
                   IconButton(
                     onPressed: () => Store.i.toggleLike(p.id),
-                    icon: Icon(Store.i.liked(p.id) ? Icons.favorite : Icons.favorite_border, color: Store.i.liked(p.id) ? C.accent(context) : C.ink(context)),
+                    icon: Icon(Store.i.liked(p.id) ? Icons.thumb_up_alt_rounded : Icons.thumb_up_alt_outlined, color: Store.i.liked(p.id) ? C.accent(context) : C.ink(context)),
                   ),
                   IconButton(
                     tooltip: 'نسخ المقطع كاملاً',
@@ -418,7 +418,7 @@ class _PoemScreenState extends State<PoemScreen> {
                           if (liked)
                             row(Icons.remove_circle_outline_rounded, 'إزالة من الإعجاب', () => Store.i.toggleLike(p.id), color: const Color(0xFFD9534F))
                           else
-                            row(Icons.favorite_border_rounded, 'أعجبني', () => Store.i.toggleLike(p.id)),
+                            row(Icons.thumb_up_alt_outlined, 'أعجبني', () => Store.i.toggleLike(p.id)),
                           line(),
                           row(Icons.feedback_outlined, 'أبلغ عن مشكلة', () => suggest(context, 'مشكلة في المقطع رقم ${p.id} (${p.poet}):\n')),
                         ]),
@@ -765,10 +765,8 @@ class _ShareCardScreenState extends State<ShareCardScreen> {
           ),
       ]));
       if (vi < lastVerse) {
-        verses.add(Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          child: Center(child: Text('..', style: TextStyle(fontSize: size, color: s.mark))),
-        ));
+        // On the picture the verses are parted by space only; the copied text keeps its «..».
+        verses.add(SizedBox(height: size * 0.6));
       }
     }
     return Scaffold(

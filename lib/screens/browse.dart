@@ -69,7 +69,7 @@ class BrowseScreen extends StatelessWidget {
             Divider(height: 1, indent: 18, endIndent: 18, color: C.line(context)),
             IntrinsicHeight(
               child: Row(children: [
-                _link(context, Icons.favorite_border, 'الأكثر إعجاباً', () => _mostLiked(context)),
+                _link(context, Icons.thumb_up_alt_outlined, 'الأكثر إعجاباً', () => _mostLiked(context)),
                 VerticalDivider(width: 1, indent: 12, endIndent: 12, color: C.line(context)),
                 _link(context, Icons.menu_book_outlined, 'الأكثر قراءة', () => _mostRead(context)),
               ]),

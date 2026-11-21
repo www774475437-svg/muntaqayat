@@ -146,7 +146,7 @@ class TodayScreen extends StatelessWidget {
               ),
             IconButton(
               onPressed: () => Store.i.toggleLike(day.id),
-              icon: Icon(Store.i.liked(day.id) ? Icons.favorite : Icons.favorite_border, color: Store.i.liked(day.id) ? C.accent(context) : C.ink(context)),
+              icon: Icon(Store.i.liked(day.id) ? Icons.thumb_up_alt_rounded : Icons.thumb_up_alt_outlined, color: Store.i.liked(day.id) ? C.accent(context) : C.ink(context)),
             ),
             IconButton(tooltip: 'مشاركة', visualDensity: VisualDensity.compact, iconSize: 19, onPressed: () => shareSheet(context, day, day.firstVerse), icon: Icon(Icons.ios_share_rounded, color: C.ink(context))),
           ]),

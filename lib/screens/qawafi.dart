@@ -735,7 +735,7 @@ class _WallPageState extends State<WallPage> with TickerProviderStateMixin {
                     return Center(
                       child: Opacity(
                         opacity: t < 0.7 ? 1 : (1 - (t - 0.7) / 0.3),
-                        child: Transform.scale(scale: 0.4 + s * 0.9, child: const Icon(Icons.favorite_rounded, size: 120, color: Color(0xFFB3261E))),
+                        child: Transform.scale(scale: 0.4 + s * 0.9, child: const Icon(Icons.thumb_up_alt_rounded, size: 120, color: Color(0xFFB3261E))),
                       ),
                     );
                   },
@@ -747,7 +747,7 @@ class _WallPageState extends State<WallPage> with TickerProviderStateMixin {
               end: 8,
               bottom: 205 + bottom,
               child: Column(children: [
-                _act(liked ? Icons.favorite_rounded : Icons.favorite_border_rounded, p != null ? Ar.num(likes) : '', _like,
+                _act(liked ? Icons.thumb_up_alt_rounded : Icons.thumb_up_alt_outlined, p != null ? Ar.num(likes) : '', _like,
                     color: liked ? const Color(0xFFB3261E) : null),
                 _act(Icons.image_outlined, 'صورة', _share),
                 _act(Icons.copy_rounded, 'نسخ', () => copyVerses(context, lines)),
@@ -928,7 +928,7 @@ class OwnPoemScreen extends StatelessWidget {
                 onPressed: () async {
                   if (await needAccount(context)) Cloud.i.likeQuote(post);
                 },
-                icon: Icon(liked ? Icons.favorite_rounded : Icons.favorite_border_rounded, color: liked ? const Color(0xFFB3261E) : null),
+                icon: Icon(liked ? Icons.thumb_up_alt_rounded : Icons.thumb_up_alt_outlined, color: liked ? const Color(0xFFB3261E) : null),
               ),
               Text(Ar.num(_n(post['likes'])), style: TextStyle(color: C.muted(context))),
               const SizedBox(width: 12),
@@ -1484,7 +1484,7 @@ class _MemberScreenState extends State<MemberScreen> {
               style: TextStyle(fontSize: 13, color: C.muted(context)),
             ),
           ),
-          const Icon(Icons.favorite_rounded, size: 16, color: Color(0xFFB3261E)),
+          const Icon(Icons.thumb_up_alt_rounded, size: 16, color: Color(0xFFB3261E)),
           const SizedBox(width: 3),
           Text(Ar.num(_n(p['likes'])), style: const TextStyle(color: Color(0xFFB3261E))),
         ]),

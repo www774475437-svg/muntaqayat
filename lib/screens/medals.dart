@@ -21,7 +21,7 @@ class MedalFamily {
 const medalFamilies = [
   MedalFamily('own', 'الناظم', Icons.history_edu_rounded, [1, 10, 30], 'قصيدة من شعره'),
   MedalFamily('quotes', 'المقتبس', Icons.format_quote_rounded, [1, 25, 100], 'اقتباساً'),
-  MedalFamily('likes', 'المحبوب', Icons.favorite_rounded, [10, 100, 1000], 'إعجاباً على ما نشره'),
+  MedalFamily('likes', 'المحبوب', Icons.thumb_up_alt_rounded, [10, 100, 1000], 'إعجاباً على ما نشره'),
   MedalFamily('followers', 'المتبوع', Icons.groups_rounded, [10, 100, 1000], 'متابِعاً'),
   MedalFamily('memo', 'الحافظ', Icons.menu_book_rounded, [10, 100, 500], 'بيتاً حفظها'),
   MedalFamily('streak', 'المثابر', Icons.local_fire_department_rounded, [7, 30, 100], 'يوماً متتالياً'),

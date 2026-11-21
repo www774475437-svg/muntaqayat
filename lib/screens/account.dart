@@ -67,7 +67,7 @@ class AccountScreen extends StatelessWidget {
         ]),
         const SizedBox(height: 14),
         _group(context, [
-          _tile(context, Icons.favorite_border, 'ما أعجبك', Ar.selections(liked.length),
+          _tile(context, Icons.thumb_up_alt_outlined, 'ما أعجبك', Ar.selections(liked.length),
               () => openList(context, 'ما أعجبك', liked)),
           _tile(context, Icons.folder_copy_outlined, 'مجموعاتي', Ar.num(s.collections.length), () => push(context, const CollectionsScreen())),
           _tile(context, Icons.people_outline_rounded, 'شعراؤك', '${Ar.num(s.followed.length)} شعراء', () => push(context, const FollowedScreen())),
