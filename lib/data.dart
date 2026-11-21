@@ -233,15 +233,11 @@ class Library {
   /// Chosen from the whole book file, never from what this account happens to
   /// see, so hidden marks that have not reached a phone yet cannot shift it.
   static Poem poemOfDay([DateTime? day]) {
+    // Only the book's own fixed data decides this, never the hidden or removed marks
+    // kept on each phone: those differ between devices and would give each person another verse.
     final full = all.where((p) => p.lines.isNotEmpty && p.lines.first.length == 2 && p.flags.isEmpty).toList();
     final list = full.isEmpty ? all : full;
-    final start = (_dayIndex(day) * 37) % list.length;
-    // A selection the developer removed gives its day to the next one.
-    for (var k = 0; k < list.length; k++) {
-      final p = list[(start + k) % list.length];
-      if (!p.allGone) return p;
-    }
-    return list[start];
+    return list[(_dayIndex(day) * 37) % list.length];
   }
 
   static int chapterNamed(String name) => chapters.indexWhere((c) => c.name == name);
