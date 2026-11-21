@@ -324,6 +324,7 @@ class _QawafiScreenState extends State<QawafiScreen> {
 
   bool _keep(Doc d) {
     final own = d['kind'] == 'own';
+    if (Cloud.i.hiddenAuthors.contains('${d['uid']}')) return false;
     if (filter == 1 && !own) return false;
     if (filter == 2 && own) return false;
     if (filter == 3) {
@@ -608,62 +609,114 @@ class _WallPageState extends State<WallPage> with TickerProviderStateMixin {
     }
   }
 
+  void _openAuthor() {
+    final p = it.post;
+    if (p != null) {
+      openMember(context, uid: '${p['uid']}', name: '${p['name']}', publicId: '${p['publicId'] ?? ''}');
+    } else if (it.poem != null && !it.poem!.unattributed) {
+      push(context, PoetScreen(name: it.poem!.poet));
+    }
+  }
+
+  /// «إبلاغ»: the reader chooses why, and may add a word.
+  Future<void> _report() async {
+    final p = it.post;
+    if (p == null) return;
+    if (!await needAccount(context) || !mounted) return;
+    const reasons = ['كلام لا يليق', 'نسبة خاطئة إلى الشاعر', 'خطأ في نص البيت', 'إساءة إلى شخص', 'منشور مكرر أو مزعج', 'سبب آخر'];
+    var reason = reasons.first;
+    final note = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (d) => StatefulBuilder(
+        builder: (d, set) => AlertDialog(
+          title: const Text('لماذا تبلّغ عنه؟'),
+          content: SingleChildScrollView(
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Wrap(spacing: 6, runSpacing: 6, children: [
+                for (final r in reasons) ChoiceChip(label: Text(r), selected: reason == r, onSelected: (_) => set(() => reason = r)),
+              ]),
+              const SizedBox(height: 10),
+              TextField(controller: note, maxLength: 200, decoration: const InputDecoration(hintText: 'توضيح (اختياري)')),
+            ]),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(d), child: const Text('إلغاء')),
+            FilledButton(onPressed: () => Navigator.pop(d, true), child: const Text('أرسل البلاغ')),
+          ],
+        ),
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final sent = await Cloud.i.report(it.own ? 'قصيدة عضو' : 'اقتباس', '${p['id']}', '$reason${note.text.trim().isEmpty ? '' : ': ${note.text.trim()}'}\n${p['name']}: ${p['a'] ?? p['title'] ?? ''}', ofUid: '${p['uid']}');
+    if (mounted) toast(context, sent ? 'وصل بلاغك إلى المشرفين' : 'تعذّر الإرسال');
+  }
+
   void _more() {
     final c = Cloud.i;
     final p = it.post;
     final mine = p != null && p['uid'] == c.uid;
+    final src = it.source;
+    final pid = '${p?['publicId'] ?? ''}';
+    final following = c.following.containsKey(pid);
+    Widget row(BuildContext s, IconData icon, String text, VoidCallback onTap, {Color? color}) => ListTile(
+          dense: true,
+          leading: Icon(icon, color: color),
+          title: Text(text, style: TextStyle(fontSize: 16, color: color)),
+          onTap: () {
+            Navigator.pop(s);
+            onTap();
+          },
+        );
     showModalBottomSheet(
       context: context,
       showDragHandle: true,
+      isScrollControlled: true,
       builder: (s) => SafeArea(
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          ListTile(
-            leading: const Icon(Icons.link_rounded),
-            title: const Text('مشاركة النص'),
-            onTap: () {
-              Navigator.pop(s);
-              final src = it.source;
-              Share.share('${formatVerses(it.lines, mark: !c.noMark)}\n— ${it.poet}${src == null ? '' : '\n\n${poemLink(src)}'}');
-            },
-          ),
-          if (it.source != null)
-            ListTile(
-              leading: const Icon(Icons.format_quote_rounded),
-              title: const Text('اقتبسه في صفحتي'),
-              onTap: () async {
-                Navigator.pop(s);
+        child: SingleChildScrollView(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            if (p != null && !mine) ...[
+              row(s, Icons.person_outline_rounded, 'صفحة ${p['name']}', _openAuthor),
+              if (pid.isNotEmpty)
+                row(s, following ? Icons.person_remove_outlined : Icons.person_add_alt_1_outlined, following ? 'إلغاء متابعته' : 'تابعه', () async {
+                  if (!await needAccount(context) || !mounted) return;
+                  c.follow(pid, '${p['name']}', !following, ofUid: '${p['uid']}');
+                  toast(context, following ? 'أُلغيت المتابعة' : 'صرت تتابعه');
+                }),
+              const Divider(height: 8),
+            ],
+            row(s, Icons.image_outlined, 'مشاركة صورة', _share),
+            row(s, Icons.link_rounded, 'مشاركة النص', () => Share.share('${formatVerses(it.lines, mark: !c.noMark)}\n— ${it.poet}${src == null ? '' : '\n\n${poemLink(src)}'}')),
+            row(s, Icons.copy_rounded, 'نسخ', () => copyVerses(context, it.lines)),
+            if (src != null || it.own) row(s, Icons.menu_book_outlined, 'افتح القصيدة', _read),
+            if (src != null && !src.unattributed) row(s, Icons.history_edu_rounded, 'صفحة الشاعر ${src.poet}', () => push(context, PoetScreen(name: src.poet))),
+            if (src != null) row(s, Icons.bookmark_add_outlined, 'حفظ في مجموعة', () => collectionSheet(context, src)),
+            if (src != null)
+              row(s, Icons.format_quote_rounded, 'اقتبسه في صفحتي', () async {
                 if (!await needAccount(context) || !mounted) return;
-                final src = it.source!;
                 final v = it.poem != null ? it.verse : _n(p?['v']);
                 final err = await c.publishQuote(src, v);
                 if (mounted) toast(context, err ?? 'نُشر اقتباسك في صفحتك');
-              },
-            ),
-          if (p != null && !mine)
-            ListTile(
-              leading: const Icon(Icons.flag_outlined),
-              title: const Text('إبلاغ'),
-              onTap: () async {
-                Navigator.pop(s);
-                if (!await needAccount(context)) return;
-                final ok = await c.report(it.own ? 'قصيدة عضو' : 'اقتباس', '${p['id']}', '${p['name']}: ${p['a']}', ofUid: '${p['uid']}');
-                if (mounted) toast(context, ok ? 'وصل بلاغك إلى المشرفين' : 'تعذّر الإرسال');
-              },
-            ),
-          if (p != null && (mine || c.can('مراجعة')))
-            ListTile(
-              leading: const Icon(Icons.delete_outline_rounded, color: Color(0xFFB3261E)),
-              title: Text(mine ? 'احذف منشوري' : 'احذفه (إشراف)', style: const TextStyle(color: Color(0xFFB3261E))),
-              onTap: () async {
-                Navigator.pop(s);
+              }),
+            if (p != null && !mine) ...[
+              const Divider(height: 8),
+              row(s, Icons.visibility_off_outlined, 'لا تُظهر لي منشورات ${p['name']}', () {
+                c.hideAuthor('${p['uid']}', true);
+                toast(context, 'لن تظهر لك منشوراته. تُرجعها من صفحته.');
+                widget.onGone();
+              }),
+              row(s, Icons.flag_outlined, 'إبلاغ', _report, color: const Color(0xFFB3261E)),
+            ],
+            if (p != null && (mine || c.can('مراجعة')))
+              row(s, Icons.delete_outline_rounded, mine ? 'احذف منشوري' : 'احذفه (إشراف)', () async {
                 final ok = await c.deleteQuote('${p['id']}');
                 if (!mounted) return;
                 toast(context, ok ? 'حُذف' : 'تعذّر الحذف');
                 if (ok) widget.onGone();
-              },
-            ),
-          const SizedBox(height: 8),
-        ]),
+              }, color: const Color(0xFFB3261E)),
+            const SizedBox(height: 8),
+          ]),
+        ),
       ),
     );
   }
@@ -683,6 +736,10 @@ class _WallPageState extends State<WallPage> with TickerProviderStateMixin {
       listenable: Listenable.merge([Cloud.i, Store.i]),
       builder: (context, _) => GestureDetector(
         onDoubleTap: () => _like(fromTap: true),
+        // A swipe to the left opens the page of whoever posted it (or the poet, for a verse from the book).
+        onHorizontalDragEnd: (d) {
+          if ((d.primaryVelocity ?? 0) < -250) _openAuthor();
+        },
         child: Container(
           color: paper,
           child: Stack(children: [
@@ -1203,6 +1260,8 @@ class _MemberScreenState extends State<MemberScreen> {
         const SizedBox(height: 8),
         Wrap(alignment: WrapAlignment.center, spacing: 6, runSpacing: 6, children: [for (final t in titlesOf(u)) TitleBadge(t)]),
       ],
+      if (Cloud.i.hiddenAuthors.contains(widget.uid))
+        TextButton.icon(onPressed: () => Cloud.i.hideAuthor(widget.uid, false), icon: const Icon(Icons.visibility_outlined, size: 18), label: const Text('أظهر منشوراته لي من جديد')),
       if (titlesOf(u).contains('الشارح'))
         TextButton.icon(onPressed: () => push(context, SharhListScreen(uid: widget.uid, name: name)), icon: const Icon(Icons.menu_book_rounded, size: 18), label: const Text('شروحه للأبيات')),
       if (widget.uid != Cloud.i.uid) Padding(padding: const EdgeInsets.fromLTRB(16, 10, 16, 0), child: GoldenCompare(uid: widget.uid, name: name)),

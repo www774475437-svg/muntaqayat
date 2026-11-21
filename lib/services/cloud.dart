@@ -789,6 +789,16 @@ class Cloud extends ChangeNotifier {
     _schedulePush();
   }
 
+  /// Members whose posts this reader chose not to see (kept on this phone).
+  List<String> get hiddenAuthors => _p.getStringList('hiddenAuthors') ?? [];
+  void hideAuthor(String userUid, bool on) {
+    if (userUid.isEmpty) return;
+    final l = hiddenAuthors;
+    on ? l.add(userUid) : l.remove(userUid);
+    _p.setStringList('hiddenAuthors', l.toSet().toList());
+    notifyListeners();
+  }
+
   /// One reader's numbers on the shared board (golden verses, quiz, duels).
   Future<Doc> boardOf(String userUid) async {
     try {
