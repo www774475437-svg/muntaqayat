@@ -566,13 +566,16 @@ class WallPage extends StatefulWidget {
 
 class _WallPageState extends State<WallPage> with TickerProviderStateMixin {
   late final AnimationController _in = AnimationController(vsync: this, duration: const Duration(milliseconds: 1100))..forward();
-  late final AnimationController _burst = AnimationController(vsync: this, duration: const Duration(milliseconds: 900));
+  late final AnimationController _burst = AnimationController(vsync: this, duration: const Duration(milliseconds: 760));
+  late final AnimationController _pulse = AnimationController(vsync: this, duration: const Duration(milliseconds: 520));
+  Offset? _tapAt;
   WallItem get it => widget.item;
 
   @override
   void dispose() {
     _in.dispose();
     _burst.dispose();
+    _pulse.dispose();
     super.dispose();
   }
 
@@ -596,6 +599,7 @@ class _WallPageState extends State<WallPage> with TickerProviderStateMixin {
       Store.i.toggleLike(it.poem!.id);
     }
     if (liked) _burst.forward(from: 0);
+    _pulse.forward(from: 0);
     if (mounted) setState(() {});
   }
 
@@ -621,9 +625,8 @@ class _WallPageState extends State<WallPage> with TickerProviderStateMixin {
   /// «إبلاغ»: the reader chooses why, and may add a word.
   Future<void> _report() async {
     final p = it.post;
-    if (p == null) return;
     if (!await needAccount(context) || !mounted) return;
-    const reasons = ['كلام لا يليق', 'نسبة خاطئة إلى الشاعر', 'خطأ في نص البيت', 'إساءة إلى شخص', 'منشور مكرر أو مزعج', 'سبب آخر'];
+    const reasons = ['ليس شعراً، بل كلام عادي', 'مسيء ومخالف', 'غزل فاحش', 'غير مرغوب فيه', 'أشياء أخرى'];
     var reason = reasons.first;
     final note = TextEditingController();
     final ok = await showDialog<bool>(
@@ -648,7 +651,10 @@ class _WallPageState extends State<WallPage> with TickerProviderStateMixin {
       ),
     );
     if (ok != true || !mounted) return;
-    final sent = await Cloud.i.report(it.own ? 'قصيدة عضو' : 'اقتباس', '${p['id']}', '$reason${note.text.trim().isEmpty ? '' : ': ${note.text.trim()}'}\n${p['name']}: ${p['a'] ?? p['title'] ?? ''}', ofUid: '${p['uid']}');
+    final why = '$reason${note.text.trim().isEmpty ? '' : ': ${note.text.trim()}'}';
+    final sent = p != null
+        ? await Cloud.i.report(it.own ? 'قصيدة عضو' : 'اقتباس', '${p['id']}', '$why\n${p['name']}: ${p['a'] ?? p['title'] ?? ''}', ofUid: '${p['uid']}')
+        : await Cloud.i.report('بيت من المنتقيات', '${it.poem!.id}', '$why\n${it.poet}: ${it.lines.isEmpty ? '' : it.lines.first.join(' ')}');
     if (mounted) toast(context, sent ? 'وصل بلاغك إلى المشرفين' : 'تعذّر الإرسال');
   }
 
@@ -675,6 +681,10 @@ class _WallPageState extends State<WallPage> with TickerProviderStateMixin {
       builder: (s) => SafeArea(
         child: SingleChildScrollView(
           child: Column(mainAxisSize: MainAxisSize.min, children: [
+            if (!mine) ...[
+              row(s, Icons.flag_outlined, 'إبلاغ', _report, color: const Color(0xFFB3261E)),
+              const Divider(height: 8),
+            ],
             if (p != null && !mine) ...[
               row(s, Icons.person_outline_rounded, 'صفحة ${p['name']}', _openAuthor),
               if (pid.isNotEmpty)
@@ -705,7 +715,6 @@ class _WallPageState extends State<WallPage> with TickerProviderStateMixin {
                 toast(context, 'لن تظهر لك منشوراته. تُرجعها من صفحته.');
                 widget.onGone();
               }),
-              row(s, Icons.flag_outlined, 'إبلاغ', _report, color: const Color(0xFFB3261E)),
             ],
             if (p != null && (mine || c.can('مراجعة')))
               row(s, Icons.delete_outline_rounded, mine ? 'احذف منشوري' : 'احذفه (إشراف)', () async {
@@ -735,7 +744,15 @@ class _WallPageState extends State<WallPage> with TickerProviderStateMixin {
     return ListenableBuilder(
       listenable: Listenable.merge([Cloud.i, Store.i]),
       builder: (context, _) => GestureDetector(
+        onDoubleTapDown: (d) {
+          _tapAt = d.localPosition;
+        },
         onDoubleTap: () => _like(fromTap: true),
+        // Holding the card opens the same options as the three dots, as in TikTok.
+        onLongPress: () {
+          HapticFeedback.mediumImpact();
+          _more();
+        },
         // A swipe to the left opens the page of whoever posted it (or the poet, for a verse from the book).
         onHorizontalDragEnd: (d) {
           if ((d.primaryVelocity ?? 0) < -250) _openAuthor();
@@ -780,7 +797,7 @@ class _WallPageState extends State<WallPage> with TickerProviderStateMixin {
                 ),
               ),
             ),
-            // the heart that blooms on a double tap
+            // a small thumb that pops up where the double tap landed, sways once or twice and fades
             Positioned.fill(
               child: IgnorePointer(
                 child: AnimatedBuilder(
@@ -788,13 +805,36 @@ class _WallPageState extends State<WallPage> with TickerProviderStateMixin {
                   builder: (context, _) {
                     final t = _burst.value;
                     if (t == 0 || t == 1) return const SizedBox();
-                    final s = Curves.elasticOut.transform(min(1, t * 1.6));
-                    return Center(
-                      child: Opacity(
-                        opacity: t < 0.7 ? 1 : (1 - (t - 0.7) / 0.3),
-                        child: Transform.scale(scale: 0.4 + s * 0.9, child: const Icon(Icons.thumb_up_alt_rounded, size: 120, color: Color(0xFFB3261E))),
+                    final screen = MediaQuery.sizeOf(context);
+                    final at = _tapAt ?? Offset(screen.width / 2, screen.height / 2);
+                    final pop = Curves.easeOutBack.transform(min(1.0, t / 0.3));
+                    final sway = sin(t * pi * 4) * 0.16 * (1 - t);
+                    final fade = t < 0.6 ? 1.0 : max(0.0, 1 - (t - 0.6) / 0.4);
+                    return Stack(children: [
+                      Positioned(
+                        left: at.dx - 28,
+                        top: at.dy - 28,
+                        child: Opacity(
+                          opacity: min(1.0, fade),
+                          child: Transform.rotate(
+                            angle: sway,
+                            child: Transform.scale(
+                              scale: 0.3 + 0.7 * pop,
+                              child: Container(
+                                width: 56,
+                                height: 56,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFB3261E),
+                                  shape: BoxShape.circle,
+                                  boxShadow: const [BoxShadow(color: Color(0x55000000), blurRadius: 10, offset: Offset(0, 3))],
+                                ),
+                                child: const Icon(Icons.thumb_up_alt_rounded, size: 26, color: Colors.white),
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
-                    );
+                    ]);
                   },
                 ),
               ),
@@ -805,7 +845,7 @@ class _WallPageState extends State<WallPage> with TickerProviderStateMixin {
               bottom: 205 + bottom,
               child: Column(children: [
                 _act(liked ? Icons.thumb_up_alt_rounded : Icons.thumb_up_alt_outlined, p != null ? Ar.num(likes) : '', _like,
-                    color: liked ? const Color(0xFFB3261E) : null),
+                    color: liked ? const Color(0xFFB3261E) : null, pulse: _pulse),
                 _act(Icons.image_outlined, 'صورة', _share),
                 _act(Icons.copy_rounded, 'نسخ', () => copyVerses(context, lines)),
                 if (it.source != null) _act(Icons.menu_book_outlined, 'القصيدة', _read),
@@ -843,13 +883,26 @@ class _WallPageState extends State<WallPage> with TickerProviderStateMixin {
         child: child,
       );
 
-  Widget _act(IconData icon, String label, VoidCallback onTap, {Color? color}) => Padding(
+  Widget _act(IconData icon, String label, VoidCallback onTap, {Color? color, Animation<double>? pulse}) => Padding(
         padding: const EdgeInsets.only(bottom: 14),
         child: InkWell(
           customBorder: const CircleBorder(),
           onTap: onTap,
           child: Column(children: [
-            Icon(icon, size: 29, color: color ?? C.ink(context).withValues(alpha: 0.78)),
+            pulse == null
+                ? Icon(icon, size: 29, color: color ?? C.ink(context).withValues(alpha: 0.78))
+                : AnimatedBuilder(
+                    animation: pulse,
+                    builder: (context, child) {
+                      final t = pulse.value;
+                      // a small pop, then a light sway that dies out
+                      return Transform.rotate(
+                        angle: sin(t * pi * 2) * 0.14 * (1 - t),
+                        child: Transform.scale(scale: 1 + 0.26 * sin(t * pi), child: child),
+                      );
+                    },
+                    child: Icon(icon, size: 29, color: color ?? C.ink(context).withValues(alpha: 0.78)),
+                  ),
             if (label.isNotEmpty) Text(label, style: TextStyle(fontSize: 11.5, color: C.muted(context))),
           ]),
         ),

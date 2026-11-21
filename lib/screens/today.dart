@@ -105,13 +105,13 @@ class TodayScreen extends StatelessWidget {
           child: goldenDoneToday()
               ? OutlinedButton.icon(
                   onPressed: () => push(context, const GoldenScreen()),
-                  icon: const Icon(Icons.auto_awesome_rounded, size: 18, color: Color(0xFFB08A3E)),
+                  icon: const Icon(Icons.filter_vintage_rounded, size: 18, color: Color(0xFFB08A3E)),
                   label: const Text('نتيجتك في البيت الذهبي اليوم'),
                   style: OutlinedButton.styleFrom(side: const BorderSide(color: Color(0xFFB08A3E))),
                 )
               : FilledButton.icon(
                   onPressed: () => push(context, const GoldenScreen()),
-                  icon: const Icon(Icons.auto_awesome_rounded, size: 20),
+                  icon: const Icon(Icons.filter_vintage_rounded, size: 20),
                   label: const Text('اضغط لتنال البيت الذهبي اليومي', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
                   style: FilledButton.styleFrom(backgroundColor: const Color(0xFFB08A3E), foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 13)),
                 ),

@@ -38,7 +38,7 @@ class PlusChip extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Icon(Icons.auto_awesome_rounded, color: C.accent(context), size: 20),
+            Icon(Icons.history_edu_rounded, color: C.accent(context), size: 20),
             const SizedBox(width: 6),
             Text('منتقيات+', style: TextStyle(fontFamily: verseFont, fontSize: 19, fontWeight: FontWeight.w700, color: C.accent(context))),
           ]),
