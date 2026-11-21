@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart' show CupertinoPageTransitionsBuilder;
 import 'package:flutter/material.dart';
 
 import 'data.dart';
@@ -28,6 +29,11 @@ ThemeData buildTheme(Brightness b) {
     useMaterial3: true,
     fontFamily: uiFont,
     scaffoldBackgroundColor: bg,
+    // a swipe from the edge closes a page (on Android too), so leaving a page needs no arrow
+    pageTransitionsTheme: const PageTransitionsTheme(builders: {
+      TargetPlatform.android: CupertinoPageTransitionsBuilder(),
+      TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+    }),
     colorScheme: ColorScheme.fromSeed(seedColor: accent, brightness: b, surface: bg, primary: accent),
     appBarTheme: AppBarTheme(
       backgroundColor: bg,

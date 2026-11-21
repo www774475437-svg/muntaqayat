@@ -753,9 +753,16 @@ class _WallPageState extends State<WallPage> with TickerProviderStateMixin {
           HapticFeedback.mediumImpact();
           _more();
         },
-        // A swipe to the left opens the page of whoever posted it (or the poet, for a verse from the book).
+        // A swipe from the like side (towards the right) opens the page of whoever posted it,
+        // or the poet's page for a verse from the book. A swipe to the left moves to the next
+        // tab of the bottom bar, and wraps around.
         onHorizontalDragEnd: (d) {
-          if ((d.primaryVelocity ?? 0) < -250) _openAuthor();
+          final v = d.primaryVelocity ?? 0;
+          if (v > 250) {
+            _openAuthor();
+          } else if (v < -250) {
+            shellTab.value = (shellTab.value + 1) % 4;
+          }
         },
         child: Container(
           color: paper,
