@@ -121,6 +121,21 @@ class Cloud extends ChangeNotifier {
     }
   }
 
+  /// «احذف حسابي»: the request reaches the developer, the public figures go at once, then the reader is signed out.
+  Future<bool> requestDeletion() async {
+    if (!signedIn) return false;
+    try {
+      await _db.collection('messages').add({'uid': uid, 'name': name, 'publicId': publicId, 'text': 'طلب حذف الحساب وكل بياناته', 'kind': 'delete', 'reply': '', 'at': _now});
+      try {
+        await _db.collection('board').doc(uid).delete();
+      } catch (_) {}
+      await signOut();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<void> signOut() async {
     try {
       await FirebaseAuth.instance.signOut();

@@ -199,6 +199,26 @@ class ProfileScreen extends StatelessWidget {
                   icon: const Icon(Icons.logout_rounded),
                   label: const Text('اخرج من الحساب'),
                 ),
+                TextButton.icon(
+                  onPressed: () async {
+                    final ok = await showDialog<bool>(
+                      context: context,
+                      builder: (d) => AlertDialog(
+                        title: const Text('حذف الحساب'),
+                        content: const Text('يُحذف حسابك وكل ما فيه على الخادم: اسمك ورقمك الشخصي ونقاطك وما نشرته ورسائلك، خلال ثلاثين يوماً، ولا يُسترجع بعدها. ما في جوالك من إعجابات ومجموعات يبقى في الجوال.'),
+                        actions: [
+                          TextButton(onPressed: () => Navigator.pop(d), child: const Text('إلغاء')),
+                          FilledButton(onPressed: () => Navigator.pop(d, true), style: FilledButton.styleFrom(backgroundColor: const Color(0xFFB3261E)), child: const Text('احذف حسابي')),
+                        ],
+                      ),
+                    );
+                    if (ok != true) return;
+                    final done = await c.requestDeletion();
+                    if (context.mounted) toast(context, done ? 'وصل طلب الحذف، وخرجت من حسابك' : 'تعذّر الإرسال. حاول مرة أخرى.');
+                  },
+                  icon: const Icon(Icons.delete_forever_outlined, color: Color(0xFFB3261E)),
+                  label: const Text('احذف حسابي', style: TextStyle(color: Color(0xFFB3261E))),
+                ),
               ],
             ]),
           );

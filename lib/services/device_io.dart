@@ -134,7 +134,8 @@ class Device {
 
   /// Looks once for a newer APK.
   static Future<void> checkUpdate() async {
-    if (build == 0) return;
+    // The Google Play build updates through the store only.
+    if (build == 0 || const String.fromEnvironment('STORE') == 'play') return;
     final j = await _get('$_api/latest');
     if (j is! Map) return;
     final n = int.tryParse('${j['tag_name']}'.replaceAll(RegExp(r'[^0-9]'), ''));

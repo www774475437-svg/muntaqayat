@@ -383,7 +383,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   onChanged: (_) => s.setDeveloper(false),
                 ),
               const Divider(height: 34),
-              if (!kIsWeb)
+              if (!kIsWeb && const String.fromEnvironment('STORE') != 'play')
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.system_update_rounded),
