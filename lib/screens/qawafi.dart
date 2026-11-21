@@ -759,7 +759,12 @@ class _WallPageState extends State<WallPage> with TickerProviderStateMixin {
         onHorizontalDragEnd: (d) {
           final v = d.primaryVelocity ?? 0;
           if (v > 250) {
-            _openAuthor();
+            // your own post opens your own account tab; someone else's opens their page
+            if (it.post != null && it.post!['uid'] == Cloud.i.uid) {
+              shellTab.value = 3;
+            } else {
+              _openAuthor();
+            }
           } else if (v < -250) {
             shellTab.value = (shellTab.value + 1) % 4;
           }
