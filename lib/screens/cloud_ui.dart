@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/services.dart';
 
 import '../data.dart';
@@ -7,6 +8,7 @@ import '../services/device.dart';
 import '../ui.dart';
 import 'boards.dart';
 import 'golden.dart';
+import 'group_challenge.dart';
 import 'lists.dart';
 import 'majlis.dart';
 import 'majlis_plus.dart';
@@ -629,6 +631,20 @@ class DuelsScreen extends StatefulWidget {
 
 class _DuelsScreenState extends State<DuelsScreen> {
   Future<List<Doc>> job = Cloud.i.duels();
+  final _player = AudioPlayer();
+
+  @override
+  void initState() {
+    super.initState();
+    // A short chime on entering the arena.
+    _player.play(AssetSource('sounds/enter.wav'), volume: 0.5).catchError((_) {});
+  }
+
+  @override
+  void dispose() {
+    _player.dispose();
+    super.dispose();
+  }
 
   List<(Poem, int)> _picks(Doc d) => [
         for (final k in d['picks'] as List? ?? [])
@@ -689,6 +705,27 @@ class _DuelsScreenState extends State<DuelsScreen> {
                     _publish(list);
                   });
                   return ListView(padding: const EdgeInsets.fromLTRB(16, 0, 16, 40), children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(22),
+                        gradient: const LinearGradient(colors: [Color(0xFF2A211A), Color(0xFF4A3622)], begin: Alignment.topRight, end: Alignment.bottomLeft),
+                        border: Border.all(color: const Color(0xFFD9B45A)),
+                      ),
+                      child: Row(children: [
+                        const Icon(Icons.sports_kabaddi_rounded, size: 40, color: Color(0xFFD9B45A)),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            const Text('ساحة المبارزات', style: TextStyle(fontFamily: 'ArefRuqaa', fontSize: 26, fontWeight: FontWeight.w700, color: Color(0xFFF3DFA6))),
+                            Text('تحدَّ صديقاً، أو نازل الجميع في تحدي الأسبوع والجمعة.', style: TextStyle(fontSize: 13.5, height: 1.6, color: Colors.white.withValues(alpha: 0.8))),
+                          ]),
+                        ),
+                      ]),
+                    ),
+                    const SizedBox(height: 12),
+                    const GroupChallenges(),
+                    const SizedBox(height: 12),
                     SoftCard(
                       padding: const EdgeInsets.all(14),
                       child: Text('لتبارز صديقاً: افتح «من أتابعهم» من صفحتك، ابحث برقمه الشخصي، ثم اضغط «بارزه». تلعبان الأبيات الخمسة نفسها.', style: TextStyle(height: 1.7, color: C.ink(context))),
@@ -747,7 +784,7 @@ class _DuelsScreenState extends State<DuelsScreen> {
   /// and the win rate among the finished ones. A duel counts only when both finished.
   Widget _statsCard(BuildContext context, List<Doc> list) {
     final me = Cloud.i.uid;
-    var sent = 0, sentDone = 0, played = 0, won = 0, lost = 0, waiting = 0;
+    var sent = 0, sentDone = 0, played = 0, won = 0, lost = 0, waiting = 0, both = 0;
     for (final d in list) {
       final r = d['results'] as Map? ?? {};
       final mine = r[me] as Map?;
@@ -762,11 +799,12 @@ class _DuelsScreenState extends State<DuelsScreen> {
       final others = r.entries.where((e) => e.key != me).toList();
       if (others.isEmpty) continue;
       final a = _n(mine['r']), b = _n((others.first.value as Map)['r']);
+      both++;
       if (a > b) won++;
       if (a < b) lost++;
     }
     int pct(int a, int b) => b == 0 ? 0 : (a * 100 / b).round();
-    final finished = won + lost;
+    final finished = both;
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       SoftCard(
         padding: const EdgeInsets.all(14),
@@ -776,6 +814,10 @@ class _DuelsScreenState extends State<DuelsScreen> {
           Text('أرسلتَ ${Ar.num(sent)} تحدياً، أنجزتَ ${Ar.num(sentDone)} منها (${Ar.num(pct(sentDone, sent))}٪)', style: TextStyle(height: 1.7, color: C.ink(context))),
           Text('فزتَ في ${Ar.num(won)}، وخسرتَ في ${Ar.num(lost)}، ونسبة فوزك ${Ar.num(pct(won, finished))}٪ من المكتملة', style: TextStyle(height: 1.7, color: C.ink(context))),
           if (waiting > 0) Text('لديك ${Ar.num(waiting)} تحدياً بانتظار ردّك', style: TextStyle(height: 1.7, color: C.accent(context), fontWeight: FontWeight.w700)),
+          if (both > 0) ...[
+            const SizedBox(height: 10),
+            WinBar(won: won, lost: lost, tied: both - won - lost),
+          ],
         ]),
       ),
       const SizedBox(height: 6),
@@ -893,6 +935,10 @@ class _DuelPersonScreenState extends State<DuelPersonScreen> {
                   if (widget.publicId.isNotEmpty) Text('رقمه: ${widget.publicId}', style: TextStyle(color: C.muted(context))),
                   const SizedBox(height: 10),
                   Text('المكتملة بينكما: فزتَ في ${Ar.num(won)}، وفاز في ${Ar.num(lost)}، وتعادلتما في ${Ar.num(tied)}', style: TextStyle(height: 1.7, color: C.ink(context))),
+                  if (won + lost + tied > 0) ...[
+                    const SizedBox(height: 8),
+                    WinBar(won: won, lost: lost, tied: tied),
+                  ],
                   if (pendingToMe > 0) Text('لديك ${Ar.num(pendingToMe)} تحدياً بانتظار ردّك منه', style: TextStyle(height: 1.7, color: C.accent(context), fontWeight: FontWeight.w700)),
                 ]),
               ),
@@ -1283,12 +1329,16 @@ class _SentTestsScreenState extends State<SentTestsScreen> {
                       const Divider(),
                       if ((t['results'] as Map? ?? {}).isEmpty) Text('لم يختبر أحد بعد.', style: TextStyle(color: C.muted(context))),
                       for (final r in (t['results'] as Map? ?? {}).values)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 3),
-                          child: Row(children: [
-                            Expanded(child: Text('${(r as Map)['name']} · ${r['publicId']}', style: TextStyle(color: C.ink(context)))),
-                            Text('${Ar.num(_n(r['r']))} من ${Ar.num(_n(r['t']))}', style: TextStyle(fontWeight: FontWeight.w700, color: C.accent(context))),
-                          ]),
+                        InkWell(
+                          onTap: () => push(context, TestErrorsScreen(result: Map<String, dynamic>.from(r as Map), title: '${t['title']}')),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 6),
+                            child: Row(children: [
+                              Expanded(child: Text('${(r as Map)['name']} · ${r['publicId']}', style: TextStyle(color: C.ink(context)))),
+                              Text('${Ar.num(_n(r['r']))} من ${Ar.num(_n(r['t']))}', style: TextStyle(fontWeight: FontWeight.w700, color: C.accent(context))),
+                              Icon(Icons.chevron_left_rounded, size: 18, color: C.muted(context)),
+                            ]),
+                          ),
                         ),
                     ]),
                   ),
@@ -1464,6 +1514,55 @@ class _MessageDevScreenState extends State<MessageDevScreen> {
           );
         },
       );
+}
+
+/// «فحص الاختبار»: what one student wrote in each verse he missed, beside the correct text.
+class TestErrorsScreen extends StatelessWidget {
+  final Map<String, dynamic> result;
+  final String title;
+  const TestErrorsScreen({super.key, required this.result, required this.title});
+  @override
+  Widget build(BuildContext context) {
+    final r = _n(result['r']), t = _n(result['t']);
+    final errors = [for (final e in result['errors'] as List? ?? const []) if (e is Map) e];
+    return Scaffold(
+      appBar: AppBar(title: Text('فحص اختبار ${result['name'] ?? ''}')),
+      body: ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 40), children: [
+        SoftCard(
+          padding: const EdgeInsets.all(14),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(title, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: C.ink(context))),
+            const SizedBox(height: 4),
+            Text('${Ar.num(r)} كلمة صحيحة من ${Ar.num(t)} · ${Ar.num(t == 0 ? 0 : (r * 100 / t).round())}٪ · ${ago(result['at'])}', style: TextStyle(color: C.muted(context))),
+            const SizedBox(height: 8),
+            WinBar(won: r, lost: t - r, tied: 0, labels: const ('صحيح', 'خطأ أو ناقص', '')),
+          ]),
+        ),
+        const SizedBox(height: 12),
+        if (result['errors'] == null)
+          const EmptyNote(Icons.fact_check_outlined, 'هذا الاختبار أُرسل قبل إضافة مواضع الخطأ، فلا تفاصيل له.')
+        else if (errors.isEmpty)
+          const EmptyNote(Icons.verified_outlined, 'لم يخطئ في شيء.')
+        else ...[
+          Text('مواضع الخطأ: ${Ar.num(errors.length)} بيتاً', style: TextStyle(fontWeight: FontWeight.w700, color: C.accent(context))),
+          const SizedBox(height: 8),
+          for (final e in errors)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: SoftCard(
+                padding: const EdgeInsets.all(14),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('البيت ${Ar.num(_n(e['v']))}', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: C.muted(context))),
+                  const SizedBox(height: 4),
+                  Text('كتب: ${'${e['w'] ?? ''}'.isEmpty ? '— (تركه فارغاً)' : e['w']}', style: const TextStyle(fontSize: 16, height: 1.7, color: Color(0xFFB3261E))),
+                  Text('الصحيح: ${e['c'] ?? ''}', style: const TextStyle(fontSize: 16, height: 1.7, color: Color(0xFF2F6B4F))),
+                ]),
+              ),
+            ),
+        ],
+      ]),
+    );
+  }
 }
 
 // ------------------------------------------------------------ developer lists

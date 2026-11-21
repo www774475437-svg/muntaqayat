@@ -12,6 +12,7 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   shared_preferences: ^2.3.2
+  audioplayers: ^6.1.0
   share_plus: ^10.1.4
   url_launcher: ^6.3.1
   speech_to_text: ^7.0.0
@@ -41,6 +42,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/data/
+    - assets/sounds/
     - assets/images/
   fonts:
     - family: Amiri

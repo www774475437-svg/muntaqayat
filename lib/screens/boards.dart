@@ -88,3 +88,76 @@ class _BoardsScreenState extends State<BoardsScreen> {
 
   int _n(dynamic v) => v is num ? v.toInt() : 0;
 }
+
+/// A bar in three parts with their shares: wins, losses and ties by default.
+class WinBar extends StatelessWidget {
+  final int won, lost, tied;
+  final (String, String, String) labels;
+  const WinBar({super.key, required this.won, required this.lost, required this.tied, this.labels = const ('فوز', 'خسارة', 'تعادل')});
+
+  @override
+  Widget build(BuildContext context) {
+    const green = Color(0xFF2F6B4F), red = Color(0xFFB3261E), grey = Color(0xFF9A9A9A);
+    final total = won + lost + tied;
+    if (total <= 0) return const SizedBox();
+    int pct(int a) => (a * 100 / total).round();
+    Widget key(Color c, String label, int n) => Row(mainAxisSize: MainAxisSize.min, children: [
+          Container(width: 10, height: 10, decoration: BoxDecoration(color: c, shape: BoxShape.circle)),
+          const SizedBox(width: 5),
+          Text('$label ${Ar.num(n)} (${Ar.num(pct(n))}٪)', style: TextStyle(fontSize: 12.5, color: C.muted(context))),
+        ]);
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: SizedBox(
+          height: 14,
+          child: Row(children: [
+            if (won > 0) Expanded(flex: won, child: Container(color: green)),
+            if (lost > 0) Expanded(flex: lost, child: Container(color: red)),
+            if (tied > 0) Expanded(flex: tied, child: Container(color: grey)),
+          ]),
+        ),
+      ),
+      const SizedBox(height: 6),
+      Wrap(spacing: 12, runSpacing: 4, children: [
+        key(green, labels.$1, won),
+        key(red, labels.$2, lost),
+        if (tied > 0) key(grey, labels.$3, tied),
+      ]),
+    ]);
+  }
+}
+
+/// One ranking on its own page (the week's challenge, Friday's challenge).
+class FieldBoardScreen extends StatelessWidget {
+  final String title, field, unit;
+  const FieldBoardScreen({super.key, required this.title, required this.field, required this.unit});
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AppBar(title: Text(title)),
+        body: FutureBuilder<List<Doc>>(
+          future: Cloud.i.statBoard(field),
+          builder: (context, snap) {
+            if (snap.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
+            final list = snap.data ?? <Doc>[];
+            return ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 40), children: [
+              Text('تُقرأ الصدارة مرة في اليوم.', style: TextStyle(color: C.muted(context))),
+              const SizedBox(height: 10),
+              if (list.isEmpty) const EmptyNote(Icons.emoji_events_outlined, 'لا نتائج بعد في هذه الصدارة.'),
+              for (var i = 0; i < list.length; i++)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: SoftCard(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    child: Row(children: [
+                      SizedBox(width: 34, child: Text(Ar.num(i + 1), style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: C.accent(context)))),
+                      Expanded(child: Text('${list[i]['name'] ?? ''}'.trim().isEmpty ? '${list[i]['publicId'] ?? ''}' : '${list[i]['name']}', style: TextStyle(fontSize: 16, color: C.ink(context)))),
+                      Text('${Ar.num(list[i]['v'] is num ? (list[i]['v'] as num).toInt() : 0)} $unit', style: TextStyle(fontSize: 15, color: C.muted(context))),
+                    ]),
+                  ),
+                ),
+            ]);
+          },
+        ),
+      );
+}

@@ -622,7 +622,12 @@ class _WritingTestScreenState extends State<WritingTestScreen> {
               setState(() => checked = true);
               final (r, t) = _score;
               if (widget.cloudTest != null) {
-                Cloud.i.submitResult(widget.cloudTest!, r, t).then((ok) {
+                final errors = <Map<String, dynamic>>[
+                  for (final it in items)
+                    if (_marks(_words(it.hidden), _words(it.ctl.text)).contains(false))
+                      {'v': it.verse, 'w': it.ctl.text.trim().length > 200 ? it.ctl.text.trim().substring(0, 200) : it.ctl.text.trim(), 'c': it.hidden}
+                ];
+                Cloud.i.submitResult(widget.cloudTest!, r, t, errors: errors).then((ok) {
                   if (context.mounted) toast(context, ok ? 'وصلت نتيجتك إلى معلّمك' : 'تعذّر إرسال النتيجة. أرسلها له بزر «أرسل النتيجة».');
                 });
               }

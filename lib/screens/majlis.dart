@@ -124,6 +124,24 @@ class Majlis {
     return out;
   }
 
+  /// Five verses from the book file by a seed: the same for every reader.
+  static List<(Poem, int)> seededPicks(int seed) {
+    final rnd = Random(seed);
+    final c = <(Poem, int)>[
+      for (final p in Library.all)
+        if (p.poet != 'بلا نسبة' && !p.allGone)
+          for (var i = 0; i < p.lines.length; i++)
+            if (p.lines[i].length == 2 && !p.gone(i + 1) && clean(p.lines[i][1]).split(' ').length >= 2) (p, i)
+    ]..shuffle(rnd);
+    final out = <(Poem, int)>[];
+    final used = <int>{};
+    for (final x in c) {
+      if (out.length == 5) break;
+      if (used.add(x.$1.id)) out.add(x);
+    }
+    return out;
+  }
+
   /// Today's five verses: chosen once, the same if the reader comes back the same day.
   static List<(Poem, int)> todayPicks() {
     final t = Store.i.majlis['today'];
@@ -475,7 +493,8 @@ class ChallengeScreen extends StatefulWidget {
   final int? day; // null = practice round
   final bool weekly; // the poet of the week: double points
   final String? duel; // a duel with a friend: the result goes to the server
-  const ChallengeScreen({super.key, required this.picks, this.day, this.weekly = false, this.duel});
+  final void Function(int points)? onDone; // a shared challenge: called once, when the round is finished
+  const ChallengeScreen({super.key, required this.picks, this.day, this.weekly = false, this.duel, this.onDone});
   @override
   State<ChallengeScreen> createState() => _ChallengeScreenState();
 }
@@ -638,6 +657,7 @@ class _ChallengeScreenState extends State<ChallengeScreen> {
         Cloud.i.syncSoon();
       }
       if (widget.duel != null) Cloud.i.submitResult(widget.duel!, base, Majlis.maxPoints);
+      widget.onDone?.call(base);
       Navigator.of(context).pushReplacement(MaterialPageRoute(
           builder: (_) => ResultScreen(picks: widget.picks, points: List.of(points), daily: widget.day != null, base: base, earned: earned, notes: notes, newLevel: newLevel, duel: widget.duel != null)));
       return;

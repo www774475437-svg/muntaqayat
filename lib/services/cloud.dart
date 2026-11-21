@@ -1005,11 +1005,12 @@ class Cloud extends ChangeNotifier {
     }
   }
 
-  Future<bool> submitResult(String testId, int right, int total) async {
+  /// [errors]: where the student went wrong, for the teacher: [{v, w, c}] (verse, written, correct).
+  Future<bool> submitResult(String testId, int right, int total, {List<Map<String, dynamic>>? errors}) async {
     if (!signedIn) return false;
     try {
       await _db.collection('tests').doc(testId).update({
-        'results.$uid': {'name': name, 'publicId': publicId, 'r': right, 't': total, 'at': _now}
+        'results.$uid': {'name': name, 'publicId': publicId, 'r': right, 't': total, 'at': _now, if (errors != null) 'errors': errors.take(40).toList()}
       });
       return true;
     } catch (_) {
