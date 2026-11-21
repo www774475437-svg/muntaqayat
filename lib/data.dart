@@ -313,6 +313,7 @@ class Store extends ChangeNotifier {
   List<String> recent = [];
   int lastRead = 0;
   int themeMode = 0; // 0 = phone, 1 = light, 2 = dark
+  String palette = 'default'; // a colour set from Palette.all; the others are for Plus members
   double fontScale = 1.0;
   bool tashkeel = true;
 
@@ -385,6 +386,7 @@ class Store extends ChangeNotifier {
     days = (_p.getStringList('days') ?? []).toSet();
     lastRead = _p.getInt('lastRead') ?? 0;
     themeMode = _p.getInt('themeMode') ?? 0;
+    palette = _p.getString('palette') ?? 'default';
     fontScale = _p.getDouble('fontScale') ?? 1.0;
     tashkeel = _p.getBool('tashkeel') ?? true;
     try {
@@ -508,6 +510,12 @@ class Store extends ChangeNotifier {
   void setTheme(int m) {
     themeMode = m;
     _p.setInt('themeMode', m);
+    notifyListeners();
+  }
+
+  void setPalette(String id) {
+    palette = id;
+    _p.setString('palette', id);
     notifyListeners();
   }
 

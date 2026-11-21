@@ -263,6 +263,47 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 onSelectionChanged: (v) => s.setTheme(v.first),
               ),
               const SizedBox(height: 22),
+              Text('لون التطبيق', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: C.ink(context))),
+              const SizedBox(height: 4),
+              Text('الألوان الأخرى لمشتركي «بلس»', style: TextStyle(fontSize: 13, color: C.muted(context))),
+              const SizedBox(height: 10),
+              Wrap(spacing: 10, runSpacing: 10, children: [
+                for (final p in Palette.all)
+                  InkWell(
+                    borderRadius: BorderRadius.circular(14),
+                    onTap: () {
+                      if (p.id != 'default' && !Store.plusUser) {
+                        Navigator.of(context).push(MaterialPageRoute(fullscreenDialog: true, builder: (_) => const PlusScreen()));
+                        return;
+                      }
+                      s.setPalette(p.id);
+                    },
+                    child: Container(
+                      width: 104,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: s.palette == p.id ? p.lightAccent : C.line(context), width: s.palette == p.id ? 2 : 0.5),
+                      ),
+                      child: Column(children: [
+                        Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(shape: BoxShape.circle, color: p.darkBg, border: Border.all(color: p.darkAccent, width: 2)),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                          Text(p.name, style: TextStyle(fontSize: 14, color: C.ink(context))),
+                          if (p.id != 'default' && !Store.plusUser) ...[
+                            const SizedBox(width: 4),
+                            Icon(Icons.lock_outline_rounded, size: 13, color: C.muted(context)),
+                          ],
+                        ]),
+                      ]),
+                    ),
+                  ),
+              ]),
+              const SizedBox(height: 22),
               Text('حجم خط الأبيات', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: C.ink(context))),
               Slider(value: s.fontScale, min: 0.8, max: 1.5, divisions: 7, onChanged: s.setFontScale),
               SoftCard(

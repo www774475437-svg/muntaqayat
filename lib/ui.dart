@@ -4,16 +4,36 @@ import 'package:flutter/material.dart';
 import 'data.dart';
 
 /// Colours of «منتقيات الشعر»: warm paper with a terracotta ink.
+/// A colour set chosen in the settings. The first one is the app as it has always been;
+/// the others are for Plus members.
+class Palette {
+  final String id, name;
+  final Color darkBg, darkCard, lightBg, lightCard, darkAccent, lightAccent;
+  const Palette(this.id, this.name, this.darkBg, this.darkCard, this.lightBg, this.lightCard, this.darkAccent, this.lightAccent);
+
+  static const all = [
+    Palette('default', 'الأصلي', Color(0xFF15130F), Color(0xFF201D18), Color(0xFFF7F4EE), Color(0xFFF0ECE4), Color(0xFFD9956A), Color(0xFF8C4A2F)),
+    Palette('navy', 'الكحلي', Color(0xFF0F1A2C), Color(0xFF172740), Color(0xFFEEF2F8), Color(0xFFE2E9F4), Color(0xFFC9A24A), Color(0xFF1F3A66)),
+    Palette('burgundy', 'العنّابي', Color(0xFF1C0E11), Color(0xFF2A161A), Color(0xFFF8EFEF), Color(0xFFF0E0E1), Color(0xFFD08A8A), Color(0xFF7A2430)),
+  ];
+
+  /// The colour set in use. Only Plus members get the others.
+  static Palette get current {
+    if (!Store.plusUser) return all.first;
+    return all.firstWhere((p) => p.id == Store.i.palette, orElse: () => all.first);
+  }
+}
+
 class C {
   static bool dark(BuildContext c) => Theme.of(c).brightness == Brightness.dark;
-  static Color bg(BuildContext c) => dark(c) ? const Color(0xFF15130F) : const Color(0xFFF7F4EE);
-  static Color card(BuildContext c) => dark(c) ? const Color(0xFF201D18) : const Color(0xFFF0ECE4);
+  static Color bg(BuildContext c) => dark(c) ? Palette.current.darkBg : Palette.current.lightBg;
+  static Color card(BuildContext c) => dark(c) ? Palette.current.darkCard : Palette.current.lightCard;
   static Color line(BuildContext c) => dark(c) ? const Color(0xFF332E27) : const Color(0xFFE0D9CC);
   static Color ink(BuildContext c) => dark(c) ? const Color(0xFFEDE6DA) : const Color(0xFF1E1B16);
   static Color muted(BuildContext c) => dark(c) ? const Color(0xFFA39A8C) : const Color(0xFF7B746A);
-  static Color accent(BuildContext c) => dark(c) ? const Color(0xFFD9956A) : const Color(0xFF8C4A2F);
+  static Color accent(BuildContext c) => dark(c) ? Palette.current.darkAccent : Palette.current.lightAccent;
   static Color soft(BuildContext c) => dark(c) ? const Color(0xFF2C2620) : const Color(0xFFE6DED2);
-  static Color bar(BuildContext c) => dark(c) ? const Color(0xFF26221C) : const Color(0xFFFCFBF8);
+  static Color bar(BuildContext c) => dark(c) ? Palette.current.darkCard : Palette.current.lightCard;
 }
 
 const verseFont = 'Amiri';
@@ -21,8 +41,8 @@ const uiFont = 'Tajawal';
 
 ThemeData buildTheme(Brightness b) {
   final dark = b == Brightness.dark;
-  final accent = dark ? const Color(0xFFD9956A) : const Color(0xFF8C4A2F);
-  final bg = dark ? const Color(0xFF15130F) : const Color(0xFFF7F4EE);
+  final accent = dark ? Palette.current.darkAccent : Palette.current.lightAccent;
+  final bg = dark ? Palette.current.darkBg : Palette.current.lightBg;
   final ink = dark ? const Color(0xFFEDE6DA) : const Color(0xFF1E1B16);
   return ThemeData(
     brightness: b,
