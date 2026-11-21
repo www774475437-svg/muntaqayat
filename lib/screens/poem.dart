@@ -17,7 +17,7 @@ import 'sharh.dart';
 import 'plus.dart';
 import 'lists.dart';
 
-const siteUrl = 'https://www774475437-svg.github.io/muntaqayat/';
+const siteUrl = 'https://muntaqayat.com/';
 
 String poemLink(Poem p) => '$siteUrl#/p/${p.id}';
 

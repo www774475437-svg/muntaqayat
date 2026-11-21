@@ -66,13 +66,20 @@ jobs:
       - name: Rename APK
         run: cp build/app/outputs/flutter-apk/app-release.apk muntaqayat.apk
 
+      - name: Build the Google Play bundle (AAB)
+        run: |
+          flutter build appbundle --release --build-number=${{ github.run_number }} --dart-define=BUILD=${{ github.run_number }} --dart-define=STORE=play
+          cp build/app/outputs/bundle/release/app-release.aab muntaqayat.aab
+
       - name: Publish as latest release (direct download link)
         uses: softprops/action-gh-release@v2
         with:
           tag_name: poetry-${{ github.run_number }}
           name: منتقيات الشعر — نسخة ${{ github.run_number }}
           make_latest: true
-          files: muntaqayat.apk
+          files: |
+            muntaqayat.apk
+            muntaqayat.aab
 
   website:
     needs: check
@@ -94,7 +101,7 @@ jobs:
         run: python3 tool/patch_web.py
 
       - name: Build website
-        run: flutter build web --release --no-web-resources-cdn --base-href /muntaqayat/
+        run: flutter build web --release --no-web-resources-cdn --base-href /
 
       - name: Privacy page
         run: cp -r tool/web_pages/. build/web/
@@ -104,4 +111,5 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: build/web
+          cname: muntaqayat.com
           force_orphan: true
