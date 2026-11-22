@@ -229,7 +229,7 @@ class _PoemScreenState extends State<PoemScreen> {
             padding: const EdgeInsets.fromLTRB(18, 22, 18, 0),
             child: Row(children: [
               ActionChip(
-                avatar: Icon(Icons.auto_awesome_rounded, size: 18, color: C.accent(context)),
+                avatar: Icon(Icons.lightbulb_rounded, size: 18, color: C.accent(context)),
                 label: const Text('الشرح'),
                 onPressed: () => explainSheet(context, p),
               ),
@@ -565,7 +565,7 @@ class _ExplainRowState extends State<_ExplainRow> {
             onPressed: _busy ? null : _ask,
             icon: _busy
                 ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Icon(Icons.auto_awesome_rounded),
+                : const Icon(Icons.lightbulb_rounded),
             label: Text(_busy ? 'جارٍ الشرح…' : 'اشرح البيت'),
           ),
         if (_failed)

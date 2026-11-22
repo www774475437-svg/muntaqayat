@@ -143,7 +143,7 @@ List<Achievement> achievements() {
     Achievement('خمسون شاعراً', 'أصب في أبيات خمسين شاعراً', 2, poets, 50, Icons.diversity_3_rounded),
     Achievement('عشرة أسابيع', 'أتمّ جولة شاعر الأسبوع عشر مرات', 2, weekly, 10, Icons.star_rounded),
     Achievement('فارس المبارزة', 'افز في عشرين مبارزة', 2, wins, 20, Icons.military_tech_outlined),
-    Achievement('الراوي', 'ابلغ المستوى الخمسين', 2, level, 50, Icons.auto_awesome_rounded),
+    Achievement('الراوي', 'ابلغ المستوى الخمسين', 2, level, 50, Icons.military_tech_rounded),
     Achievement('سنة في المجلس', 'العب ٣٦٥ يوماً متتالية', 2, best, 365, Icons.calendar_month_rounded),
     Achievement('أمير المجلس', 'ابلغ المستوى المئة', 2, level, 100, Icons.emoji_events_rounded),
   ];

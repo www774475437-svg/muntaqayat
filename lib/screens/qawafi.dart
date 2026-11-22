@@ -112,7 +112,7 @@ const titlePresets = {
   'المعلّم': Icons.school_outlined,
   'المشرف': Icons.admin_panel_settings_outlined,
   'صديق التطبيق': Icons.handshake_outlined,
-  'النابغة': Icons.auto_awesome_rounded,
+  'النابغة': Icons.military_tech_rounded,
   'المحرّر': Icons.edit_note_rounded,
   'المراقب': Icons.visibility_outlined,
   'الكاشف': Icons.search_rounded,

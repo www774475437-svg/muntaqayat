@@ -84,7 +84,7 @@ class _WhoSaidScreenState extends State<WhoSaidScreen> {
             OutlinedButton.icon(
               onPressed: () => soonSheet(context, 'البحث بالذكاء الاصطناعي',
                   'يبحث في المصادر الموثوقة ويذكر المصدر، وإن لم يتيقّن قال: «لم يُعرف قائله بيقين» — يُفعَّل قريباً بإذن الله.'),
-              icon: const Icon(Icons.auto_awesome_rounded),
+              icon: const Icon(Icons.lightbulb_rounded),
               label: const Text('ابحث بالذكاء الاصطناعي — قريباً'),
             ),
           ] else

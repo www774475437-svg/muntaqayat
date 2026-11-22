@@ -153,7 +153,7 @@ class BrowseScreen extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Row(children: [
-            Expanded(child: _pick(context, Icons.auto_awesome_outlined, 'مجلس الشعر', 'تحدّي اليوم وديوانك', () => push(context, const MajlisScreen()))),
+            Expanded(child: _pick(context, Icons.lightbulb_outline_rounded, 'مجلس الشعر', 'تحدّي اليوم وديوانك', () => push(context, const MajlisScreen()))),
             const SizedBox(width: 12),
             Expanded(child: _pick(context, Icons.emoji_events_outlined, 'لوحة الصدارة', 'الأسبوع والشهر', () => push(context, const LeaderboardScreen()))),
           ]),

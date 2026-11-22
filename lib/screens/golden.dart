@@ -738,7 +738,7 @@ class GoldenSummary extends StatelessWidget {
       onTap: () => push(context, const GoldenGalleryScreen()),
       child: Column(children: [
         Row(children: [
-          const Icon(Icons.auto_awesome_rounded, size: 18, color: Color(0xFFB08A3E)),
+          const Icon(Icons.emoji_events_rounded, size: 18, color: Color(0xFFB08A3E)),
           const SizedBox(width: 8),
           Expanded(child: Text('بيوت الذهب', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: C.ink(context)))),
           Icon(Icons.chevron_left_rounded, color: C.muted(context)),
@@ -790,7 +790,7 @@ class _GoldenGalleryScreenState extends State<GoldenGalleryScreen> {
           for (final (i, t) in const [(0, 'الكل'), (1, 'المكتملة'), (2, 'الناقصة')]) ChoiceChip(label: Text(t), selected: filter == i, onSelected: (_) => setState(() => filter = i)),
         ]),
         const SizedBox(height: 12),
-        if (shown.isEmpty) const EmptyNote(Icons.auto_awesome_outlined, 'لا بيوت هنا بعد. العب «بيت الذهب» اليوم لتنال أول بيت.'),
+        if (shown.isEmpty) const EmptyNote(Icons.emoji_events_outlined, 'لا بيوت هنا بعد. العب «بيت الذهب» اليوم لتنال أول بيت.'),
         for (final e in shown)
           Padding(
             padding: const EdgeInsets.only(bottom: 14),
@@ -798,7 +798,7 @@ class _GoldenGalleryScreenState extends State<GoldenGalleryScreen> {
           ),
         if (!Golden.doneToday) ...[
           const SizedBox(height: 4),
-          FilledButton.icon(onPressed: () => Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const GoldenScreen())), icon: const Icon(Icons.auto_awesome_rounded), label: const Text('العب بيت اليوم')),
+          FilledButton.icon(onPressed: () => Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const GoldenScreen())), icon: const Icon(Icons.emoji_events_rounded), label: const Text('العب بيت اليوم')),
         ],
       ]),
     );
@@ -940,7 +940,7 @@ class GoldenCompare extends StatelessWidget {
             padding: const EdgeInsets.all(12),
             child: Column(children: [
               Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                const Icon(Icons.auto_awesome_rounded, size: 16, color: gold),
+                const Icon(Icons.emoji_events_rounded, size: 16, color: gold),
                 const SizedBox(width: 6),
                 Text('بيوت الذهب: أنت وهو', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: C.ink(context))),
               ]),

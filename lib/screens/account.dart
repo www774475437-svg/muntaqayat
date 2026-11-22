@@ -407,7 +407,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.auto_awesome_rounded),
+                leading: const Icon(Icons.lightbulb_rounded),
                 title: const Text('إزالة الإضافات'),
                 subtitle: const Text('الفاصلة والنقطة والريشة عند النسخ'),
                 onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RemoveMarkScreen())),
