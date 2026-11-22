@@ -1720,7 +1720,7 @@ class _MemberScreenState extends State<MemberScreen> {
                 _grantTitles(context);
               },
             ),
-          if (!mine && user != null && (c.isDev || c.can('حظر')))
+          if (!mine && user != null && (c.isDev || c.can('حظر') || c.can('إيقاف')))
             ListTile(
               leading: const Icon(Icons.admin_panel_settings_outlined),
               title: const Text('الإشراف وتفاصيل الحساب'),

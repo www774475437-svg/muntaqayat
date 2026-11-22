@@ -18,6 +18,9 @@ service cloud.firestore {
       // لا يغيّر المستخدم اشتراكه ولا حظره بنفسه.
       allow update: if isDev()
         || (can('حظر') && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['banned', 'grants']))
+        // «إيقاف»: إنذار وإيقاف مؤقت فقط، بلا حظر دائم ولا شارات.
+        || (can('إيقاف') && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['grants'])
+            && request.resource.data.grants.diff(resource.data.get('grants', {})).affectedKeys().hasOnly(['until', 'reason', 'at', 'warns', 'nWarn', 'inbox']))
         || (me(uid)
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['plus', 'plusHistory', 'banned', 'grants', 'publicId']));
       allow delete: if isDev();
@@ -44,7 +47,7 @@ service cloud.firestore {
     // لوحة الصدارة: يقرؤها الجميع، ويكتب كل واحد نتيجته فقط.
     match /board/{uid} { allow read: if true; allow write: if me(uid); }
     // البلاغات والرسائل وطلبات التصميم: يكتبها المستخدم، ويقرؤها المطوّر.
-    match /reports/{id}  { allow create: if signedIn(); allow read, update, delete: if can('حظر'); }
+    match /reports/{id}  { allow create: if signedIn(); allow read, update: if can('حظر') || can('بلاغات'); allow delete: if can('حظر'); }
     match /messages/{id} {
       allow create: if signedIn() && request.resource.data.uid == request.auth.uid;
       allow read: if can('رسائل') || (signedIn() && resource.data.uid == request.auth.uid);

@@ -41,6 +41,7 @@ class _GroupChallengesState extends State<GroupChallenges> {
                 onDone: (pts) {
                   _save(key, pts);
                   Cloud.i.publishStats({key: pts});
+                  Cloud.i.noteOwnStat(key, pts);
                 })))
         .then((_) {
       if (mounted) setState(() {});

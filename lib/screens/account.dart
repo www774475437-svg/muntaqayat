@@ -78,6 +78,11 @@ class AccountScreen extends StatelessWidget {
               () => Navigator.of(context).push(MaterialPageRoute(fullscreenDialog: true, builder: (_) => const PlusScreen()))),
           _tile(context, Icons.lightbulb_outline_rounded, 'اقترح بيتاً أو قصيدة', '', () => suggest(context, 'اقتراح بيت أو قصيدة:\n')),
           _tile(context, Icons.mark_email_unread_outlined, 'راسل المطوّر', 'رسالة في اليوم، وعشرون للمشتركين', () => push(context, const MessageDevScreen())),
+          // Moderators the developer added: their own way into the pages they were given.
+          if (!Cloud.i.isDev && (Cloud.i.can('حظر') || Cloud.i.can('بلاغات')))
+            _tile(context, Icons.flag_outlined, 'البلاغات', 'ما بلّغ عنه القرّاء', () => push(context, const DevReportsScreen())),
+          if (!Cloud.i.isDev && Cloud.i.can('حظر'))
+            _tile(context, Icons.gpp_bad_outlined, 'المخالفون', 'المحظورون والموقوفون والمنذَرون', () => push(context, const ModerationScreen())),
         ]),
         const SizedBox(height: 14),
         _group(context, [

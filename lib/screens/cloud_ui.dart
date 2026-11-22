@@ -395,7 +395,7 @@ class _UserScreenState extends State<UserScreen> {
         for (final w in warns.reversed.take(5)) Text('• إنذار ${ago(w['at'])}: ${w['text']}', style: TextStyle(height: 1.6, color: C.ink(context))),
         const SizedBox(height: 8),
         Wrap(spacing: 8, runSpacing: 4, children: [
-          if (c.can('حظر')) ...[
+          if (c.can('حظر') || c.can('إيقاف')) ...[
             b('إنذار', () async {
               final r = await _reason('إنذار مكتوب', hint: 'خالفتَ في كذا…');
               if (r == null || r.isEmpty) return;
@@ -419,7 +419,7 @@ class _UserScreenState extends State<UserScreen> {
               b('ارفع الإيقاف', () async {
                 if (await c.suspendUser(uid, 0, '')) _g('until', 0);
               }),
-            b(banned ? 'ارفع حظر الحساب' : 'احظر الحساب', () async {
+            if (c.can('حظر')) b(banned ? 'ارفع حظر الحساب' : 'احظر الحساب', () async {
               final r = banned ? '' : await _reason('حظر الحساب');
               if (r == null) return;
               final ok = await c.banUser(uid, !banned, r);
@@ -435,7 +435,7 @@ class _UserScreenState extends State<UserScreen> {
                 c.banDevice(device, !devBanned);
                 setState(() {});
               }),
-            b(g['noMsg'] == true ? 'اسمح بمراسلتي' : 'امنع مراسلتي', () async {
+            if (c.isDev) b(g['noMsg'] == true ? 'اسمح بمراسلتي' : 'امنع مراسلتي', () async {
               final on = g['noMsg'] != true;
               if (await c.setNoMsg(uid, on)) _g('noMsg', on);
             }),
@@ -554,7 +554,7 @@ class _UserScreenState extends State<UserScreen> {
                 ],
               ]),
             ),
-            if (!mine && (c.isDev || c.can('حظر'))) ...[const SizedBox(height: 10), _moderation(context)],
+            if (!mine && (c.isDev || c.can('حظر') || c.can('إيقاف'))) ...[const SizedBox(height: 10), _moderation(context)],
             _section(context, 'اقتباساته'),
             QuotesList(of: uid),
           ]),
@@ -1883,7 +1883,7 @@ class _ModerationScreenState extends State<ModerationScreen> {
 /// The developer adds supervisors by email and chooses what each may do.
 class ModsScreen extends StatelessWidget {
   const ModsScreen({super.key});
-  static const perms = ['حظر', 'رسائل', 'مراجعة', 'توثيق'];
+  static const perms = ['حظر', 'إيقاف', 'بلاغات', 'رسائل', 'مراجعة', 'توثيق'];
   @override
   Widget build(BuildContext context) => ListenableBuilder(
         listenable: Cloud.i,
@@ -1972,8 +1972,8 @@ class _DevReportsScreenState extends State<DevReportsScreen> {
             actions: [IconButton(onPressed: reload, icon: const Icon(Icons.refresh_rounded))],
             bottom: const TabBar(tabs: [Tab(text: 'البلاغات'), Tab(text: 'محظورو الإبلاغ'), Tab(text: 'الأرشيف')]),
           ),
-          body: !Cloud.i.can('حظر')
-              ? const EmptyNote(Icons.lock_outline_rounded, 'هذه الصفحة للمطوّر ومشرفي الحظر.')
+          body: !(Cloud.i.can('حظر') || Cloud.i.can('بلاغات'))
+              ? const EmptyNote(Icons.lock_outline_rounded, 'هذه الصفحة للمطوّر ومشرفي الحظر والبلاغات.')
               : FutureBuilder<List<Doc>>(
                   future: job,
                   builder: (context, snap) {

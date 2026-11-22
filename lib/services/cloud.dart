@@ -408,6 +408,19 @@ class Cloud extends ChangeNotifier {
     }
   }
 
+  /// Puts the reader's own fresh score into the saved ranking, which is read from the server
+  /// only once a day, so he sees himself in it right after playing.
+  Future<void> noteOwnStat(String field, num value) async {
+    if (!signedIn || value <= 0) return;
+    final key = 'stat:$field';
+    final cached = _p.getString(key);
+    final list = <Doc>[if (cached != null) for (final x in jsonDecode(cached) as List) Map<String, dynamic>.from(x as Map)];
+    list.removeWhere((d) => d['uid'] == uid);
+    list.add({'uid': uid, 'name': name, 'publicId': publicId, 'v': value});
+    list.sort((x, y) => ((y['v'] ?? 0) as num).compareTo((x['v'] ?? 0) as num));
+    await _p.setString(key, jsonEncode(list.take(20).toList()));
+  }
+
   /// Counts one answered question of the proverb quiz and publishes the totals.
   Future<void> countQuizAnswer(bool correct) async {
     final a = (_p.getInt('quiz:answered') ?? 0) + 1;
