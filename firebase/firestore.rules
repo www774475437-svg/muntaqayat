@@ -6,13 +6,22 @@ service cloud.firestore {
     function signedIn() { return request.auth != null; }
     function isDev() { return signedIn() && request.auth.token.email == 'www774475437@gmail.com' && request.auth.token.email_verified == true; }
     function me(uid) { return signedIn() && request.auth.uid == uid; }
+    // المشرفون: يضيفهم المطوّر ببريدهم في config/mods، ولكل واحد صلاحياته.
+    function modsList() { return get(/databases/$(database)/documents/config/mods).data.list; }
+    function can(p) { return isDev() || (signedIn() && request.auth.token.email_verified == true && request.auth.token.email in modsList() && p in modsList()[request.auth.token.email]); }
+    function notBanned() { return !(get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('banned', false)); }
 
     // سجلّ واحد لكل مستخدم: الاسم والرقم الشخصي والعدادات (قراءة واحدة).
     match /users/{uid} {
       allow read: if signedIn();
       allow create: if me(uid);
       // لا يغيّر المستخدم اشتراكه ولا حظره بنفسه.
-      allow update: if isDev() || (me(uid)
+      allow update: if isDev()
+        || (can('حظر') && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['banned', 'grants']))
+        // «إيقاف»: إنذار وإيقاف مؤقت فقط، بلا حظر دائم ولا شارات.
+        || (can('إيقاف') && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['grants'])
+            && request.resource.data.grants.diff(resource.data.get('grants', {})).affectedKeys().hasOnly(['until', 'reason', 'at', 'warns', 'nWarn', 'inbox']))
+        || (me(uid)
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['plus', 'plusHistory', 'banned', 'grants', 'publicId']));
       allow delete: if isDev();
     }
@@ -25,9 +34,9 @@ service cloud.firestore {
     // الاقتباسات المنشورة.
     match /quotes/{id} {
       allow read: if true;
-      allow create: if signedIn() && request.resource.data.uid == request.auth.uid;
-      allow update: if signedIn(); // الإعجابات
-      allow delete: if isDev() || (signedIn() && resource.data.uid == request.auth.uid);
+      allow create: if signedIn() && request.resource.data.uid == request.auth.uid && notBanned();
+      allow update: if signedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes']); // الإعجابات
+      allow delete: if can('مراجعة') || (signedIn() && resource.data.uid == request.auth.uid);
     }
     // اختبارات المعلّم: يقرؤها المعلّم وطلابه.
     match /tests/{id} {
@@ -38,11 +47,11 @@ service cloud.firestore {
     // لوحة الصدارة: يقرؤها الجميع، ويكتب كل واحد نتيجته فقط.
     match /board/{uid} { allow read: if true; allow write: if me(uid); }
     // البلاغات والرسائل وطلبات التصميم: يكتبها المستخدم، ويقرؤها المطوّر.
-    match /reports/{id}  { allow create: if signedIn(); allow read, update, delete: if isDev(); }
+    match /reports/{id}  { allow create: if signedIn(); allow read, update: if can('حظر') || can('بلاغات'); allow delete: if can('حظر'); }
     match /messages/{id} {
       allow create: if signedIn() && request.resource.data.uid == request.auth.uid;
-      allow read: if isDev() || (signedIn() && resource.data.uid == request.auth.uid);
-      allow update, delete: if isDev();
+      allow read: if can('رسائل') || (signedIn() && resource.data.uid == request.auth.uid);
+      allow update, delete: if can('رسائل');
     }
     match /orders/{id} {
       allow create: if signedIn() && request.resource.data.uid == request.auth.uid;
@@ -50,7 +59,10 @@ service cloud.firestore {
       allow update, delete: if isDev();
     }
     // إعدادات عامة (مثل إظهار الاشتراك) والإحصائيات المجمّعة.
-    match /config/{id} { allow read: if true; allow write: if isDev(); }
+    match /config/{id} { allow read: if true; allow write: if isDev() || (id == 'marks' && can('توثيق')); }
+    // نسخة الحساب الكاملة (خاصة بصاحبها)، وعدّاد الأجهزة التي فتحت التطبيق.
+    match /saves/{uid}  { allow read, write: if me(uid); }
+    match /visits/{device} { allow create: if true; allow read: if isDev(); }
     match /stats/{id}  { allow read: if isDev(); allow update, create: if signedIn(); }
   }
 }
