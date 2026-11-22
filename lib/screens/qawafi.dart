@@ -11,6 +11,7 @@ import '../ui.dart';
 import 'cloud_ui.dart';
 import 'golden.dart';
 import 'lists.dart';
+import 'vault.dart';
 import 'majlis.dart';
 import 'majlis_plus.dart';
 import 'medals.dart';
@@ -1266,6 +1267,7 @@ class _MemberScreenState extends State<MemberScreen> {
             body: loading
                 ? const Center(child: CircularProgressIndicator())
                 : ListView(padding: const EdgeInsets.fromLTRB(16, 0, 16, 120), children: [
+                    VaultBanner(uid: widget.uid),
                     _head(context),
                     const SizedBox(height: 14),
                     _stats(context, own.length, quotes.length, likes),

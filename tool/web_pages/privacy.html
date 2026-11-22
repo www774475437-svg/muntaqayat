@@ -26,6 +26,7 @@ main{max-width:760px;margin:0 auto;padding:22px 18px}li{margin-bottom:10px}a{col
 <li>ما تنشره: الاقتباسات، وشعرك، وشروحك، وإعجاباتك على المنشورات، ومن تتابعهم.</li>
 <li>رسائلك إلى المطوّر، وبلاغاتك، ونتائج اختبارات معلّمك.</li>
 <li>نسخة من مكتبتك (الإعجابات والمجموعات) لتسترجعها على جهاز آخر.</li>
+<li>صورة خلفية صفحتك إن رفعتها (ميزة اختيارية): تُحفظ في تخزين Cloudflare، ويراجعها المطوّر قبل أن تظهر للأعضاء، وتحذفها متى شئت.</li>
 </ul>
 
 <h2>بيانات الجهاز</h2>
@@ -44,6 +45,7 @@ main{max-width:760px;margin:0 auto;padding:22px 18px}li{margin-bottom:10px}a{col
 <h2>من يعالج البيانات</h2>
 <ul>
 <li>Google Firebase (المصادقة وقاعدة البيانات)، وتُنقل البيانات إليه مشفّرة (HTTPS).</li>
+<li>Cloudflare (تخزين الملفات التي ترفعها أنت، مثل خلفية الصفحة). وقبل رفع الصورة تُفحص آلياً بخدمة Google للتأكد من موافقتها للشروط.</li>
 <li>إن استعملتَ خاصية تعتمد على الذكاء الاصطناعي أُرسل النص الذي كتبته إلى خدمة Google للإجابة عنه.</li>
 <li>لا تُشارَك بياناتك مع أي جهة أخرى، إلا إن ألزم بذلك القانون.</li>
 </ul>
@@ -74,7 +76,8 @@ main{max-width:760px;margin:0 auto;padding:22px 18px}li{margin-bottom:10px}a{col
 <li><b>Stored on our server (Google Firebase) only if you sign in with Google (optional):</b> email address and account ID (authentication; the email is visible to the developer only), the display name you choose and your member number (visible to other members), scores and quiz results (leaderboards), content you post (quotes, poems, explanations, likes, follows), messages and reports you send to the developer, teacher test results, and a backup of your library.</li>
 <li><b>Device data:</b> a random installation ID, used to count installs once and to enforce bans. No location, contacts, photos or files are collected.</li>
 <li><b>Permissions:</b> microphone (voice search only, when you tap it; speech is converted to text by your device's speech service and the app does not record or store audio), notifications (reminders you turn on), internet.</li>
-<li><b>Processors:</b> Google Firebase (Authentication, Cloud Firestore). Text you submit to AI features is sent to Google to answer it. Data is encrypted in transit.</li>
+<li><b>Optional uploads:</b> a profile background image you choose to upload is stored on Cloudflare R2, checked automatically (Google AI) and reviewed by the developer before other members can see it; you can delete it at any time. The photo picker gives the app only the image you select.</li>
+<li><b>Processors:</b> Google Firebase (Authentication, Cloud Firestore) and Cloudflare (file storage). Text you submit to AI features is sent to Google to answer it. Data is encrypted in transit.</li>
 <li><b>Deletion:</b> in the app: Account → Your page → “احذف حسابي” (Delete my account), or at <a href="delete-account.html">muntaqayat.com/delete-account.html</a>. Data is deleted within 30 days.</li>
 <li><b>Children:</b> the app is not directed to children under 13.</li>
 <li><b>Contact:</b> <a href="mailto:www774475437@gmail.com">www774475437@gmail.com</a></li>

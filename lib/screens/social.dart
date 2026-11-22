@@ -10,6 +10,7 @@ import '../services/review.dart';
 import '../ui.dart';
 import 'cloud_ui.dart';
 import 'lists.dart';
+import 'vault.dart';
 import 'marks.dart';
 import 'mutun.dart';
 import 'review.dart';
@@ -532,6 +533,10 @@ class DeveloperHub extends StatelessWidget {
             _row(context, Icons.gpp_bad_outlined, 'المخالفون', 'المحظورون والموقوفون مؤقتاً والمنذَرون', () => push(context, const ModerationScreen())),
             _row(context, Icons.admin_panel_settings_outlined, 'المشرفون', 'أضف مشرفين ببريدهم وحدّد صلاحياتهم', () => push(context, const ModsScreen())),
             _row(context, Icons.workspace_premium_outlined, 'الشارات وأصحابها', 'كل شارة ومن منحتها له', () => push(context, const BadgeHoldersScreen())),
+            if (Vault.ready) ...[
+              _row(context, Icons.cloud_outlined, 'التخزين السحابي', 'كم استعملت من المساحة، وكم عليك', () => push(context, const StorageUsageScreen())),
+              _row(context, Icons.image_search_outlined, 'خلفيات تنتظر المراجعة', 'لا تظهر صورة حتى تقبلها', () => push(context, const PendingBackgroundsScreen())),
+            ],
             _row(context, Icons.link_rounded, 'رابط الدفع لتصميم الكتاب', Store.i.payLink.isEmpty ? 'لم يُضف بعد: زر الدفع يفتح المعاينة' : Store.i.payLink, () {
               final t = TextEditingController(text: Store.i.payLink);
               showDialog(
@@ -556,6 +561,15 @@ class DeveloperHub extends StatelessWidget {
             Text('مجلس الشعر: شغّل وأوقف', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: C.accent(context))),
             for (final (k, t) in const [('tasks', 'المهام اليومية'), ('duel', 'المبارزة'), ('friday', 'جولة الجمعة المضاعفة'), ('weekly', 'شاعر الأسبوع'), ('golden', 'بيت الذهب')])
               SwitchListTile(contentPadding: EdgeInsets.zero, dense: true, value: Store.i.feature(k), onChanged: (v) => Store.i.setFeature(k, v), title: Text(t, style: const TextStyle(fontSize: 16))),
+            if (Vault.ready)
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                value: Store.i.features['bg'] ?? false,
+                onChanged: (v) => Store.i.setFeature('bg', v),
+                title: const Text('خلفيات صفحات الأعضاء', style: TextStyle(fontSize: 16)),
+                subtitle: const Text('مطفأة حتى تشغّلها. كل صورة تنتظر قبولك.'),
+              ),
             const Divider(height: 28),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,

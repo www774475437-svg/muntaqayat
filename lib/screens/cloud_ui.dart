@@ -10,6 +10,7 @@ import 'boards.dart';
 import 'golden.dart';
 import 'group_challenge.dart';
 import 'lists.dart';
+import 'vault.dart';
 import 'majlis.dart';
 import 'majlis_plus.dart';
 import 'mutun.dart';
@@ -135,6 +136,7 @@ class ProfileScreen extends StatelessWidget {
                     Wrap(alignment: WrapAlignment.center, spacing: 4, children: [
                       if (c.hasTitle('الشارح')) TextButton.icon(onPressed: () => push(context, SharhListScreen(uid: c.uid, name: c.name)), icon: const Icon(Icons.menu_book_rounded, size: 18), label: const Text('شروحي')),
                       TextButton.icon(onPressed: () => requestBadge(context), icon: const Icon(Icons.workspace_premium_outlined, size: 18), label: const Text('اطلب شارة')),
+                      if (Vault.backgrounds) TextButton.icon(onPressed: () => push(context, const MyBackgroundScreen()), icon: const Icon(Icons.wallpaper_rounded, size: 18), label: const Text('خلفية صفحتي')),
                     ]),
                   if (c.signedIn) ...[
                     const SizedBox(height: 12),
