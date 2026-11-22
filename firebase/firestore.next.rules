@@ -59,7 +59,13 @@ service cloud.firestore {
       allow update, delete: if isDev();
     }
     // إعدادات عامة (مثل إظهار الاشتراك) والإحصائيات المجمّعة.
-    match /config/{id} { allow read: if true; allow write: if isDev() || (id == 'marks' && can('توثيق')); }
+    // مشرف الشواهد (لكل العلماء أو لعالم واحد) يغيّر قائمتي الإظهار والإخفاء فقط.
+    function shMod() { return signedIn() && request.auth.token.email_verified == true && request.auth.token.email in modsList() && modsList()[request.auth.token.email].hasAny(['شواهد', 'شواهد: ابن القيم', 'شواهد: ابن تيمية', 'شواهد: ابن الجوزي', 'شواهد: ابن باز', 'شواهد: ابن عثيمين']); }
+    match /config/{id} {
+      allow read: if true;
+      allow write: if isDev() || (id == 'marks' && can('توثيق'));
+      allow update: if id == 'marks' && shMod() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['shShown', 'shHidden']);
+    }
     // نسخة الحساب الكاملة (خاصة بصاحبها)، وعدّاد الأجهزة التي فتحت التطبيق.
     match /saves/{uid}  { allow read, write: if me(uid); }
     match /visits/{device} { allow create: if true; allow read: if isDev(); }

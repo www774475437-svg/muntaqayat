@@ -482,12 +482,11 @@ class Cloud extends ChangeNotifier {
     try {
       await _db.collection('config').doc('marks').set({
         'verified': s.verified.toList(),
-        'shShown': s.shShown.toList(),
-        'shHidden': s.shHidden.toList(),
         'hidden': s.hidden.toList(),
         'deleted': s.deleted.toList(),
         'at': _now,
-      });
+        // The cited verses' lists are left as they are: each change to them is sent on its own (setShahid).
+      }, SetOptions(merge: true));
       await _db.collection('config').doc('app').set({
         'plusOn': s.plusOn,
         'payLink': s.payLink,
@@ -1167,6 +1166,26 @@ class Cloud extends ChangeNotifier {
 
   /// Supervisors: email → what they may do («حظر», «رسائل», «مراجعة», «توثيق»).
   Map<String, dynamic> get mods => Map<String, dynamic>.from(jsonDecode(_p.getString('mods') ?? '{}') as Map);
+  /// May this account show and hide the verses a scholar cited? Either for every scholar or for this one.
+  bool canShahid(String scholar) => isDev || can('شواهد') || can('شواهد: $scholar');
+
+  /// Shows a cited verse to readers (1), puts it away (-1) or returns it to the draft (0).
+  /// Sent as one small change, so two supervisors working together do not undo each other.
+  Future<bool> setShahid(String id, int state) async {
+    final before = Store.i.shShown.contains(id) ? 1 : (Store.i.shHidden.contains(id) ? -1 : 0);
+    Store.i.setShahid(id, state);
+    try {
+      await _db.collection('config').doc('marks').update({
+        'shShown': state > 0 ? FieldValue.arrayUnion([id]) : FieldValue.arrayRemove([id]),
+        'shHidden': state < 0 ? FieldValue.arrayUnion([id]) : FieldValue.arrayRemove([id]),
+      }).timeout(const Duration(seconds: 15));
+      return true;
+    } catch (_) {
+      Store.i.setShahid(id, before);
+      return false;
+    }
+  }
+
   bool can(String what) => isDev || (signedIn && ((mods[user!.email] as List?)?.contains(what) ?? false));
   void setMod(String email, List<String>? perms) {
     final m = mods;

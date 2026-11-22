@@ -149,7 +149,7 @@ class Matn {
 
 /// A verse a scholar quoted in one of his books («مما استشهد به العلماء»).
 class Shahid {
-  final String id, scholar, book, edition, vol, page, poet, url;
+  final String id, scholar, book, edition, vol, page, poet, by, url;
   final List<List<String>> lines;
   Shahid.fromJson(Map<String, dynamic> j)
       : id = (j['id'] as String?) ?? '',
@@ -159,6 +159,7 @@ class Shahid {
         vol = (j['vol'] as String?) ?? '',
         page = (j['page'] as String?) ?? '',
         poet = (j['poet'] as String?) ?? '',
+        by = (j['by'] as String?) ?? '',
         url = (j['url'] as String?) ?? '',
         lines = [
           for (final l in (j['lines'] as List)) [for (final h in (l as List)) h as String]
@@ -677,7 +678,7 @@ class Store extends ChangeNotifier {
   }
 
   /// What the developer set for everyone (marks, subscription switch, explanations).
-  /// 1 = show to readers, -1 = put away, 0 = back to the draft.
+  /// 1 = show to readers, -1 = put away, 0 = back to the draft. The server copy is changed by Cloud.setShahid.
   void setShahid(String id, int state) {
     shShown.remove(id);
     shHidden.remove(id);
@@ -686,7 +687,6 @@ class Store extends ChangeNotifier {
     _p.setStringList('shShown', shShown.toList());
     _p.setStringList('shHidden', shHidden.toList());
     notifyListeners();
-    cloudPush?.call();
   }
 
   void applyCloud({List<String>? shShown, List<String>? shHidden, List<String>? verified, List<String>? hidden, List<String>? deleted, bool? plus, String? payLink, Map<String, dynamic>? shuruh, Map<String, dynamic>? features}) {

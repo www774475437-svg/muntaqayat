@@ -6,8 +6,6 @@ import '../services/cloud.dart';
 import '../ui.dart';
 import 'lists.dart';
 
-/// Who decides what readers see of the cited verses.
-bool get _staff => Cloud.i.isDev;
 
 /// «مما استشهد به العلماء»: verses scholars quoted, with book and page.
 class ShawahidScreen extends StatelessWidget {
@@ -30,7 +28,7 @@ class ShawahidScreen extends StatelessWidget {
                     Avatar(s.replaceFirst('ابن ', '').substring(0, 1)),
                     const SizedBox(width: 12),
                     Expanded(child: Text(s, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: C.ink(context)))),
-                    Text(Ar.num(Library.shawahid.where((x) => x.scholar == s && (x.shown || (_staff && x.draft))).length), style: TextStyle(color: C.muted(context))),
+                    Text(Ar.num(Library.shawahid.where((x) => x.scholar == s && (x.shown || (Cloud.i.canShahid(s) && x.draft))).length), style: TextStyle(color: C.muted(context))),
                     Icon(Icons.chevron_left_rounded, color: C.muted(context)),
                   ]),
                 ),
@@ -60,7 +58,7 @@ class _ScholarShawahidState extends State<ScholarShawahidScreen> {
         listenable: Listenable.merge([Store.i, Cloud.i]),
         builder: (context, _) {
           final all = Library.shawahid.where((x) => x.scholar == widget.scholar).toList();
-          final staff = _staff;
+          final staff = Cloud.i.canShahid(widget.scholar);
           bool inTab(Shahid x) => !staff ? x.shown : (tab == 0 ? x.draft : (tab == 1 ? x.shown : x.hidden));
           final ofTab = all.where(inTab).toList();
           final books = <String, int>{};
@@ -116,6 +114,11 @@ class _ScholarShawahidState extends State<ScholarShawahidScreen> {
         },
       );
 
+  Future<void> _set(Shahid x, int state) async {
+    final ok = await Cloud.i.setShahid(x.id, state);
+    if (!ok && mounted) toast(context, 'لم يُحفظ. تحقق من الإنترنت، أو من أن صلاحيتك مفعّلة.');
+  }
+
   Widget _card(BuildContext context, Shahid x, bool staff) => Padding(
         key: ValueKey(x.id),
         padding: const EdgeInsets.only(bottom: 12),
@@ -125,7 +128,7 @@ class _ScholarShawahidState extends State<ScholarShawahidScreen> {
             Divider(color: C.line(context)),
             InkWell(
               onTap: x.poet.isNotEmpty && Library.poetByName.containsKey(x.poet) ? () => openPoet(context, x.poet) : null,
-              child: Text(x.poet.isEmpty ? 'بلا نسبة' : 'القائل: ${x.poet}', style: TextStyle(fontWeight: FontWeight.w700, color: x.poet.isEmpty ? C.muted(context) : C.ink(context))),
+              child: Text(x.poet.isEmpty ? 'بلا نسبة' : 'القائل: ${x.poet}${x.by.isEmpty ? '' : ' (${x.by})'}', style: TextStyle(fontWeight: FontWeight.w700, color: x.poet.isEmpty ? C.muted(context) : C.ink(context))),
             ),
             const SizedBox(height: 4),
             Text('«${x.book}» ${x.place}', style: TextStyle(color: C.ink(context))),
@@ -145,7 +148,7 @@ class _ScholarShawahidState extends State<ScholarShawahidScreen> {
                 if (!x.shown)
                   Expanded(
                     child: FilledButton.icon(
-                      onPressed: () => Store.i.setShahid(x.id, 1),
+                      onPressed: () => _set(x, 1),
                       icon: const Icon(Icons.visibility_outlined, size: 18),
                       label: const Text('إظهار'),
                     ),
@@ -154,7 +157,7 @@ class _ScholarShawahidState extends State<ScholarShawahidScreen> {
                 if (!x.hidden)
                   Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: () => Store.i.setShahid(x.id, -1),
+                      onPressed: () => _set(x, -1),
                       icon: const Icon(Icons.visibility_off_outlined, size: 18),
                       label: const Text('إخفاء'),
                     ),
@@ -162,7 +165,7 @@ class _ScholarShawahidState extends State<ScholarShawahidScreen> {
                 if (!x.draft)
                   IconButton(
                     tooltip: 'أعده إلى المسودة',
-                    onPressed: () => Store.i.setShahid(x.id, 0),
+                    onPressed: () => _set(x, 0),
                     icon: const Icon(Icons.undo_rounded),
                   ),
               ]),
@@ -170,4 +173,35 @@ class _ScholarShawahidState extends State<ScholarShawahidScreen> {
           ]),
         ),
       );
+}
+
+/// On a poet's page: his verses that scholars cited, of those shown to readers.
+class PoetShawahid extends StatelessWidget {
+  final String poet;
+  const PoetShawahid({super.key, required this.poet});
+  @override
+  Widget build(BuildContext context) {
+    final list = poet == 'بلا نسبة' ? const <Shahid>[] : Library.shawahid.where((x) => x.poet == poet && x.shown).toList();
+    if (list.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('مما استشهد به العلماء من شعره', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: C.ink(context))),
+        const SizedBox(height: 8),
+        for (final x in list)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: SoftCard(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                for (final l in x.lines) Padding(padding: const EdgeInsets.only(bottom: 6), child: VerseLines(l, size: 20)),
+                InkWell(
+                  onTap: () => openShawahid(context, x.scholar),
+                  child: Text(x.citeLine, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: C.accent(context))),
+                ),
+              ]),
+            ),
+          ),
+      ]),
+    );
+  }
 }

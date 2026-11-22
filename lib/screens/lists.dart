@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../data.dart';
 import '../main.dart';
 import '../ui.dart';
+import 'shawahid.dart';
 
 void openList(BuildContext context, String title, List<Poem> poems, {String? subtitle}) {
   Navigator.of(context).push(MaterialPageRoute(builder: (_) => PoemListScreen(title: title, poems: poems, subtitle: subtitle)));
@@ -108,6 +109,7 @@ class PoetScreen extends StatelessWidget {
               ),
             ),
           ),
+        PoetShawahid(poet: name),
         if (name != 'بلا نسبة')
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
