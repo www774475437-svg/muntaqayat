@@ -17,6 +17,7 @@ import 'majlis_plus.dart';
 import 'medals.dart';
 import 'poem.dart';
 import 'sharh.dart';
+import 'shawahid.dart';
 
 // «قوافي»: the middle tab. A wall of verses that scrolls one page at a time:
 // verses quoted from the library and poems the members wrote themselves.
@@ -205,7 +206,9 @@ class WallItem {
   const WallItem.library(Poem this.poem, this.verse) : post = null;
 
   bool get own => post?['kind'] == 'own';
-  Poem? get source => poem ?? (post == null || own ? null : Library.byId[_n(post!['poem'])]);
+  /// A verse a scholar cited is not one of the library's poems, so it has no poem page to open.
+  bool get cited => poem != null && poem!.cite.isNotEmpty;
+  Poem? get source => cited ? null : (poem ?? (post == null || own ? null : Library.byId[_n(post!['poem'])]));
   String get key => post != null ? 'p${post!['id']}' : 'l${poem!.id}:$verse';
 
   /// The verses shown on the page.
@@ -237,6 +240,21 @@ Poem asPoem(Doc post, List<List<String>> lines) => Poem.fromJson({
       'poet': '${post['name']}',
       'flags': <String>[],
       'src': 'member',
+    });
+
+/// A verse a scholar cited, as a [Poem] for the feed, carrying who cited it and where.
+Poem shahidPoem(Shahid x, int n) => Poem.fromJson({
+      'id': -1 - n,
+      'ch': 0,
+      'sec': 0,
+      'page': 0,
+      'lines': x.lines,
+      'notes': <String>[],
+      'poet': x.poet.isEmpty ? 'بلا نسبة' : x.poet,
+      'flags': <String>[],
+      'src': 'shahid',
+      'cite': x.citeLine,
+      'citeScholar': x.scholar,
     });
 
 /// Open the page of the member who wrote or quoted the post.
@@ -303,6 +321,16 @@ class _QawafiScreenState extends State<QawafiScreen> {
 
   /// One verse from the library, never twice in a session.
   WallItem? _libraryVerse() {
+    // Now and then a verse a scholar cited, of those the developer chose to show.
+    if (purpose.isEmpty && Store.i.shShown.isNotEmpty && _rnd.nextInt(4) == 0) {
+      final sh = Library.shawahid;
+      for (var tries = 0; tries < 12; tries++) {
+        final n = _rnd.nextInt(sh.length);
+        if (!sh[n].shown || sh[n].lines.isEmpty) continue;
+        final it = WallItem.library(shahidPoem(sh[n], n), 0);
+        if (_seen.add(it.key)) return it;
+      }
+    }
     final all = Library.poems;
     if (all.isEmpty) return null;
     for (var tries = 0; tries < 40; tries++) {
@@ -952,6 +980,14 @@ class _WallPageState extends State<WallPage> with TickerProviderStateMixin {
               child: MarkedName(it.poet, it.own ? '${p!['mark'] ?? ''}' : '',
                   style: TextStyle(fontFamily: verseFont, fontSize: 21, fontWeight: FontWeight.w700, color: C.ink(context))),
             ),
+            if (it.cited)
+              GestureDetector(
+                onTap: () => openShawahid(context, it.poem!.citeScholar),
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text(it.poem!.cite, style: TextStyle(fontSize: 14, color: C.accent(context), fontWeight: FontWeight.w600)),
+                ),
+              ),
             if (p != null && !it.own)
               GestureDetector(
                 onTap: () => openMember(context, uid: '${p['uid']}', name: '${p['name']}', publicId: '${p['publicId'] ?? ''}'),

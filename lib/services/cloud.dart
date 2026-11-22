@@ -457,6 +457,8 @@ class Cloud extends ChangeNotifier {
       }
       Store.i.applyCloud(
         verified: marks.exists ? List<String>.from(m['verified'] as List? ?? []) : null,
+        shShown: marks.exists && m['shShown'] is List ? List<String>.from(m['shShown'] as List) : null,
+        shHidden: marks.exists && m['shHidden'] is List ? List<String>.from(m['shHidden'] as List) : null,
         hidden: marks.exists ? List<String>.from(m['hidden'] as List? ?? []) : null,
         deleted: marks.exists ? List<String>.from(m['deleted'] as List? ?? []) : null,
         plus: a['plusOn'] as bool?,
@@ -480,6 +482,8 @@ class Cloud extends ChangeNotifier {
     try {
       await _db.collection('config').doc('marks').set({
         'verified': s.verified.toList(),
+        'shShown': s.shShown.toList(),
+        'shHidden': s.shHidden.toList(),
         'hidden': s.hidden.toList(),
         'deleted': s.deleted.toList(),
         'at': _now,

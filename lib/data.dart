@@ -25,6 +25,9 @@ class Poem {
   /// 'book' = from the book; 'add' = added from outside the book.
   final String src;
 
+  /// For a verse a scholar cited, shown in the feed: who cited it and where.
+  final String cite, citeScholar;
+
   Poem.fromJson(Map<String, dynamic> j)
       : id = j['id'] as int,
         chapter = j['ch'] as int,
@@ -41,7 +44,9 @@ class Poem {
         rhyme = (j['rhyme'] as String?) ?? '',
         flags = [for (final f in (j['flags'] as List)) f as String],
         status = (j['status'] as String?) ?? '',
-        src = (j['src'] as String?) ?? 'book';
+        src = (j['src'] as String?) ?? 'book',
+        cite = (j['cite'] as String?) ?? '',
+        citeScholar = (j['citeScholar'] as String?) ?? '';
 
   /// Number of verses, counting a lone hemistich line as a verse.
   int get verseCount => lines.length;
@@ -144,15 +149,13 @@ class Matn {
 
 /// A verse a scholar quoted in one of his books («مما استشهد به العلماء»).
 class Shahid {
-  final String scholar, book, vol, page, poet, url;
-
-  /// Taken from the book's text but not yet read by the developer: only he sees it.
-  final bool draft;
+  final String id, scholar, book, edition, vol, page, poet, url;
   final List<List<String>> lines;
   Shahid.fromJson(Map<String, dynamic> j)
-      : scholar = j['scholar'] as String,
-        draft = j['draft'] == true,
+      : id = (j['id'] as String?) ?? '',
+        scholar = j['scholar'] as String,
         book = j['book'] as String,
+        edition = (j['ed'] as String?) ?? '',
         vol = (j['vol'] as String?) ?? '',
         page = (j['page'] as String?) ?? '',
         poet = (j['poet'] as String?) ?? '',
@@ -160,6 +163,20 @@ class Shahid {
         lines = [
           for (final l in (j['lines'] as List)) [for (final h in (l as List)) h as String]
         ];
+
+  /// Readers see it only after the developer pressed «إظهار».
+  bool get shown => Store.i.shShown.contains(id);
+
+  /// The developer pressed «إخفاء»: out of the draft, kept in his hidden list.
+  bool get hidden => Store.i.shHidden.contains(id);
+  bool get draft => !shown && !hidden;
+
+  /// «(٣/٥١)» for a book in volumes, «ص ٥١» otherwise.
+  String get place => page.isEmpty ? '' : (_multi.putIfAbsent(book, () => Library.shawahid.any((x) => x.book == book && x.vol.isNotEmpty && x.vol != '1')) ? '(${Ar.num(int.tryParse(vol) ?? 1)}/${Ar.num(int.tryParse(page) ?? 0)})' : 'ص ${Ar.num(int.tryParse(page) ?? 0)}');
+  static final Map<String, bool> _multi = {};
+
+  /// The line under it in the feed.
+  String get citeLine => 'استشهد به $scholar في «$book»${place.isEmpty ? '' : ' $place'}';
 }
 
 class Chapter {
@@ -366,6 +383,7 @@ class Store extends ChangeNotifier {
   List<String> seen = []; // challenge: verses already asked, 'id:line'
   Map<String, String> studentNames = {}; // teacher: personal number → name
   List<Map<String, dynamic>> testLog = []; // teacher: tests he sent
+  Set<String> shShown = {}, shHidden = {}; // cited verses the developer showed to readers, or put away
   Set<String> verified = {}; // developer «توثيق» marks: p:ID, p:ID:v, m:ID, m:ID:v
   Map<String, List<int>> memLog = {}; // 'matn:verse' → [epoch day of last review, stage]
   Map<String, int> best = {}; // matn → best writing-test score out of 10 (whole matn)
@@ -407,6 +425,8 @@ class Store extends ChangeNotifier {
     eveningMinute = _p.getInt('eveningMinute') ?? 0;
     wird = _p.getInt('wird') ?? 5;
     verified = (_p.getStringList('verified') ?? []).toSet();
+    shShown = (_p.getStringList('shShown') ?? []).toSet();
+    shHidden = (_p.getStringList('shHidden') ?? []).toSet();
     hidden = (_p.getStringList('hidden') ?? []).toSet();
     deleted = (_p.getStringList('deleted') ?? []).toSet();
     seen = _p.getStringList('seen') ?? [];
@@ -657,7 +677,19 @@ class Store extends ChangeNotifier {
   }
 
   /// What the developer set for everyone (marks, subscription switch, explanations).
-  void applyCloud({List<String>? verified, List<String>? hidden, List<String>? deleted, bool? plus, String? payLink, Map<String, dynamic>? shuruh, Map<String, dynamic>? features}) {
+  /// 1 = show to readers, -1 = put away, 0 = back to the draft.
+  void setShahid(String id, int state) {
+    shShown.remove(id);
+    shHidden.remove(id);
+    if (state > 0) shShown.add(id);
+    if (state < 0) shHidden.add(id);
+    _p.setStringList('shShown', shShown.toList());
+    _p.setStringList('shHidden', shHidden.toList());
+    notifyListeners();
+    cloudPush?.call();
+  }
+
+  void applyCloud({List<String>? shShown, List<String>? shHidden, List<String>? verified, List<String>? hidden, List<String>? deleted, bool? plus, String? payLink, Map<String, dynamic>? shuruh, Map<String, dynamic>? features}) {
     if (features != null) {
       this.features = {
         for (final e in features.entries)
@@ -668,6 +700,14 @@ class Store extends ChangeNotifier {
     if (verified != null) {
       this.verified = verified.toSet();
       _p.setStringList('verified', verified);
+    }
+    if (shShown != null) {
+      this.shShown = shShown.toSet();
+      _p.setStringList('shShown', shShown);
+    }
+    if (shHidden != null) {
+      this.shHidden = shHidden.toSet();
+      _p.setStringList('shHidden', shHidden);
     }
     if (hidden != null) {
       this.hidden = hidden.toSet();
