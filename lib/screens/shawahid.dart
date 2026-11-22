@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../data.dart';
+import '../services/cloud.dart';
 import '../ui.dart';
 import 'lists.dart';
 
@@ -26,7 +27,7 @@ class ShawahidScreen extends StatelessWidget {
                 Avatar(s.replaceFirst('ابن ', '').substring(0, 1)),
                 const SizedBox(width: 12),
                 Expanded(child: Text(s, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: C.ink(context)))),
-                Text(Ar.num(Library.shawahid.where((x) => x.scholar == s).length), style: TextStyle(color: C.muted(context))),
+                Text(Ar.num(_shown().where((x) => x.scholar == s).length), style: TextStyle(color: C.muted(context))),
                 Icon(Icons.chevron_left_rounded, color: C.muted(context)),
               ]),
             ),
@@ -41,7 +42,7 @@ class _ScholarShawahid extends StatelessWidget {
   const _ScholarShawahid({required this.scholar});
   @override
   Widget build(BuildContext context) {
-    final list = Library.shawahid.where((x) => x.scholar == scholar).toList();
+    final list = _shown().where((x) => x.scholar == scholar).toList();
     return Scaffold(
       appBar: AppBar(title: Text('مما استشهد به $scholar')),
       body: list.isEmpty
@@ -52,6 +53,7 @@ class _ScholarShawahid extends StatelessWidget {
                   padding: const EdgeInsets.only(bottom: 12),
                   child: SoftCard(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      if (x.draft) Padding(padding: const EdgeInsets.only(bottom: 8), child: Text('مسودة للمراجعة: لا يراها غير المطوّر', style: TextStyle(fontSize: 13, color: C.accent(context)))),
                       for (final l in x.lines) Padding(padding: const EdgeInsets.only(bottom: 6), child: VerseLines(l, size: 21)),
                       Divider(color: C.line(context)),
                       if (x.poet.isNotEmpty)
@@ -76,3 +78,6 @@ class _ScholarShawahid extends StatelessWidget {
     );
   }
 }
+
+/// Drafts wait for the developer's reading, so readers do not see them.
+Iterable<Shahid> _shown() => Library.shawahid.where((x) => !x.draft || Cloud.i.isDev);

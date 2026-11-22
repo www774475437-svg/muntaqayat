@@ -145,9 +145,13 @@ class Matn {
 /// A verse a scholar quoted in one of his books («مما استشهد به العلماء»).
 class Shahid {
   final String scholar, book, vol, page, poet, url;
+
+  /// Taken from the book's text but not yet read by the developer: only he sees it.
+  final bool draft;
   final List<List<String>> lines;
   Shahid.fromJson(Map<String, dynamic> j)
       : scholar = j['scholar'] as String,
+        draft = j['draft'] == true,
         book = j['book'] as String,
         vol = (j['vol'] as String?) ?? '',
         page = (j['page'] as String?) ?? '',
