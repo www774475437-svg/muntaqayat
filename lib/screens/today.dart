@@ -102,19 +102,31 @@ class TodayScreen extends StatelessWidget {
         const SizedBox(height: 14),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 22),
-          child: goldenDoneToday()
-              ? OutlinedButton.icon(
-                  onPressed: () => push(context, const GoldenScreen()),
-                  icon: const Icon(Icons.filter_vintage_rounded, size: 18, color: Color(0xFFB08A3E)),
-                  label: const Text('نتيجتك في البيت الذهبي اليوم'),
-                  style: OutlinedButton.styleFrom(side: const BorderSide(color: Color(0xFFB08A3E))),
-                )
-              : FilledButton.icon(
-                  onPressed: () => push(context, const GoldenScreen()),
-                  icon: const Icon(Icons.filter_vintage_rounded, size: 20),
-                  label: const Text('اضغط لتنال البيت الذهبي اليومي', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-                  style: FilledButton.styleFrom(backgroundColor: const Color(0xFFB08A3E), foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 13)),
-                ),
+          child: Center(
+            child: goldenDoneToday()
+                ? OutlinedButton(
+                    onPressed: () => push(context, const GoldenScreen()),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Color(0xFFB08A3E)),
+                      foregroundColor: const Color(0xFFB08A3E),
+                      minimumSize: const Size(0, 36),
+                      padding: const EdgeInsets.symmetric(horizontal: 22),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: const Text('نتيجتك في البيت الذهبي اليوم', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                  )
+                : FilledButton(
+                    onPressed: () => push(context, const GoldenScreen()),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFFB08A3E),
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(0, 36),
+                      padding: const EdgeInsets.symmetric(horizontal: 22),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: const Text('اضغط لتنال البيت الذهبي اليومي', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                  ),
+          ),
         ),
         const SizedBox(height: 10),
         Padding(
