@@ -150,7 +150,27 @@ class Matn {
 /// A verse a scholar quoted in one of his books («مما استشهد به العلماء»).
 class Shahid {
   final String id, scholar, book, edition, vol, page, poet, by, url;
+
+  /// Set for a verse taken from a book of verses («نهاية الأرب»), not cited by a scholar.
+  final String author, died, era;
   final List<List<String>> lines;
+
+  /// A verse of a book whose verses were gathered: [key] is the book's short name.
+  Shahid.ofBook(Map<String, dynamic> j, String key, this.author, this.edition)
+      : id = j['id'] as String,
+        scholar = key,
+        vol = (j['vol'] as String?) ?? '',
+        page = (j['page'] as String?) ?? '',
+        book = 'الجزء ${Ar.num(int.tryParse((j['vol'] as String?) ?? '') ?? 1)}',
+        poet = (j['poet'] as String?) ?? '',
+        died = (j['died'] as String?) ?? '',
+        era = (j['era'] as String?) ?? '',
+        by = '',
+        url = '',
+        lines = [
+          for (final l in (j['lines'] as List)) [for (final h in (l as List)) h as String]
+        ];
+  bool get fromBook => author.isNotEmpty;
   Shahid.fromJson(Map<String, dynamic> j)
       : id = (j['id'] as String?) ?? '',
         scholar = j['scholar'] as String,
@@ -161,6 +181,9 @@ class Shahid {
         poet = (j['poet'] as String?) ?? '',
         by = (j['by'] as String?) ?? '',
         url = (j['url'] as String?) ?? '',
+        author = '',
+        died = '',
+        era = '',
         lines = [
           for (final l in (j['lines'] as List)) [for (final h in (l as List)) h as String]
         ];
@@ -173,11 +196,17 @@ class Shahid {
   bool get draft => !shown && !hidden;
 
   /// «(٣/٥١)» for a book in volumes, «ص ٥١» otherwise.
-  String get place => page.isEmpty ? '' : (_multi.putIfAbsent(book, () => Library.shawahid.any((x) => x.book == book && x.vol.isNotEmpty && x.vol != '1')) ? '(${Ar.num(int.tryParse(vol) ?? 1)}/${Ar.num(int.tryParse(page) ?? 0)})' : 'ص ${Ar.num(int.tryParse(page) ?? 0)}');
+  String get place => page.isEmpty ? '' : (fromBook || _multi.putIfAbsent(book, () => Library.shawahid.any((x) => x.book == book && x.vol.isNotEmpty && x.vol != '1')) ? '(${Ar.num(int.tryParse(vol) ?? 1)}/${Ar.num(int.tryParse(page) ?? 0)})' : 'ص ${Ar.num(int.tryParse(page) ?? 0)}');
   static final Map<String, bool> _multi = {};
 
   /// The line under it in the feed.
-  String get citeLine => 'استشهد به $scholar في «$book»${place.isEmpty ? '' : ' $place'}';
+  String get citeLine => fromBook ? 'من كتاب «$scholar» ${author.startsWith('ال') ? 'لل${author.substring(2)}' : 'لـ$author'} $place' : 'استشهد به $scholar في «$book»${place.isEmpty ? '' : ' $place'}';
+
+  /// Where it stands: the book and the page.
+  String get where => fromBook ? '«$scholar» $place' : '«$book» $place';
+
+  /// The poet with what the book of verses says of him.
+  String get poetLine => poet.isEmpty ? 'بلا نسبة' : 'القائل: $poet${by.isEmpty ? '' : ' ($by)'}${died.isEmpty ? '' : ' (ت ${died.endsWith('هـ') ? died : '$diedهـ'})'}${era.isEmpty ? '' : ' — $era'}';
 }
 
 class Chapter {
@@ -209,6 +238,9 @@ class Library {
   static List<String> shawahidScholars = [];
   static List<Shahid> shawahid = [];
 
+  /// Books whose verses were gathered whole: short name → full title.
+  static Map<String, String> verseBooks = {};
+
   static Future<void> load() async {
     final raw = await rootBundle.loadString('assets/data/poems.json');
     final j = jsonDecode(raw) as Map<String, dynamic>;
@@ -236,6 +268,14 @@ class Library {
     final sh = jsonDecode(await rootBundle.loadString('assets/data/shawahid.json')) as Map<String, dynamic>;
     shawahidScholars = [for (final x in sh['scholars'] as List) x as String];
     shawahid = [for (final x in sh['items'] as List) Shahid.fromJson(x as Map<String, dynamic>)];
+    // Verses gathered from whole books stand in the same list, so the same show and hide buttons serve them.
+    final bv = jsonDecode(await rootBundle.loadString('assets/data/book_verses.json')) as Map<String, dynamic>;
+    for (final b in bv['books'] as List) {
+      final m = b as Map<String, dynamic>;
+      final key = m['key'] as String;
+      verseBooks[key] = m['title'] as String;
+      shawahid.addAll([for (final x in m['items'] as List) Shahid.ofBook(x as Map<String, dynamic>, key, m['author'] as String, (m['ed'] as String?) ?? '')]);
+    }
   }
 
   static List<Poem> ofPoet(String name) => poems.where((p) => p.poet == name).toList();

@@ -60,7 +60,7 @@ service cloud.firestore {
     }
     // إعدادات عامة (مثل إظهار الاشتراك) والإحصائيات المجمّعة.
     // مشرف الشواهد (لكل العلماء أو لعالم واحد) يغيّر قائمتي الإظهار والإخفاء فقط.
-    function shMod() { return signedIn() && request.auth.token.email_verified == true && request.auth.token.email in modsList() && modsList()[request.auth.token.email].hasAny(['شواهد', 'شواهد: ابن القيم', 'شواهد: ابن تيمية', 'شواهد: ابن الجوزي', 'شواهد: ابن باز', 'شواهد: ابن عثيمين']); }
+    function shMod() { return signedIn() && request.auth.token.email_verified == true && request.auth.token.email in modsList() && modsList()[request.auth.token.email].hasAny(['شواهد', 'شواهد: ابن القيم', 'شواهد: ابن تيمية', 'شواهد: ابن الجوزي', 'شواهد: ابن باز', 'شواهد: ابن عثيمين', 'كتب الشعر']); }
     match /config/{id} {
       allow read: if true;
       allow write: if isDev() || (id == 'marks' && can('توثيق'));

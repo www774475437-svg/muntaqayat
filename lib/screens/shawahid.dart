@@ -69,7 +69,7 @@ class _ScholarShawahidState extends State<ScholarShawahidScreen> {
           final list = book.isEmpty ? ofTab : ofTab.where((x) => x.book == book).toList();
           int n(bool Function(Shahid) f) => all.where(f).length;
           return Scaffold(
-            appBar: AppBar(title: Text('مما استشهد به ${widget.scholar}')),
+            appBar: AppBar(title: Text(Library.verseBooks.containsKey(widget.scholar) ? 'أشعار «${widget.scholar}»' : 'مما استشهد به ${widget.scholar}')),
             body: Column(children: [
               if (staff)
                 Padding(
@@ -91,7 +91,7 @@ class _ScholarShawahidState extends State<ScholarShawahidScreen> {
                   child: ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 16), children: [
                     Padding(
                       padding: const EdgeInsets.only(left: 8),
-                      child: ChoiceChip(label: Text('كل الكتب ${Ar.num(ofTab.length)}'), selected: book.isEmpty, onSelected: (_) => setState(() => book = '')),
+                      child: ChoiceChip(label: Text('${Library.verseBooks.containsKey(widget.scholar) ? 'كل الأجزاء' : 'كل الكتب'} ${Ar.num(ofTab.length)}'), selected: book.isEmpty, onSelected: (_) => setState(() => book = '')),
                     ),
                     for (final e in books.entries)
                       Padding(
@@ -128,10 +128,10 @@ class _ScholarShawahidState extends State<ScholarShawahidScreen> {
             Divider(color: C.line(context)),
             InkWell(
               onTap: x.poet.isNotEmpty && Library.poetByName.containsKey(x.poet) ? () => openPoet(context, x.poet) : null,
-              child: Text(x.poet.isEmpty ? 'بلا نسبة' : 'القائل: ${x.poet}${x.by.isEmpty ? '' : ' (${x.by})'}', style: TextStyle(fontWeight: FontWeight.w700, color: x.poet.isEmpty ? C.muted(context) : C.ink(context))),
+              child: Text(x.poetLine, style: TextStyle(fontWeight: FontWeight.w700, color: x.poet.isEmpty ? C.muted(context) : C.ink(context))),
             ),
             const SizedBox(height: 4),
-            Text('«${x.book}» ${x.place}', style: TextStyle(color: C.ink(context))),
+            Text(x.where, style: TextStyle(color: C.ink(context))),
             if (x.edition.isNotEmpty) Text('الطبعة: ${x.edition}', style: TextStyle(fontSize: 13, color: C.muted(context))),
             // Only a link to that very page of that very book is offered, never a search for the words.
             if (x.url.isNotEmpty)
@@ -181,12 +181,21 @@ class PoetShawahid extends StatelessWidget {
   const PoetShawahid({super.key, required this.poet});
   @override
   Widget build(BuildContext context) {
-    final list = poet == 'بلا نسبة' ? const <Shahid>[] : Library.shawahid.where((x) => x.poet == poet && x.shown).toList();
-    if (list.isEmpty) return const SizedBox.shrink();
+    final all = poet == 'بلا نسبة' ? const <Shahid>[] : Library.shawahid.where((x) => x.poet == poet && x.shown).toList();
+    if (all.isEmpty) return const SizedBox.shrink();
+    final cited = all.where((x) => !x.fromBook).toList();
+    final inBooks = all.where((x) => x.fromBook).toList();
+    return Column(children: [
+      if (cited.isNotEmpty) _part(context, 'مما استشهد به العلماء من شعره', cited),
+      if (inBooks.isNotEmpty) _part(context, 'من شعره في كتب الأدب', inBooks),
+    ]);
+  }
+
+  Widget _part(BuildContext context, String title, List<Shahid> list) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('مما استشهد به العلماء من شعره', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: C.ink(context))),
+        Text(title, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: C.ink(context))),
         const SizedBox(height: 8),
         for (final x in list)
           Padding(
@@ -204,4 +213,40 @@ class PoetShawahid extends StatelessWidget {
       ]),
     );
   }
+}
+
+/// «الكتب التي استُخرجت منها أبيات الشعر»: whole books whose verses were gathered.
+/// Supervisors see the draft and choose what to show; readers see only what was shown.
+class VerseBooksScreen extends StatelessWidget {
+  const VerseBooksScreen({super.key});
+
+  /// Is there anything in it for this account?
+  static bool get visible => Library.verseBooks.keys.any((k) => Cloud.i.canShahid(k)) || Library.shawahid.any((x) => x.fromBook && x.shown);
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+        listenable: Listenable.merge([Store.i, Cloud.i]),
+        builder: (context, _) => Scaffold(
+          appBar: AppBar(title: const Text('كتب استُخرجت أشعارها')),
+          body: ListView(padding: const EdgeInsets.fromLTRB(16, 0, 16, 40), children: [
+            Text('الكتب التي استُخرجت منها أبيات الشعر، مع القائل والجزء والصفحة.', style: TextStyle(fontSize: 15, color: C.muted(context), height: 1.6)),
+            const SizedBox(height: 12),
+            for (final e in Library.verseBooks.entries)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: SoftCard(
+                  onTap: () => openShawahid(context, e.key),
+                  padding: const EdgeInsets.all(16),
+                  child: Row(children: [
+                    Avatar(e.key.substring(0, 1)),
+                    const SizedBox(width: 12),
+                    Expanded(child: Text(e.value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: C.ink(context)))),
+                    Text(Ar.num(Library.shawahid.where((x) => x.scholar == e.key && (x.shown || (Cloud.i.canShahid(e.key) && x.draft))).length), style: TextStyle(color: C.muted(context))),
+                    Icon(Icons.chevron_left_rounded, color: C.muted(context)),
+                  ]),
+                ),
+              ),
+          ]),
+        ),
+      );
 }

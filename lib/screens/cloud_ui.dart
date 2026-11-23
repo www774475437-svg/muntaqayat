@@ -1933,7 +1933,7 @@ class ModsScreen extends StatelessWidget {
                         IconButton(onPressed: () => Cloud.i.setMod(e.key, null), icon: const Icon(Icons.delete_outline_rounded)),
                       ]),
                       Wrap(spacing: 6, children: [
-                        for (final p in [...perms, 'شواهد', for (final s in Library.shawahidScholars) 'شواهد: $s'])
+                        for (final p in [...perms, 'شواهد', for (final s in Library.shawahidScholars) 'شواهد: $s', 'كتب الشعر'])
                           FilterChip(
                             label: Text(p),
                             selected: (e.value as List).contains(p),

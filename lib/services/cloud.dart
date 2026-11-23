@@ -1167,7 +1167,7 @@ class Cloud extends ChangeNotifier {
   /// Supervisors: email → what they may do («حظر», «رسائل», «مراجعة», «توثيق»).
   Map<String, dynamic> get mods => Map<String, dynamic>.from(jsonDecode(_p.getString('mods') ?? '{}') as Map);
   /// May this account show and hide the verses a scholar cited? Either for every scholar or for this one.
-  bool canShahid(String scholar) => isDev || can('شواهد') || can('شواهد: $scholar');
+  bool canShahid(String scholar) => isDev || (Library.verseBooks.containsKey(scholar) ? can('كتب الشعر') : (can('شواهد') || can('شواهد: $scholar')));
 
   /// Shows a cited verse to readers (1), puts it away (-1) or returns it to the draft (0).
   /// Sent as one small change, so two supervisors working together do not undo each other.

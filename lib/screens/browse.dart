@@ -182,6 +182,13 @@ class BrowseScreen extends StatelessWidget {
             Expanded(child: _pick(context, Icons.manage_search_rounded, 'من قائل هذا البيت؟', 'الصق وابحث', () => push(context, const WhoSaidScreen()))),
           ]),
         ),
+        if (VerseBooksScreen.visible) ...[
+          const SizedBox(height: 12),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: _pick(context, Icons.auto_stories_outlined, 'كتب استُخرجت أشعارها', 'أولها «نهاية الأرب» للنويري', () => push(context, const VerseBooksScreen())),
+          ),
+        ],
         const SectionTitle('قصائد لك'),
         TwoColumns(poems: forYou, onTap: (p) => openPoem(context, p)),
       ]),
