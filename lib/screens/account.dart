@@ -74,8 +74,9 @@ class AccountScreen extends StatelessWidget {
         ]),
         const SizedBox(height: 14),
         _group(context, [
-          _tile(context, Icons.workspace_premium_outlined, 'منتقيات+', 'الشروح والكتاب باسمك',
-              () => Navigator.of(context).push(MaterialPageRoute(fullscreenDialog: true, builder: (_) => const PlusScreen()))),
+          if (Store.i.plusOn || Store.plusUser)
+            _tile(context, Icons.workspace_premium_outlined, 'منتقيات+', 'الشروح والكتاب باسمك',
+                () => Navigator.of(context).push(MaterialPageRoute(fullscreenDialog: true, builder: (_) => const PlusScreen()))),
           _tile(context, Icons.lightbulb_outline_rounded, 'اقترح بيتاً أو قصيدة', '', () => suggest(context, 'اقتراح بيت أو قصيدة:\n')),
           _tile(context, Icons.mark_email_unread_outlined, 'راسل المطوّر', 'رسالة في اليوم، وعشرون للمشتركين', () => push(context, const MessageDevScreen())),
           // Moderators the developer added: their own way into the pages they were given.

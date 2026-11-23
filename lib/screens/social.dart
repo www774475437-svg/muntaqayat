@@ -575,7 +575,7 @@ class DeveloperHub extends StatelessWidget {
               contentPadding: EdgeInsets.zero,
               value: Store.i.plusOn,
               onChanged: Store.i.setPlusOn,
-              title: const Text('إظهار «منتقيات+» (الاشتراك)', style: TextStyle(fontSize: 17)),
+              title: const Text('إظهار زر «منتقيات+» (الاشتراك)', style: TextStyle(fontSize: 17)),
               subtitle: const Text('إذا أطفأته اختفى عن غير المشتركين فقط، ويبقى للمشتركين مزاياهم. (يعمّ الجميع حين تكون داخلاً بحساب المطوّر)'),
             ),
           ]),

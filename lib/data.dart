@@ -435,7 +435,7 @@ class Store extends ChangeNotifier {
   /// Set by the cloud service: sends the developer's marks and settings to everyone.
   static void Function()? cloudPush;
   String payLink = '';
-  bool plusOn = true; // developer switch: show «منتقيات+» to non-subscribers
+  bool plusOn = false; // developer switch: show «منتقيات+» to non-subscribers
   bool teacher = false; // «خانة المعلّم» turned on in settings
   List<String> students = []; // personal numbers the teacher added before
   Map<String, List<Map<String, String>>> shuruh = {}; // matn → [{title,url}] added by the developer
@@ -477,7 +477,7 @@ class Store extends ChangeNotifier {
     } catch (_) {}
     certName = _p.getString('certName') ?? '';
     repeat = _p.getInt('repeat') ?? 3;
-    plusOn = _p.getBool('plusOn') ?? true;
+    plusOn = _p.getBool('plusShow') ?? false;
     payLink = _p.getString('payLink') ?? '';
     try {
       myNotes = Map<String, String>.from(jsonDecode(_p.getString('myNotes') ?? '{}') as Map);
@@ -705,7 +705,7 @@ class Store extends ChangeNotifier {
 
   void setPlusOn(bool v) {
     plusOn = v;
-    _p.setBool('plusOn', v);
+    _p.setBool('plusShow', v);
     notifyListeners();
     cloudPush?.call();
   }
@@ -759,7 +759,7 @@ class Store extends ChangeNotifier {
     }
     if (plus != null) {
       plusOn = plus;
-      _p.setBool('plusOn', plus);
+      _p.setBool('plusShow', plus);
     }
     if (payLink != null) {
       this.payLink = payLink;

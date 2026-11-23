@@ -461,7 +461,7 @@ class Cloud extends ChangeNotifier {
         shHidden: marks.exists && m['shHidden'] is List ? List<String>.from(m['shHidden'] as List) : null,
         hidden: marks.exists ? List<String>.from(m['hidden'] as List? ?? []) : null,
         deleted: marks.exists ? List<String>.from(m['deleted'] as List? ?? []) : null,
-        plus: a['plusOn'] as bool?,
+        plus: (a['plusShow'] as bool?) ?? false,
         payLink: a['payLink'] as String?,
         shuruh: a['shuruh'] is String ? jsonDecode(a['shuruh'] as String) as Map<String, dynamic> : null,
         features: a['features'] is Map ? Map<String, dynamic>.from(a['features'] as Map) : null,
@@ -488,7 +488,7 @@ class Cloud extends ChangeNotifier {
         // The cited verses' lists are left as they are: each change to them is sent on its own (setShahid).
       }, SetOptions(merge: true));
       await _db.collection('config').doc('app').set({
-        'plusOn': s.plusOn,
+        'plusShow': s.plusOn,
         'payLink': s.payLink,
         'shuruh': jsonEncode(s.shuruh),
         'features': s.features,
