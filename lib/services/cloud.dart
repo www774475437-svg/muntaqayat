@@ -706,7 +706,9 @@ class Cloud extends ChangeNotifier {
   }
 
   /// Two poems of one's own a day (the developer has no limit).
-  int get ownLeft => (isDev ? 99 : 2) - _count('own');
+  /// A verified poet may post five of his own poems a day, others two.
+  int get ownMax => isDev ? 99 : (hasTitle('شاعر موثّق') ? 5 : 2);
+  int get ownLeft => ownMax - _count('own');
 
   Future<String?> publishOwn({required String title, required List<List<String>> lines, String meter = '', String purpose = ''}) async {
     if (!signedIn) return 'ادخل بحسابك أولاً.';

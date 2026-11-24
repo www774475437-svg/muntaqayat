@@ -1162,7 +1162,7 @@ class _PublishOwnScreenState extends State<PublishOwnScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('انشر من شعرك')),
       body: ListView(padding: const EdgeInsets.fromLTRB(18, 4, 18, 120), children: [
-        Text('شعر فقط، كتبته أنت. بقي لك اليوم ${Ar.num(left < 0 ? 0 : left)} من قصيدتين.', style: TextStyle(color: C.muted(context), height: 1.6)),
+        Text('شعر فقط، كتبته أنت. بقي لك اليوم ${Ar.num(left < 0 ? 0 : left)} من ${Cloud.i.ownMax == 2 ? 'قصيدتين' : '${Ar.num(Cloud.i.ownMax > 9 ? 9 : Cloud.i.ownMax)} قصائد'}.', style: TextStyle(color: C.muted(context), height: 1.6)),
         const SizedBox(height: 14),
         TextField(controller: title, maxLength: 40, decoration: const InputDecoration(labelText: 'عنوان القصيدة (اختياري)')),
         const SizedBox(height: 6),
