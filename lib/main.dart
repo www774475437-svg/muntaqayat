@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'data.dart';
+import 'services/likes.dart';
 import 'services/review.dart';
 import 'screens/account.dart';
 import 'screens/browse.dart';
@@ -23,7 +24,7 @@ import 'ui.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Future.wait([Library.load(), Store.i.load()]);
+  await Future.wait([Library.load(), Store.i.load(), LikeCounts.i.load()]);
   await IntroScreen.load();
   await Review.load();
   Review.applyPending();

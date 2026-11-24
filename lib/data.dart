@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'services/likes.dart';
+
 /// One selection from the book: one or more verses, its poet and its chapter.
 class Poem {
   final int id;
@@ -511,6 +513,7 @@ class Store extends ChangeNotifier {
   void toggleLike(int id) {
     likes.contains(id) ? likes.remove(id) : likes.add(id);
     _p.setStringList('likes', likes.map((e) => '$e').toList());
+    LikeCounts.i.add('$id', likes.contains(id));
     notifyListeners();
   }
 

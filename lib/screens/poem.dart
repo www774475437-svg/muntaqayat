@@ -10,6 +10,7 @@ import '../data.dart';
 import '../main.dart';
 import '../services/cloud.dart';
 import '../services/explain.dart';
+import '../services/likes.dart';
 import '../ui.dart';
 import 'cloud_ui.dart';
 import 'extras.dart';
@@ -90,7 +91,8 @@ class _PoemScreenState extends State<PoemScreen> {
       if (p.rhyme.isNotEmpty) 'القافية: ${p.rhyme}',
       p.chapterName,
     ].join(' · ');
-    return ListenableBuilder(listenable: Store.i, builder: (context, _) => Scaffold(
+    LikeCounts.i.watch('${p.id}');
+    return ListenableBuilder(listenable: Listenable.merge([Store.i, LikeCounts.i]), builder: (context, _) => Scaffold(
       body: SafeArea(
         child: ListView(padding: const EdgeInsets.only(bottom: 60), children: [
           Padding(
@@ -109,6 +111,11 @@ class _PoemScreenState extends State<PoemScreen> {
                     onPressed: () => Store.i.toggleLike(p.id),
                     icon: Icon(Store.i.liked(p.id) ? Icons.thumb_up_alt_rounded : Icons.thumb_up_alt_outlined, color: Store.i.liked(p.id) ? C.accent(context) : C.ink(context)),
                   ),
+                  if (LikeCounts.i.count('${p.id}') > 0)
+                    Padding(
+                      padding: const EdgeInsetsDirectional.only(end: 6),
+                      child: Text(Ar.num(LikeCounts.i.count('${p.id}')), style: TextStyle(fontSize: 14, color: C.muted(context))),
+                    ),
                   IconButton(
                     tooltip: 'نسخ المقطع كاملاً',
                     onPressed: () => copySheet(context, p.shown),
