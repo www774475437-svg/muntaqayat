@@ -1,3 +1,4 @@
+import 'forum.dart';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -328,6 +329,16 @@ class _PoemScreenState extends State<PoemScreen> {
               }();
             },
           ),
+          if (Forum.i.visible)
+            ListTile(
+              leading: const Icon(Icons.forum_outlined),
+              title: const Text('أرسله إلى المنتدى'),
+              onTap: () {
+                Navigator.pop(c);
+                final i = p.lines.indexWhere((l) => l[0] == line[0]);
+                if (i >= 0) Navigator.of(context).push(MaterialPageRoute(builder: (_) => ForumScreen(poem: p, verse: i)));
+              },
+            ),
           ListTile(
             leading: const Icon(Icons.image_outlined),
             title: const Text('مشاركة البيت صورة'),

@@ -66,6 +66,39 @@ service cloud.firestore {
       allow write: if isDev() || (id == 'marks' && can('توثيق'));
       allow update: if id == 'marks' && shMod() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['shShown', 'shHidden']);
     }
+    // المنتدى: رسائل كل يوم في سجلّ واحد. يكتب فيه من يُسمح له الآن، والمشرفون («منتدى») يديرونه.
+    function fState() { return get(/databases/$(database)/documents/forum/state).data; }
+    function fMod() { return can('منتدى'); }
+    function fPlus() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('plus', false) == true; }
+    function fMaySend() {
+      return signedIn() && request.time.toMillis() < fState().get('openUntil', 0)
+        && !(request.auth.uid in fState().get('banned', []))
+        && (fState().get('who', 'dev') == 'all' || (fState().get('who', 'dev') == 'plus' && fPlus()));
+    }
+    function fDay(id) { return id.matches('d[0-9]+_[0-9]+'); }
+    match /forum/{id} {
+      allow read: if id == 'state' || fDay(id) || fMod();
+      // الإعدادات التي للمطوّر وحده لا يغيّرها المشرف.
+      allow write: if isDev() || (fMod() && (id != 'state' || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['who', 'openUntil', 'auto', 'gap', 'newbie'])));
+      allow create: if fDay(id) && fMaySend() && request.resource.data.msgs.size() == 1;
+      allow update: if (fDay(id) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['msgs'])
+          && ((fMaySend() && request.resource.data.msgs.size() == resource.data.msgs.size() + 1)
+              // حذف العضو رسالته
+              || (signedIn() && request.resource.data.msgs.size() == resource.data.msgs.size() - 1)))
+        // قوائم الانتظار والمشكوك فيها والسجلّ: يضيف إليها العضو سطراً، ولا يقرؤها.
+        || (id in ['pending', 'sus', 'log'] && signedIn()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['msgs'])
+          && request.resource.data.msgs.size() == resource.data.msgs.size() + 1);
+    }
+    // ما يخص عضواً واحداً في المنتدى: الإنذارات والتجميد والرسائل الخاصة من الإشراف.
+    match /forum_notes/{uid} {
+      allow read: if me(uid) || fMod();
+      allow write: if fMod();
+      allow create: if me(uid) && !request.resource.data.keys().hasAny(['review']);
+      allow update: if me(uid)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['strikes', 'frozenUntil', 'notes', 'seen', 'name'])
+        && request.resource.data.get('frozenUntil', 0) >= resource.data.get('frozenUntil', 0);
+    }
     // نسخة الحساب الكاملة (خاصة بصاحبها)، وعدّاد الأجهزة التي فتحت التطبيق.
     match /saves/{uid}  { allow read, write: if me(uid); }
     match /visits/{device} { allow create: if true; allow read: if isDev(); }

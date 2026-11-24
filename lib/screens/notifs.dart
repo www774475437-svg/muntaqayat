@@ -7,6 +7,7 @@ import '../data.dart';
 import '../services/cloud.dart';
 import '../ui.dart';
 import 'cloud_ui.dart';
+import 'forum.dart';
 import 'lists.dart';
 
 /// What a member gained since he last looked: followers, likes, replies, tests, warnings.
@@ -47,8 +48,12 @@ class Notifs {
     tests = r[3] as List<Doc>;
     loaded = true;
     _p!.setInt('nf:last', now);
-    fresh.value = newFollowers + newLikes + newReplies.length + newWarns.length + newTests;
+    await Forum.i.peek();
+    fresh.value = newFollowers + newLikes + newReplies.length + newWarns.length + newTests + forumNew;
   }
+
+  /// Replies to me in the forum and private notes from its supervisors: these always reach the bell.
+  static int get forumNew => Forum.i.visible ? Forum.i.repliesToMe.length + Forum.i.newNotes.length : 0;
 
   /// The member has seen the page: what is there now is no longer new.
   static void markSeen() {
@@ -160,7 +165,7 @@ class _NotifsScreenState extends State<NotifsScreen> {
               future: job,
               builder: (context, snap) {
                 if (snap.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
-                final nothingNew = nf + nl + nt + nr.length + nw.length == 0;
+                final nothingNew = nf + nl + nt + nr.length + nw.length + Notifs.forumNew == 0;
                 return ListView(padding: const EdgeInsets.fromLTRB(16, 0, 16, 40), children: [
                   Row(children: [
                     Expanded(child: _count(context, Icons.people_outline_rounded, 'المتابعون', Notifs.followers, nf, () => push(context, FollowListScreen(title: 'المتابِعون', load: () => c.followers(c.uid))))),
@@ -174,6 +179,10 @@ class _NotifsScreenState extends State<NotifsScreen> {
                   for (final m in nr) _line(context, Icons.mark_chat_read_outlined, 'ردّ عليك المطوّر: ${m['reply']}', () => push(context, const MessageDevScreen())),
                   if (nt > 0) _line(context, Icons.assignment_outlined, 'وصلك ${Ar.num(nt)} اختباراً جديداً', () => push(context, const StudentTestsScreen())),
                   for (final w in nw) _line(context, Icons.warning_amber_rounded, 'إنذار: ${w['text']}', null),
+                  if (Forum.i.visible) ...[
+                    for (final m in Forum.i.repliesToMe) _line(context, Icons.forum_outlined, 'ردّ عليك ${m['name']} في المنتدى: ${m['text'] ?? ''}', () => push(context, const ForumScreen())),
+                    for (final n in Forum.i.newNotes) _line(context, Icons.admin_panel_settings_outlined, 'من إشراف المنتدى: ${n['text']}', () => push(context, const ForumScreen())),
+                  ],
                   if (Notifs.posts.any((q) => ((q['likes'] ?? 0) as num) > 0)) ...[
                     const SectionTitle('أكثر منشوراتك إعجاباً'),
                     for (final q in Notifs.posts.where((q) => ((q['likes'] ?? 0) as num) > 0).take(5))

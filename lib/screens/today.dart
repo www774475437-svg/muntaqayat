@@ -7,6 +7,7 @@ import '../main.dart';
 import '../ui.dart';
 import 'lists.dart';
 import 'majlis.dart';
+import 'forum.dart';
 import 'notifs.dart';
 import 'plus.dart';
 import 'poem.dart';
@@ -36,6 +37,7 @@ class TodayScreen extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
           child: Row(children: [
             const BellButton(),
+            const ForumChip(),
             const Spacer(),
             if (Store.i.plusOn) const PlusChip(),
           ]),
