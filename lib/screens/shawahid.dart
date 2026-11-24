@@ -1,10 +1,28 @@
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../data.dart';
 import '../services/cloud.dart';
 import '../ui.dart';
 import 'lists.dart';
+import 'poem.dart' show copyVerses, formatVerses, siteUrl;
+
+/// Copy and share under a cited verse, the same as on the poem's own page.
+Widget shahidActions(BuildContext context, Shahid x) => Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+      IconButton(
+        tooltip: 'نسخ البيت',
+        visualDensity: VisualDensity.compact,
+        onPressed: () => copyVerses(context, x.lines),
+        icon: Icon(Icons.copy_rounded, size: 18, color: C.muted(context)),
+      ),
+      IconButton(
+        tooltip: 'مشاركة',
+        visualDensity: VisualDensity.compact,
+        onPressed: () => Share.share('${formatVerses(x.lines, mark: !Cloud.i.noMark)}\n— ${x.poet.isEmpty ? 'بلا نسبة' : x.poet}\n${x.citeLine}\n\n$siteUrl'),
+        icon: Icon(Icons.ios_share_rounded, size: 18, color: C.muted(context)),
+      ),
+    ]);
 
 
 /// «مما استشهد به العلماء»: verses scholars quoted, with book and page.
@@ -142,6 +160,7 @@ class _ScholarShawahidState extends State<ScholarShawahidScreen> {
                   child: Text('افتح الصفحة في «تراث»', style: TextStyle(color: C.accent(context), decoration: TextDecoration.underline)),
                 ),
               ),
+            shahidActions(context, x),
             if (staff) ...[
               const SizedBox(height: 8),
               Row(children: [
@@ -207,6 +226,7 @@ class PoetShawahid extends StatelessWidget {
                   onTap: () => openShawahid(context, x.scholar),
                   child: Text(x.citeLine, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: C.accent(context))),
                 ),
+                shahidActions(context, x),
               ]),
             ),
           ),
