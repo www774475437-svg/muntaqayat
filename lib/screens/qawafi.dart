@@ -466,6 +466,10 @@ class _QawafiScreenState extends State<QawafiScreen> {
       ),
     );
     if (r == null || !mounted) return;
+    if (r == 0 && !Store.i.feature('pubOwn') || r == 1 && !Store.i.feature('pubQuote')) {
+      toast(context, 'النشر متوقف الآن من المطوّر.');
+      return;
+    }
     if (!await needAccount(context, 'تنشر شعرك واقتباساتك فتظهر في صفحتك وفي «قوافي».') || !mounted) return;
     await push2(context, r == 0 ? const PublishOwnScreen() : const QuotePickerScreen());
     if (!mounted) return;
