@@ -560,11 +560,12 @@ class DeveloperHub extends StatelessWidget {
             const Divider(height: 28),
             Text('النشر في «قوافي»: شغّل وأوقف', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: C.accent(context))),
             for (final (k, t, sub) in const [
-              ('pubOwn', 'نشر الأعضاء من شعرهم', 'مفعّل. أوقفه فلا ينشر أحد شعره.'),
-              ('pubQuote', 'نشر الأعضاء الاقتباسات', 'مفعّل. أوقفه فلا يقتبس أحد من المنتقيات.'),
+              ('pubOwn', 'نشر الأعضاء من شعرهم', 'إذا أوقفته لا ينشر أحد من شعره.'),
+              ('pubQuote', 'نشر الأعضاء الاقتباسات', 'إذا أوقفته لا ينشر أحد اقتباساً.'),
             ])
               SwitchListTile(contentPadding: EdgeInsets.zero, dense: true, value: Store.i.feature(k), onChanged: (v) => Store.i.setFeature(k, v), title: Text(t, style: const TextStyle(fontSize: 16)), subtitle: Text(sub)),
-, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: C.accent(context))),
+            const Divider(height: 28),
+            Text('مجلس الشعر: شغّل وأوقف', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: C.accent(context))),
             for (final (k, t) in const [('tasks', 'المهام اليومية'), ('duel', 'المبارزة'), ('friday', 'جولة الجمعة المضاعفة'), ('weekly', 'شاعر الأسبوع'), ('golden', 'بيت الذهب')])
               SwitchListTile(contentPadding: EdgeInsets.zero, dense: true, value: Store.i.feature(k), onChanged: (v) => Store.i.setFeature(k, v), title: Text(t, style: const TextStyle(fontSize: 16))),
             if (Vault.ready)
