@@ -12,6 +12,7 @@ import 'screens/browse.dart';
 import 'screens/cloud_ui.dart' show BlockedScreen;
 import 'screens/mutun.dart' show TestMode;
 import 'screens/social.dart' show TestLinkScreen;
+import 'screens/intro.dart';
 import 'screens/poem.dart';
 import 'screens/qawafi.dart';
 import 'screens/search.dart';
@@ -23,6 +24,7 @@ import 'ui.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Future.wait([Library.load(), Store.i.load()]);
+  await IntroScreen.load();
   await Review.load();
   Review.applyPending();
   Library.refresh();
@@ -81,7 +83,7 @@ class MuntaqayatApp extends StatelessWidget {
               return MaterialPageRoute(settings: s, builder: (_) => TestLinkScreen(matn: matn, from: from, to: to, mode: mode));
             }
           }
-          return MaterialPageRoute(settings: s, builder: (_) => const Shell());
+          return MaterialPageRoute(settings: s, builder: (_) => IntroScreen.needed ? const IntroScreen() : const Shell());
         },
       ),
     );
