@@ -25,6 +25,9 @@ class LikeCounts extends ChangeNotifier {
   /// Poems on screen or liked, whose totals are read at each batch.
   final List<String> _watched = [];
 
+  /// Ids this member has liked (verses of scholars' citations, etc.).
+  final Set<String> _liked = {};
+
   SharedPreferences? _p;
   Timer? _timer;
   bool _sending = false;
@@ -36,6 +39,7 @@ class LikeCounts extends ChangeNotifier {
       final m = jsonDecode(raw) as Map<String, dynamic>;
       m.forEach((k, v) => _pending[k] = (v as num).toInt());
     }
+    _liked.addAll(_p!.getStringList('likedIds') ?? []);
     final last = _p!.getInt('likeLast') ?? 0;
     final due = DateTime.now().millisecondsSinceEpoch - last >= period.inMilliseconds;
     _timer = Timer.periodic(period, (_) => flush());
@@ -51,6 +55,16 @@ class LikeCounts extends ChangeNotifier {
     if (_pending[id] == 0) _pending.remove(id);
     _save();
     notifyListeners();
+  }
+
+  bool liked(String id) => _liked.contains(id);
+
+  /// Press or take back a like on [id], and keep the member's own state.
+  void toggle(String id) {
+    final on = !_liked.contains(id);
+    on ? _liked.add(id) : _liked.remove(id);
+    _p?.setStringList('likedIds', _liked.toList());
+    add(id, on);
   }
 
   /// Makes sure this poem's total is read at the next batch.

@@ -5,11 +5,32 @@ import 'package:url_launcher/url_launcher.dart';
 import '../data.dart';
 import '../services/cloud.dart';
 import '../ui.dart';
+import '../services/likes.dart';
 import 'lists.dart';
 import 'poem.dart' show copyVerses, formatVerses, siteUrl;
 
-/// Copy and share under a cited verse, the same as on the poem's own page.
-Widget shahidActions(BuildContext context, Shahid x) => Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+/// Like with its count, copy and share under a cited verse, the same as on the poem's own page.
+Widget shahidActions(BuildContext context, Shahid x) => ListenableBuilder(
+      listenable: LikeCounts.i,
+      builder: (context, _) {
+        final key = 'v:${x.id}';
+        LikeCounts.i.watch(key);
+        final n = LikeCounts.i.count(key);
+        final on = LikeCounts.i.liked(key);
+        return Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+          IconButton(
+            tooltip: on ? 'إزالة الإعجاب' : 'أعجبني',
+            visualDensity: VisualDensity.compact,
+            onPressed: () => LikeCounts.i.toggle(key),
+            icon: Icon(on ? Icons.thumb_up_alt_rounded : Icons.thumb_up_alt_outlined, size: 18, color: on ? C.accent(context) : C.muted(context)),
+          ),
+          if (n > 0) Text(Ar.num(n), style: TextStyle(fontSize: 14, color: C.muted(context))),
+          _actionButtons(context, x),
+        ]);
+      },
+    );
+
+Widget _actionButtons(BuildContext context, Shahid x) => Row(mainAxisSize: MainAxisSize.min, children: [
       IconButton(
         tooltip: 'نسخ البيت',
         visualDensity: VisualDensity.compact,
