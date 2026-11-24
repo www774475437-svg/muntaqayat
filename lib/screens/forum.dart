@@ -1029,7 +1029,20 @@ class _ForumScreenState extends State<ForumScreen> {
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           if (reply != null) _chipLine(context, Icons.reply_rounded, 'ردّ على ${reply!['name']}: ${'${reply!['text'] ?? ''}'.isEmpty ? '${reply!['a'] ?? ''}' : reply!['text']}', () => setState(() => reply = null)),
           if (poem != null) _chipLine(context, Icons.format_quote_rounded, poem!.lines[widget.verse].join('   '), () => setState(() => poem = null)),
-          if (no != null && Cloud.i.signedIn)
+          if (!Cloud.i.signedIn)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
+                  onPressed: () => needAccount(context, 'تكتب في المنتدى باسمك ورقمك الشخصي.'),
+                  icon: const Icon(Icons.login_rounded),
+                  label: const Text('تسجيل الدخول للكتابة', style: TextStyle(fontSize: 16)),
+                ),
+              ),
+            )
+          else if (no != null && Cloud.i.signedIn)
             Padding(padding: const EdgeInsets.symmetric(vertical: 10), child: Text(no, textAlign: TextAlign.center, style: TextStyle(color: C.muted(context), fontSize: 14.5)))
           else
             Row(crossAxisAlignment: CrossAxisAlignment.end, children: [

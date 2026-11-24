@@ -53,7 +53,8 @@ class AccountScreen extends StatelessWidget {
                     ? push(context, MemberScreen(uid: Cloud.i.uid, name: Cloud.i.name, publicId: Cloud.i.publicId))
                     : needAccount(context),
                 icon: Icon(Cloud.i.signedIn ? Icons.badge_outlined : Icons.login_rounded),
-                label: Text(Cloud.i.signedIn ? 'صفحتك الشخصية' : 'ادخل بحساب جوجل', style: const TextStyle(fontSize: 16)),
+                label: Text(Cloud.i.signedIn ? 'صفحتك الشخصية' : 'ادخل بحساب جوجل',
+                    style: TextStyle(fontSize: Cloud.i.signedIn ? 16 : 19, fontWeight: Cloud.i.signedIn ? FontWeight.normal : FontWeight.bold)),
               ),
             ),
           ]),
