@@ -9,6 +9,8 @@ import '../ui.dart';
 import 'cloud_ui.dart';
 import 'forum.dart';
 import 'lists.dart';
+import 'plus.dart' show PlusScreen;
+import 'qawafi.dart' show MemberScreen;
 
 /// What a member gained since he last looked: followers, likes, replies, tests, warnings.
 /// There is no server pushing these: the numbers are read when the app opens and when the page is opened.
@@ -200,6 +202,9 @@ class _NotifsScreenState extends State<NotifsScreen> {
                         ),
                       ),
                   ],
+                  const SectionTitle('الأوسمة والجوائز والعروض'),
+                  _line(context, Icons.military_tech_outlined, 'أوسمتك ومستواك وجوائزك: في صفحتك الشخصية', () => push(context, MemberScreen(uid: c.uid, name: c.name, publicId: c.publicId))),
+                  if (Store.i.plusOn) _line(context, Icons.local_offer_outlined, 'عرض انطلاق التطبيق: اشترك شهراً واحصل على الثاني مجاناً', () => push(context, const PlusScreen())),
                   if (Notifs.replies.isNotEmpty) ...[
                     const SectionTitle('ردود المطوّر'),
                     for (final m in Notifs.replies.take(5)) _line(context, Icons.mark_chat_read_outlined, '${m['reply']}', () => push(context, const MessageDevScreen())),
