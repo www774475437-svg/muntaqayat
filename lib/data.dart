@@ -172,11 +172,24 @@ class Shahid {
   /// The editor's notes on its words: verse number (1-based) and the note, in the book's order.
   final List<(int, String)> sharh;
 
+  /// A book whose commentary is kept in a file of its own, read when asked for: the file, and how the commentary begins.
+  final String sharhAsset, sharhStart;
+  bool get hasSharh => sharh.isNotEmpty || sharhStart.isNotEmpty;
+
+  /// The whole commentary of this piece: (verse number, note); verse 0 is what stands before the first verse.
+  Future<List<(int, String)>> fullSharh() async {
+    if (sharh.isNotEmpty || sharhAsset.isEmpty) return sharh;
+    final all = await (_sharhFiles[sharhAsset] ??= rootBundle.loadString(sharhAsset).then((t) => jsonDecode(t) as Map<String, dynamic>));
+    return [for (final s in (all[id] as List? ?? [])) (((s as List)[0] as num).toInt(), s[1] as String)];
+  }
+
+  static final Map<String, Future<Map<String, dynamic>>> _sharhFiles = {};
+
   /// A one-volume book gives the page alone.
   final bool oneVol;
 
   /// A verse of a book whose verses were gathered: [key] is the book's short name.
-  Shahid.ofBook(Map<String, dynamic> j, String key, this.author, this.edition, {this.oneVol = false})
+  Shahid.ofBook(Map<String, dynamic> j, String key, this.author, this.edition, {this.oneVol = false, this.sharhAsset = ''})
       : id = j['id'] as String,
         scholar = key,
         vol = (j['vol'] as String?) ?? '',
@@ -192,6 +205,7 @@ class Shahid {
         dup = (j['dup'] as String?) ?? '',
         same = {for (final s in (j['same'] as List? ?? [])) ((s as List)[0] as num).toInt(): s[1] as String},
         sharh = [for (final s in (j['sharh'] as List? ?? [])) (((s as List)[0] as num).toInt(), s[1] as String)],
+        sharhStart = (j['sh0'] as String?) ?? '',
         lines = [
           for (final l in (j['lines'] as List)) [for (final h in (l as List)) h as String]
         ];
@@ -214,6 +228,8 @@ class Shahid {
         dup = '',
         same = const {},
         sharh = const [],
+        sharhAsset = '',
+        sharhStart = '',
         oneVol = false,
         lines = [
           for (final l in (j['lines'] as List)) [for (final h in (l as List)) h as String]
@@ -305,7 +321,7 @@ class Library {
       final m = b as Map<String, dynamic>;
       final key = m['key'] as String;
       verseBooks[key] = m['title'] as String;
-      shawahid.addAll([for (final x in m['items'] as List) Shahid.ofBook(x as Map<String, dynamic>, key, m['author'] as String, (m['ed'] as String?) ?? '', oneVol: m['diwan'] == true)]);
+      shawahid.addAll([for (final x in m['items'] as List) Shahid.ofBook(x as Map<String, dynamic>, key, m['author'] as String, (m['ed'] as String?) ?? '', oneVol: m['diwan'] == true, sharhAsset: (m['sharhAsset'] as String?) ?? '')]);
     }
   }
 
@@ -316,7 +332,13 @@ class Library {
 
   /// Named poets only (without «بلا نسبة»), most selections first.
   /// A poet known only from a diwan in «كتب الشعر» appears once one of his pieces is shown.
-  static List<Poet> get namedPoets => poets.where((p) => p.name != 'بلا نسبة' && (p.count > 0 || shawahid.any((x) => x.poet == p.name && x.shown))).toList();
+  static List<Poet> get namedPoets {
+    final shownOf = <String>{
+      for (final x in shawahid)
+        if (x.poet.isNotEmpty && x.shown) x.poet
+    };
+    return poets.where((p) => p.name != 'بلا نسبة' && (p.count > 0 || shownOf.contains(p.name))).toList();
+  }
 
   static int _dayIndex([DateTime? d]) {
     final n = d ?? DateTime.now();
