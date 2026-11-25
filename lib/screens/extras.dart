@@ -332,45 +332,107 @@ class StoriesScreen extends StatelessWidget {
 
 // ------------------------------------------------------------ بيت وجوابه
 
-class AnswersScreen extends StatelessWidget {
+/// «بيت وجوابه»: the opening verses of a poem and of the poem that answered it,
+/// taken as they stand from «شرح نقائض جرير والفرزدق», with the book's own gloss.
+class AnswersScreen extends StatefulWidget {
   const AnswersScreen({super.key});
-  static const pairs = [
-    (
-      'نقيضة الفخر بين الفرزدق وجرير',
-      'افتخر الفرزدق بقومه بني دارم ومجاشع، فنقض عليه جرير قصيدته على وزنها وقافيتها.',
-      'الفرزدق',
-      ['إِنَّ الَّذي سَمَكَ السَماءَ بَنى لَنا', 'بَيتاً دَعائِمُهُ أَعَزُّ وَأَطوَلُ'],
-      'جرير',
-      ['أَخزى الَّذي سَمَكَ السَماءَ مُجاشِعاً', 'وَبَنى بِناءَكَ في الحَضيضِ الأَسفَلِ'],
-    ),
-  ];
   @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('بيت وجوابه')),
-        body: ListView(padding: const EdgeInsets.fromLTRB(16, 0, 16, 40), children: [
-          Text('المعارضات والنقائض: بيت قاله شاعر، فأجابه آخر على وزنه وقافيته.', style: TextStyle(color: C.muted(context), height: 1.6)),
-          const SizedBox(height: 10),
-          for (final p in pairs)
-            SoftCard(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(p.$1, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: C.ink(context))),
-                Text(p.$2, style: TextStyle(fontSize: 14.5, height: 1.6, color: C.muted(context))),
-                const SizedBox(height: 10),
-                Text('قال ${p.$3}:', style: TextStyle(color: C.accent(context), fontWeight: FontWeight.w700)),
-                VerseLines(p.$4, size: 21),
-                const SizedBox(height: 6),
-                Row(children: [Icon(Icons.subdirectory_arrow_left_rounded, color: C.muted(context)), Text('فأجابه ${p.$5}:', style: TextStyle(color: C.accent(context), fontWeight: FontWeight.w700))]),
-                VerseLines(p.$6, size: 21),
-                Align(
-                  alignment: AlignmentDirectional.centerEnd,
-                  child: IconButton(onPressed: () => copySheet(context, [p.$4, p.$6]), icon: Icon(Icons.copy_rounded, size: 19, color: C.muted(context))),
-                ),
-              ]),
-            ),
-          const SizedBox(height: 12),
-          Text('هذه البداية، وتُضاف أزواج أخرى بعد مقابلتها بالدواوين.', style: TextStyle(fontSize: 13, color: C.muted(context))),
-        ]),
-      );
+  State<AnswersScreen> createState() => _AnswersState();
+}
+
+class _AnswersState extends State<AnswersScreen> {
+  static Map<String, dynamic>? _data;
+  @override
+  void initState() {
+    super.initState();
+    if (_data == null) {
+      rootBundle.loadString('assets/data/answers.json').then((raw) {
+        _data = jsonDecode(raw) as Map<String, dynamic>;
+        if (mounted) setState(() {});
+      });
+    }
+  }
+
+  List<List<String>> _lines(List v) => [
+        for (final x in v) [for (final h in (x as Map)['l'] as List) h as String]
+      ];
+  String _place(List v) {
+    final f = v.first as Map;
+    return '(${Ar.num(int.tryParse(f['vol'] as String) ?? 1)}/${Ar.num(int.tryParse(f['page'] as String) ?? 0)})';
+  }
+
+  bool _glossed(List v) => v.any((x) => ((x as Map)['c'] as String).isNotEmpty);
+
+  void _gloss(BuildContext context, Map<String, dynamic> p) {
+    final book = _data!['book'] as String;
+    showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (b) => SafeArea(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: MediaQuery.of(b).size.height * 0.8),
+          child: ListView(shrinkWrap: true, padding: const EdgeInsets.fromLTRB(18, 0, 18, 22), children: [
+            Text('شرح النقيضة', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: C.ink(b))),
+            Text('بنصّه من «$book» لأبي عبيدة.', style: TextStyle(fontSize: 13, color: C.muted(b))),
+            for (final x in [...p['av'] as List, ...p['bv'] as List])
+              if (((x as Map)['c'] as String).isNotEmpty) ...[
+                const SizedBox(height: 14),
+                VerseLines([for (final h in x['l'] as List) h as String], size: 19),
+                const SizedBox(height: 4),
+                Text(x['c'] as String, style: TextStyle(fontSize: 15.5, height: 1.8, color: C.ink(b))),
+                Text('(${Ar.num(int.tryParse(x['vol'] as String) ?? 1)}/${Ar.num(int.tryParse(x['page'] as String) ?? 0)})', style: TextStyle(fontSize: 13, color: C.muted(b))),
+              ],
+          ]),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final d = _data;
+    final pairs = d == null ? const [] : d['pairs'] as List;
+    return Scaffold(
+      appBar: AppBar(title: const Text('بيت وجوابه')),
+      body: ListView(padding: const EdgeInsets.fromLTRB(16, 0, 16, 40), children: [
+        Text('النقائض: قصيدة قالها شاعر، فنقضها آخر على وزنها وقافيتها.', style: TextStyle(color: C.muted(context), height: 1.6)),
+        const SizedBox(height: 10),
+        for (final raw in pairs)
+          Builder(builder: (context) {
+            final p = raw as Map<String, dynamic>;
+            final av = p['av'] as List, bv = p['bv'] as List;
+            final matla = p['matla'] == true;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: SoftCard(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('${p['a']} و${p['b']}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: C.ink(context))),
+                  const SizedBox(height: 8),
+                  Text(matla ? 'قال ${p['a']}، ومطلع قصيدته:' : 'قال ${p['a']}:', style: TextStyle(color: C.accent(context), fontWeight: FontWeight.w700)),
+                  for (final l in _lines(av)) Padding(padding: const EdgeInsets.only(bottom: 4), child: VerseLines(l, size: 21)),
+                  const SizedBox(height: 6),
+                  Row(children: [
+                    Icon(Icons.subdirectory_arrow_left_rounded, color: C.muted(context)),
+                    Expanded(child: Text(matla ? 'فأجابه ${p['b']}، ومطلع نقيضته:' : 'فأجابه ${p['b']}:', style: TextStyle(color: C.accent(context), fontWeight: FontWeight.w700))),
+                  ]),
+                  for (final l in _lines(bv)) Padding(padding: const EdgeInsets.only(bottom: 4), child: VerseLines(l, size: 21)),
+                  const SizedBox(height: 4),
+                  Text('«${d!['book']}» ${_place(av)} و${_place(bv)}', style: TextStyle(fontSize: 13, color: C.muted(context))),
+                  Row(children: [
+                    if (_glossed(av) || _glossed(bv))
+                      TextButton.icon(onPressed: () => _gloss(context, p), icon: const Icon(Icons.menu_book_outlined, size: 18), label: const Text('شرح النقيضة')),
+                    const Spacer(),
+                    IconButton(onPressed: () => copySheet(context, [..._lines(av), ..._lines(bv)]), icon: Icon(Icons.copy_rounded, size: 19, color: C.muted(context))),
+                  ]),
+                ]),
+              ),
+            );
+          }),
+        if (d != null) Text('من «${d['book']}» ل${d['author']}، ${d['ed']}.', style: TextStyle(fontSize: 13, color: C.muted(context))),
+      ]),
+    );
+  }
 }
 
 // ------------------------------------------------------------ معاني الغريب
