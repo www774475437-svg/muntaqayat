@@ -190,6 +190,7 @@ class _ScholarShawahidState extends State<ScholarShawahidScreen> {
                 child: Text(x.note, style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: C.accent(context))),
               ),
             for (final l in x.lines) Padding(padding: const EdgeInsets.only(bottom: 6), child: VerseLines(l, size: 21)),
+            if (x.sharh.isNotEmpty) shahidSharh(context, x),
             Divider(color: C.line(context)),
             if (staff && x.same.isNotEmpty)
               Padding(
@@ -278,6 +279,7 @@ class PoetShawahid extends StatelessWidget {
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 if (x.note.isNotEmpty) Padding(padding: const EdgeInsets.only(bottom: 6), child: Text(x.note, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: C.muted(context)))),
                 for (final l in x.lines) Padding(padding: const EdgeInsets.only(bottom: 6), child: VerseLines(l, size: 20)),
+                if (x.sharh.isNotEmpty) shahidSharh(context, x),
                 InkWell(
                   onTap: () => openShawahid(context, x.scholar),
                   child: Text(x.citeLine, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: C.accent(context))),
@@ -326,3 +328,39 @@ class VerseBooksScreen extends StatelessWidget {
         ),
       );
 }
+
+/// «شرح الأبيات»: the editor's notes on the words of the piece, as they stand in the book.
+Widget shahidSharh(BuildContext context, Shahid x) => Align(
+      alignment: AlignmentDirectional.centerStart,
+      child: TextButton.icon(
+        icon: const Icon(Icons.menu_book_outlined, size: 18),
+        label: Text('شرح الأبيات (${Ar.num(x.sharh.length)})'),
+        onPressed: () => showModalBottomSheet<void>(
+          context: context,
+          isScrollControlled: true,
+          showDragHandle: true,
+          builder: (context) => DraggableScrollableSheet(
+            expand: false,
+            initialChildSize: 0.7,
+            maxChildSize: 0.95,
+            builder: (context, scroll) => ListView(
+              controller: scroll,
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 30),
+              children: [
+                Text('شرح الأبيات', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700, color: C.ink(context))),
+                const SizedBox(height: 4),
+                Text('من حواشي ${Library.verseBooks[x.scholar] ?? x.scholar}، ${x.place}', style: TextStyle(fontSize: 13.5, color: C.muted(context))),
+                const SizedBox(height: 12),
+                for (final (v, t) in x.sharh) ...[
+                  if (v >= 1 && v <= x.lines.length) VerseLines(x.lines[v - 1], size: 18),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4, bottom: 16),
+                    child: SelectableText(t, style: TextStyle(fontSize: 16, height: 1.8, color: C.ink(context))),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );

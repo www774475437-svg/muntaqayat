@@ -169,6 +169,9 @@ class Shahid {
   /// Verse number (1-based) → where that verse already stands.
   final Map<int, String> same;
 
+  /// The editor's notes on its words: verse number (1-based) and the note, in the book's order.
+  final List<(int, String)> sharh;
+
   /// A one-volume book gives the page alone.
   final bool oneVol;
 
@@ -188,6 +191,7 @@ class Shahid {
         note = (j['note'] as String?) ?? '',
         dup = (j['dup'] as String?) ?? '',
         same = {for (final s in (j['same'] as List? ?? [])) ((s as List)[0] as num).toInt(): s[1] as String},
+        sharh = [for (final s in (j['sharh'] as List? ?? [])) (((s as List)[0] as num).toInt(), s[1] as String)],
         lines = [
           for (final l in (j['lines'] as List)) [for (final h in (l as List)) h as String]
         ];
@@ -209,6 +213,7 @@ class Shahid {
         note = '',
         dup = '',
         same = const {},
+        sharh = const [],
         oneVol = false,
         lines = [
           for (final l in (j['lines'] as List)) [for (final h in (l as List)) h as String]
