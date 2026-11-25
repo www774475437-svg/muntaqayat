@@ -160,8 +160,20 @@ class Shahid {
   final bool own;
   final List<List<String>> lines;
 
+  /// A poet's own diwan: its pieces carry a line above them (title, occasion, meter).
+  final String note;
+
+  /// Where the same verses already stand in the app, when all of them do («المكررة»).
+  final String dup;
+
+  /// Verse number (1-based) → where that verse already stands.
+  final Map<int, String> same;
+
+  /// A one-volume book gives the page alone.
+  final bool oneVol;
+
   /// A verse of a book whose verses were gathered: [key] is the book's short name.
-  Shahid.ofBook(Map<String, dynamic> j, String key, this.author, this.edition)
+  Shahid.ofBook(Map<String, dynamic> j, String key, this.author, this.edition, {this.oneVol = false})
       : id = j['id'] as String,
         scholar = key,
         vol = (j['vol'] as String?) ?? '',
@@ -173,6 +185,9 @@ class Shahid {
         by = '',
         url = '',
         own = false,
+        note = (j['note'] as String?) ?? '',
+        dup = (j['dup'] as String?) ?? '',
+        same = {for (final s in (j['same'] as List? ?? [])) ((s as List)[0] as num).toInt(): s[1] as String},
         lines = [
           for (final l in (j['lines'] as List)) [for (final h in (l as List)) h as String]
         ];
@@ -191,6 +206,10 @@ class Shahid {
         died = '',
         era = '',
         own = j['own'] == true,
+        note = '',
+        dup = '',
+        same = const {},
+        oneVol = false,
         lines = [
           for (final l in (j['lines'] as List)) [for (final h in (l as List)) h as String]
         ];
@@ -203,11 +222,11 @@ class Shahid {
   bool get draft => !shown && !hidden;
 
   /// «(٣/٥١)» for a book in volumes, «ص ٥١» otherwise.
-  String get place => page.isEmpty ? '' : (fromBook || _multi.putIfAbsent(book, () => Library.shawahid.any((x) => x.book == book && x.vol.isNotEmpty && x.vol != '1')) ? '(${Ar.num(int.tryParse(vol) ?? 1)}/${Ar.num(int.tryParse(page) ?? 0)})' : 'ص ${Ar.num(int.tryParse(page) ?? 0)}');
+  String get place => page.isEmpty ? '' : (!oneVol && (fromBook || _multi.putIfAbsent(book, () => Library.shawahid.any((x) => x.book == book && x.vol.isNotEmpty && x.vol != '1'))) ? '(${Ar.num(int.tryParse(vol) ?? 1)}/${Ar.num(int.tryParse(page) ?? 0)})' : 'ص ${Ar.num(int.tryParse(page) ?? 0)}');
   static final Map<String, bool> _multi = {};
 
   /// The line under it in the feed.
-  String get citeLine => own ? 'من شعر $scholar في «$book»${place.isEmpty ? '' : ' $place'}' : fromBook ? 'من كتاب «$scholar» ${author.startsWith('ال') ? 'لل${author.substring(2)}' : 'لـ$author'} $place' : 'استشهد به $scholar في «$book»${place.isEmpty ? '' : ' $place'}';
+  String get citeLine => own ? 'من شعر $scholar في «$book»${place.isEmpty ? '' : ' $place'}' : fromBook ? (oneVol ? 'من «${Library.verseBooks[scholar] ?? scholar}» $place' : 'من كتاب «$scholar» ${author.startsWith('ال') ? 'لل${author.substring(2)}' : 'لـ$author'} $place') : 'استشهد به $scholar في «$book»${place.isEmpty ? '' : ' $place'}';
 
   /// Where it stands: the book and the page.
   String get where => fromBook ? '«$scholar» $place' : '«$book» $place';
@@ -281,7 +300,7 @@ class Library {
       final m = b as Map<String, dynamic>;
       final key = m['key'] as String;
       verseBooks[key] = m['title'] as String;
-      shawahid.addAll([for (final x in m['items'] as List) Shahid.ofBook(x as Map<String, dynamic>, key, m['author'] as String, (m['ed'] as String?) ?? '')]);
+      shawahid.addAll([for (final x in m['items'] as List) Shahid.ofBook(x as Map<String, dynamic>, key, m['author'] as String, (m['ed'] as String?) ?? '', oneVol: m['diwan'] == true)]);
     }
   }
 
@@ -291,7 +310,8 @@ class Library {
   static List<Poem> ofRhyme(String r) => poems.where((p) => p.rhyme == r).toList();
 
   /// Named poets only (without «بلا نسبة»), most selections first.
-  static List<Poet> get namedPoets => poets.where((p) => p.name != 'بلا نسبة').toList();
+  /// A poet known only from a diwan in «كتب الشعر» appears once one of his pieces is shown.
+  static List<Poet> get namedPoets => poets.where((p) => p.name != 'بلا نسبة' && (p.count > 0 || shawahid.any((x) => x.poet == p.name && x.shown))).toList();
 
   static int _dayIndex([DateTime? d]) {
     final n = d ?? DateTime.now();

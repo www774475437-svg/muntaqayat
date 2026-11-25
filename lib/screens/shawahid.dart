@@ -103,7 +103,7 @@ class _ScholarShawahidState extends State<ScholarShawahidScreen> {
           final all = Library.shawahid.where((x) => x.scholar == widget.scholar && x.own == widget.own).toList();
           // His own verse opens from a line at the top of what he cited.
           final ownCount = widget.own ? 0 : Library.shawahid.where((x) => x.scholar == widget.scholar && x.own && (x.shown || (staff && x.draft))).length;
-          bool inTab(Shahid x) => !staff ? x.shown : (tab == 0 ? x.draft : (tab == 1 ? x.shown : x.hidden));
+          bool inTab(Shahid x) => !staff ? x.shown : (tab == 0 ? x.draft && x.dup.isEmpty : (tab == 1 ? x.shown : (tab == 2 ? x.hidden : x.draft && x.dup.isNotEmpty)));
           final ofTab = all.where(inTab).toList();
           final books = <String, int>{};
           for (final x in ofTab) {
@@ -136,9 +136,10 @@ class _ScholarShawahidState extends State<ScholarShawahidScreen> {
                   child: SegmentedButton<int>(
                     showSelectedIcon: false,
                     segments: [
-                      ButtonSegment(value: 0, label: Text('المسودة ${Ar.num(n((x) => x.draft))}')),
+                      ButtonSegment(value: 0, label: Text('المسودة ${Ar.num(n((x) => x.draft && x.dup.isEmpty))}')),
                       ButtonSegment(value: 1, label: Text('الظاهرة ${Ar.num(n((x) => x.shown))}')),
                       ButtonSegment(value: 2, label: Text('المخفية ${Ar.num(n((x) => x.hidden))}')),
+                      if (all.any((x) => x.dup.isNotEmpty)) ButtonSegment(value: 3, label: Text('المكررة ${Ar.num(n((x) => x.draft && x.dup.isNotEmpty))}')),
                     ],
                     selected: {tab},
                     onSelectionChanged: (v) => setState(() => tab = v.first),
@@ -183,8 +184,21 @@ class _ScholarShawahidState extends State<ScholarShawahidScreen> {
         padding: const EdgeInsets.only(bottom: 12),
         child: SoftCard(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            if (x.note.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(x.note, style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: C.accent(context))),
+              ),
             for (final l in x.lines) Padding(padding: const EdgeInsets.only(bottom: 6), child: VerseLines(l, size: 21)),
             Divider(color: C.line(context)),
+            if (staff && x.same.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Text(
+                  x.dup.isNotEmpty ? 'مكرر: موجود ${x.dup}' : 'فيه مكرر: ${x.same.entries.map((e) => 'البيت ${Ar.num(e.key)} ${e.value}').join('، ')}',
+                  style: TextStyle(fontSize: 13.5, color: C.muted(context), height: 1.6),
+                ),
+              ),
             InkWell(
               onTap: x.poet.isNotEmpty && Library.poetByName.containsKey(x.poet) ? () => openPoet(context, x.poet) : null,
               child: Text(x.poetLine, style: TextStyle(fontWeight: FontWeight.w700, color: x.poet.isEmpty ? C.muted(context) : C.ink(context))),
@@ -262,6 +276,7 @@ class PoetShawahid extends StatelessWidget {
             padding: const EdgeInsets.only(bottom: 10),
             child: SoftCard(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                if (x.note.isNotEmpty) Padding(padding: const EdgeInsets.only(bottom: 6), child: Text(x.note, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: C.muted(context)))),
                 for (final l in x.lines) Padding(padding: const EdgeInsets.only(bottom: 6), child: VerseLines(l, size: 20)),
                 InkWell(
                   onTap: () => openShawahid(context, x.scholar),
