@@ -192,6 +192,15 @@ class _ScholarShawahidState extends State<ScholarShawahidScreen> {
             for (final l in x.lines) Padding(padding: const EdgeInsets.only(bottom: 6), child: VerseLines(l, size: 21)),
             if (x.hasSharh) shahidSharh(context, x),
             Divider(color: C.line(context)),
+            if (staff && x.chk.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Icon(Icons.error_outline_rounded, size: 17, color: Colors.orange),
+                  const SizedBox(width: 6),
+                  Expanded(child: Text('يحتاج مراجعة: ${x.chk}', style: const TextStyle(fontSize: 13.5, color: Colors.orange, height: 1.6))),
+                ]),
+              ),
             if (staff && x.same.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(bottom: 6),

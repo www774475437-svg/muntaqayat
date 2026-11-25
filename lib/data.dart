@@ -185,6 +185,9 @@ class Shahid {
 
   static final Map<String, Future<Map<String, dynamic>>> _sharhFiles = {};
 
+  /// Why the supervisor should look at this piece before showing it (set when the gathering was unsure).
+  final String chk;
+
   /// A one-volume book gives the page alone.
   final bool oneVol;
 
@@ -206,6 +209,7 @@ class Shahid {
         same = {for (final s in (j['same'] as List? ?? [])) ((s as List)[0] as num).toInt(): s[1] as String},
         sharh = [for (final s in (j['sharh'] as List? ?? [])) (((s as List)[0] as num).toInt(), s[1] as String)],
         sharhStart = (j['sh0'] as String?) ?? '',
+        chk = (j['chk'] as String?) ?? '',
         lines = [
           for (final l in (j['lines'] as List)) [for (final h in (l as List)) h as String]
         ];
@@ -230,6 +234,7 @@ class Shahid {
         sharh = const [],
         sharhAsset = '',
         sharhStart = '',
+        chk = '',
         oneVol = false,
         lines = [
           for (final l in (j['lines'] as List)) [for (final h in (l as List)) h as String]
