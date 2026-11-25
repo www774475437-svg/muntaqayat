@@ -155,6 +155,9 @@ class Shahid {
 
   /// Set for a verse taken from a book of verses («نهاية الأرب»), not cited by a scholar.
   final String author, died, era;
+
+  /// The scholar's own verse, found in his book: it stands under «من شعره», apart from what he cited.
+  final bool own;
   final List<List<String>> lines;
 
   /// A verse of a book whose verses were gathered: [key] is the book's short name.
@@ -169,6 +172,7 @@ class Shahid {
         era = (j['era'] as String?) ?? '',
         by = '',
         url = '',
+        own = false,
         lines = [
           for (final l in (j['lines'] as List)) [for (final h in (l as List)) h as String]
         ];
@@ -186,6 +190,7 @@ class Shahid {
         author = '',
         died = '',
         era = '',
+        own = j['own'] == true,
         lines = [
           for (final l in (j['lines'] as List)) [for (final h in (l as List)) h as String]
         ];
@@ -202,7 +207,7 @@ class Shahid {
   static final Map<String, bool> _multi = {};
 
   /// The line under it in the feed.
-  String get citeLine => fromBook ? 'من كتاب «$scholar» ${author.startsWith('ال') ? 'لل${author.substring(2)}' : 'لـ$author'} $place' : 'استشهد به $scholar في «$book»${place.isEmpty ? '' : ' $place'}';
+  String get citeLine => own ? 'من شعر $scholar في «$book»${place.isEmpty ? '' : ' $place'}' : fromBook ? 'من كتاب «$scholar» ${author.startsWith('ال') ? 'لل${author.substring(2)}' : 'لـ$author'} $place' : 'استشهد به $scholar في «$book»${place.isEmpty ? '' : ' $place'}';
 
   /// Where it stands: the book and the page.
   String get where => fromBook ? '«$scholar» $place' : '«$book» $place';

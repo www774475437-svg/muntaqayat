@@ -67,7 +67,7 @@ class ShawahidScreen extends StatelessWidget {
                     Avatar(s.replaceFirst('ابن ', '').substring(0, 1)),
                     const SizedBox(width: 12),
                     Expanded(child: Text(s, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: C.ink(context)))),
-                    Text(Ar.num(Library.shawahid.where((x) => x.scholar == s && (x.shown || (Cloud.i.canShahid(s) && x.draft))).length), style: TextStyle(color: C.muted(context))),
+                    Text(Ar.num(Library.shawahid.where((x) => x.scholar == s && !x.own && (x.shown || (Cloud.i.canShahid(s) && x.draft))).length), style: TextStyle(color: C.muted(context))),
                     Icon(Icons.chevron_left_rounded, color: C.muted(context)),
                   ]),
                 ),
@@ -78,11 +78,14 @@ class ShawahidScreen extends StatelessWidget {
 }
 
 /// Opens one scholar's cited verses.
-void openShawahid(BuildContext context, String scholar) => push(context, ScholarShawahidScreen(scholar: scholar));
+void openShawahid(BuildContext context, String scholar, {bool own = false}) => push(context, ScholarShawahidScreen(scholar: scholar, own: own));
 
 class ScholarShawahidScreen extends StatefulWidget {
   final String scholar;
-  const ScholarShawahidScreen({super.key, required this.scholar});
+
+  /// His own verse, not what he cited.
+  final bool own;
+  const ScholarShawahidScreen({super.key, required this.scholar, this.own = false});
   @override
   State<ScholarShawahidScreen> createState() => _ScholarShawahidState();
 }
@@ -96,8 +99,10 @@ class _ScholarShawahidState extends State<ScholarShawahidScreen> {
   Widget build(BuildContext context) => ListenableBuilder(
         listenable: Listenable.merge([Store.i, Cloud.i]),
         builder: (context, _) {
-          final all = Library.shawahid.where((x) => x.scholar == widget.scholar).toList();
           final staff = Cloud.i.canShahid(widget.scholar);
+          final all = Library.shawahid.where((x) => x.scholar == widget.scholar && x.own == widget.own).toList();
+          // His own verse opens from a line at the top of what he cited.
+          final ownCount = widget.own ? 0 : Library.shawahid.where((x) => x.scholar == widget.scholar && x.own && (x.shown || (staff && x.draft))).length;
           bool inTab(Shahid x) => !staff ? x.shown : (tab == 0 ? x.draft : (tab == 1 ? x.shown : x.hidden));
           final ofTab = all.where(inTab).toList();
           final books = <String, int>{};
@@ -108,8 +113,23 @@ class _ScholarShawahidState extends State<ScholarShawahidScreen> {
           final list = book.isEmpty ? ofTab : ofTab.where((x) => x.book == book).toList();
           int n(bool Function(Shahid) f) => all.where(f).length;
           return Scaffold(
-            appBar: AppBar(title: Text(Library.verseBooks.containsKey(widget.scholar) ? 'أشعار «${widget.scholar}»' : 'مما استشهد به ${widget.scholar}')),
+            appBar: AppBar(title: Text(widget.own ? 'من شعر ${widget.scholar}' : Library.verseBooks.containsKey(widget.scholar) ? 'أشعار «${widget.scholar}»' : 'مما استشهد به ${widget.scholar}')),
             body: Column(children: [
+              if (ownCount > 0)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                  child: SoftCard(
+                    onTap: () => openShawahid(context, widget.scholar, own: true),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    child: Row(children: [
+                      Icon(Icons.edit_note_rounded, color: C.accent(context)),
+                      const SizedBox(width: 10),
+                      Expanded(child: Text('من شعر ${widget.scholar}', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: C.ink(context)))),
+                      Text(Ar.num(ownCount), style: TextStyle(color: C.muted(context))),
+                      Icon(Icons.chevron_left_rounded, color: C.muted(context)),
+                    ]),
+                  ),
+                ),
               if (staff)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
@@ -141,7 +161,7 @@ class _ScholarShawahidState extends State<ScholarShawahidScreen> {
                 ),
               Expanded(
                 child: list.isEmpty
-                    ? EmptyNote(Icons.menu_book_outlined, staff ? 'لا شيء في هذه القائمة.' : 'تُضاف شواهده قريباً بإذن الله.')
+                    ? EmptyNote(Icons.menu_book_outlined, staff ? 'لا شيء في هذه القائمة.' : (widget.own ? 'يُضاف شعره قريباً بإذن الله.' : 'تُضاف شواهده قريباً بإذن الله.'))
                     : ListView.builder(
                         padding: const EdgeInsets.fromLTRB(16, 6, 16, 40),
                         itemCount: list.length,
@@ -221,7 +241,7 @@ class PoetShawahid extends StatelessWidget {
   const PoetShawahid({super.key, required this.poet});
   @override
   Widget build(BuildContext context) {
-    final all = poet == 'بلا نسبة' ? const <Shahid>[] : Library.shawahid.where((x) => x.poet == poet && x.shown).toList();
+    final all = poet == 'بلا نسبة' ? const <Shahid>[] : Library.shawahid.where((x) => x.poet == poet && !x.own && x.shown).toList();
     if (all.isEmpty) return const SizedBox.shrink();
     final cited = all.where((x) => !x.fromBook).toList();
     final inBooks = all.where((x) => x.fromBook).toList();
