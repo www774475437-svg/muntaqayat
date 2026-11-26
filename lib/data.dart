@@ -435,7 +435,7 @@ class Store extends ChangeNotifier {
   int lastRead = 0;
   int themeMode = 0; // 0 = phone, 1 = light, 2 = dark
   String palette = 'default'; // a colour set from Palette.all; the others are for Plus members
-  double fontScale = 1.0;
+  double fontScale = 0.8;
   bool tashkeel = true;
 
   /// Switches the developer sets for everyone (daily tasks, duel, Friday round, poet of the week…). On unless turned off.
@@ -509,7 +509,7 @@ class Store extends ChangeNotifier {
     lastRead = _p.getInt('lastRead') ?? 0;
     themeMode = _p.getInt('themeMode') ?? 0;
     palette = _p.getString('palette') ?? 'default';
-    fontScale = _p.getDouble('fontScale') ?? 1.0;
+    fontScale = _p.getDouble('fontScale') ?? 0.8;
     tashkeel = _p.getBool('tashkeel') ?? true;
     try {
       features = Map<String, bool>.from(jsonDecode(_p.getString('features') ?? '{}') as Map);
