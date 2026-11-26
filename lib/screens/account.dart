@@ -242,7 +242,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
     if (!mounted) return;
-    if (pin == developerPin) {
+    if (pin == developerPin && !Cloud.i.isDev) {
+      toast(context, 'وضع المطوّر لحساب المطوّر فقط. ادخل بحسابه أولاً.');
+    } else if (pin == developerPin) {
       Store.i.setDeveloper(true);
       toast(context, 'فُتح وضع المطوّر: قائمة المراجعة في «حسابك»');
     } else if (pin != null) {

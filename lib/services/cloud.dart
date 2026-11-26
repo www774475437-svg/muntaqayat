@@ -77,6 +77,8 @@ class Cloud extends ChangeNotifier {
 
   Future<void> _onUser(User? u) async {
     user = u;
+    // Developer mode belongs to the developer's account only: off for anyone else on this device.
+    if (!isDev && Store.i.developer) Store.i.setDeveloper(false);
     if (u == null) {
       profile = {};
       Store.plusUser = false;
