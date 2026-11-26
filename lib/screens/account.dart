@@ -14,7 +14,6 @@ import 'today.dart';
 import '../services/cloud.dart';
 import '../services/device.dart';
 
-const developerPin = '7744';
 
 class AccountScreen extends StatelessWidget {
   const AccountScreen({super.key});
@@ -228,28 +227,12 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   int taps = 0;
 
-  Future<void> _unlock() async {
-    final ctl = TextEditingController();
-    final pin = await showDialog<String>(
-      context: context,
-      builder: (c) => AlertDialog(
-        title: const Text('رمز المطوّر'),
-        content: TextField(controller: ctl, autofocus: true, keyboardType: TextInputType.number, obscureText: true),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(c), child: const Text('إلغاء')),
-          FilledButton(onPressed: () => Navigator.pop(c, ctl.text), child: const Text('دخول')),
-        ],
-      ),
-    );
-    if (!mounted) return;
-    if (pin == developerPin && !Cloud.i.isDev) {
-      toast(context, 'وضع المطوّر لحساب المطوّر فقط. ادخل بحسابه أولاً.');
-    } else if (pin == developerPin) {
-      Store.i.setDeveloper(true);
-      toast(context, 'فُتح وضع المطوّر: قائمة المراجعة في «حسابك»');
-    } else if (pin != null) {
-      toast(context, 'الرمز غير صحيح');
-    }
+  /// Fifteen taps on the version line. With the developer's account signed in his tools
+  /// appear; with any other account, or none, nothing happens and nothing is said.
+  void _unlock() {
+    if (!Cloud.i.isDev) return;
+    Store.i.setDeveloper(true);
+    toast(context, 'فُتحت خانة المطوّر في «حسابك»');
   }
 
   @override
@@ -430,7 +413,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               GestureDetector(
                 onTap: () {
                   if (s.developer) return;
-                  if (++taps >= 7) {
+                  if (++taps >= 15) {
                     taps = 0;
                     _unlock();
                   }

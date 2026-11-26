@@ -67,6 +67,7 @@ class Cloud extends ChangeNotifier {
       await Firebase.initializeApp(options: kIsWeb ? _web : _android);
       ready = true;
       Store.cloudPush = _schedulePush;
+      Store.isDevAccount = () => isDev;
       FirebaseAuth.instance.authStateChanges().listen(_onUser);
       unawaited(pullConfig());
     } catch (_) {
@@ -78,7 +79,8 @@ class Cloud extends ChangeNotifier {
   Future<void> _onUser(User? u) async {
     user = u;
     // Developer mode belongs to the developer's account only: off for anyone else on this device.
-    if (!isDev && Store.i.developer) Store.i.setDeveloper(false);
+    if (!isDev) Store.i.setDeveloper(false);
+    Store.i.accountChanged();
     if (u == null) {
       profile = {};
       Store.plusUser = false;
@@ -86,10 +88,9 @@ class Cloud extends ChangeNotifier {
       return;
     }
     await _ensureProfile();
-    if (isDev) {
-      if (!Store.i.developer) Store.i.setDeveloper(true);
-      await pullConfig(force: true);
-    }
+    // Signing in as the developer opens nothing by itself: his tools stay out of sight
+    // until he taps the version line fifteen times in the settings.
+    if (isDev) await pullConfig(force: true);
     await _restore();
     unawaited(syncSoon());
     notifyListeners();
@@ -467,6 +468,7 @@ class Cloud extends ChangeNotifier {
         payLink: a['payLink'] as String?,
         shuruh: a['shuruh'] is String ? jsonDecode(a['shuruh'] as String) as Map<String, dynamic> : null,
         features: a['features'] is Map ? Map<String, dynamic>.from(a['features'] as Map) : null,
+        diwan: a['diwan'] is String ? jsonDecode(a['diwan'] as String) as Map<String, dynamic> : null,
       );
     } catch (_) {}
   }
@@ -493,6 +495,7 @@ class Cloud extends ChangeNotifier {
         'plusShow': s.plusOn,
         'payLink': s.payLink,
         'shuruh': jsonEncode(s.shuruh),
+        'diwan': jsonEncode(s.diwan),
         'features': s.features,
         'bannedDevices': bannedDevices,
         'mods': jsonEncode(mods),

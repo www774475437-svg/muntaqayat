@@ -468,7 +468,11 @@ class Store extends ChangeNotifier {
     Library.refresh();
     notifyListeners();
   }
-  bool developer = false;
+  /// Developer tools show only when the switch was opened on this device (fifteen taps on
+  /// the version line) and the developer's own account is signed in. Either one alone shows nothing.
+  bool _developer = false;
+  static bool Function()? isDevAccount;
+  bool get developer => _developer && (isDevAccount?.call() ?? false);
   bool morning = false;
   int morningHour = 7;
   int morningMinute = 0;
@@ -498,6 +502,9 @@ class Store extends ChangeNotifier {
   bool teacher = false; // «خانة المعلّم» turned on in settings
   List<String> students = []; // personal numbers the teacher added before
   Map<String, List<Map<String, String>>> shuruh = {}; // matn → [{title,url}] added by the developer
+  /// «ديوان العلماء والصحابة»: the names the developer put in each part ('sahaba', 'ulama').
+  /// Whatever is shown under such a name stands there by itself, as on the poet's own page.
+  Map<String, List<String>> diwan = {'sahaba': [], 'ulama': []};
 
   Future<void> load() async {
     _p = await SharedPreferences.getInstance();
@@ -516,7 +523,7 @@ class Store extends ChangeNotifier {
     } catch (_) {
       features = {};
     }
-    developer = _p.getBool('developer') ?? false;
+    _developer = _p.getBool('developer') ?? false;
     morning = _p.getBool('morning') ?? false;
     morningHour = _p.getInt('morningHour') ?? 7;
     morningMinute = _p.getInt('morningMinute') ?? 0;
@@ -549,6 +556,7 @@ class Store extends ChangeNotifier {
       memLog = ml.map((k, v) => MapEntry(k, [for (final x in v as List) (x as num).toInt()]));
       final b = jsonDecode(_p.getString('best') ?? '{}') as Map<String, dynamic>;
       best = b.map((k, v) => MapEntry(k, (v as num).toInt()));
+      _readDiwan(jsonDecode(_p.getString('diwan') ?? '{}') as Map<String, dynamic>);
       final sh = jsonDecode(_p.getString('shuruh') ?? '{}') as Map<String, dynamic>;
       shuruh = sh.map((k, v) => MapEntry(k, [for (final x in v as List) Map<String, String>.from(x as Map)]));
     } catch (_) {}
@@ -656,8 +664,12 @@ class Store extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// The signed-in account changed: pages that look at [developer] draw again.
+  void accountChanged() => notifyListeners();
+
   void setDeveloper(bool v) {
-    developer = v;
+    if (_developer == v) return;
+    _developer = v;
     _p.setBool('developer', v);
     notifyListeners();
   }
@@ -789,13 +801,17 @@ class Store extends ChangeNotifier {
     notifyListeners();
   }
 
-  void applyCloud({List<String>? shShown, List<String>? shHidden, List<String>? verified, List<String>? hidden, List<String>? deleted, bool? plus, String? payLink, Map<String, dynamic>? shuruh, Map<String, dynamic>? features}) {
+  void applyCloud({List<String>? shShown, List<String>? shHidden, List<String>? verified, List<String>? hidden, List<String>? deleted, bool? plus, String? payLink, Map<String, dynamic>? shuruh, Map<String, dynamic>? features, Map<String, dynamic>? diwan}) {
     if (features != null) {
       this.features = {
         for (final e in features.entries)
           if (e.value is bool) e.key: e.value as bool
       };
       _p.setString('features', jsonEncode(this.features));
+    }
+    if (diwan != null) {
+      _readDiwan(diwan);
+      _p.setString('diwan', jsonEncode(this.diwan));
     }
     if (verified != null) {
       this.verified = verified.toSet();
@@ -899,6 +915,25 @@ class Store extends ChangeNotifier {
   void toggleVerified(String key) {
     verified.contains(key) ? verified.remove(key) : verified.add(key);
     _p.setStringList('verified', verified.toList());
+    notifyListeners();
+    cloudPush?.call();
+  }
+
+  void _readDiwan(Map<String, dynamic> j) {
+    diwan = {
+      for (final k in const ['sahaba', 'ulama']) k: [for (final x in (j[k] as List? ?? const [])) x as String]
+    };
+  }
+
+  /// Which part of the diwan a name stands in: 'sahaba', 'ulama' or null.
+  String? diwanOf(String name) => diwan['sahaba']!.contains(name) ? 'sahaba' : (diwan['ulama']!.contains(name) ? 'ulama' : null);
+
+  /// Puts a name in one part of the diwan, or takes it out of both (part == null).
+  void setDiwan(String name, String? part) {
+    diwan['sahaba']!.remove(name);
+    diwan['ulama']!.remove(name);
+    if (part != null) diwan[part]!.add(name);
+    _p.setString('diwan', jsonEncode(diwan));
     notifyListeners();
     cloudPush?.call();
   }

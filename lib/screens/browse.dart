@@ -109,7 +109,7 @@ class BrowseScreen extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: _pick(context, Icons.mosque_outlined, 'ديوان العلماء والصحابة', 'ابن القيم، ابن تيمية، الشافعي، الخنساء، حسان…',
-              () => push(context, const ChaptersScreen(section: 2))),
+              () => push(context, const DiwanScreen())),
         ),
         const SizedBox(height: 12),
         Padding(

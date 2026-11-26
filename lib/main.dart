@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
@@ -106,6 +107,9 @@ class _ShellState extends State<Shell> with TickerProviderStateMixin {
   final _navs = List.generate(4, (_) => GlobalKey<NavigatorState>());
   late final _obs = List.generate(4, (_) => _TabRoutes(_routesChanged));
   int _lastScroll = 0;
+  // Where the open page stands, and the wait that folds the bar again once the hand rests.
+  double _pixels = 0;
+  Timer? _rest;
   late final AnimationController _slide = AnimationController(vsync: this, duration: const Duration(milliseconds: 520), value: 1);
 
   static const _icons = [
@@ -126,6 +130,8 @@ class _ShellState extends State<Shell> with TickerProviderStateMixin {
   void _rebuild() => setState(() {});
   void _fromSide() {
     if (shellTab.value != tab) {
+      _rest?.cancel();
+      _pixels = 0;
       setState(() {
         from = tab;
         tab = shellTab.value;
@@ -137,6 +143,7 @@ class _ShellState extends State<Shell> with TickerProviderStateMixin {
   void dispose() {
     shellTab.removeListener(_fromSide);
     wideMode.removeListener(_rebuild);
+    _rest?.cancel();
     _slide.dispose();
     super.dispose();
   }
@@ -149,10 +156,22 @@ class _ShellState extends State<Shell> with TickerProviderStateMixin {
 
   NavigatorState? get _nav => _navs[tab].currentState;
 
+  /// The full bar, brought back in the middle of a page, folds to its two circles again
+  /// (the open tab and the search) after five seconds without scrolling. At the top of a
+  /// page it stays full.
+  void _armRest() {
+    _rest?.cancel();
+    if (collapsed || _pixels <= 40) return;
+    _rest = Timer(const Duration(seconds: 5), () {
+      if (mounted && !collapsed && _pixels > 40) setState(() => collapsed = true);
+    });
+  }
+
   void _go(int i) {
     HapticFeedback.selectionClick();
     if (collapsed) {
       setState(() => collapsed = false);
+      _armRest();
       if (i == tab) return;
     }
     if (i == tab) {
@@ -160,6 +179,9 @@ class _ShellState extends State<Shell> with TickerProviderStateMixin {
       _nav?.popUntil((r) => r.isFirst);
       return;
     }
+    // another tab opens with its bar full; its own scrolling decides from there
+    _rest?.cancel();
+    _pixels = 0;
     setState(() {
       from = tab;
       tab = i;
@@ -181,6 +203,8 @@ class _ShellState extends State<Shell> with TickerProviderStateMixin {
     } else if (collapsed && d < 0 && dt > 0 && dt < 80 && d / dt < -1.6) {
       setState(() => collapsed = false);
     }
+    _pixels = n.metrics.pixels;
+    _armRest();
     return false;
   }
 

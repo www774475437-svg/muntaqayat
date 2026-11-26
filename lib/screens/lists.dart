@@ -333,3 +333,239 @@ class ChaptersScreen extends StatelessWidget {
     );
   }
 }
+
+/// «ديوان العلماء والصحابة»: the names the developer placed in each part. Whatever is shown
+/// under such a name (in the book, or shown from «كتب الشعر» and the citations) is reached
+/// from here and from the poet's own page alike, with nothing to move by hand.
+class DiwanScreen extends StatelessWidget {
+  const DiwanScreen({super.key});
+
+  static const parts = [('sahaba', 'الصحابة رضي الله عنهم'), ('ulama', 'العلماء')];
+
+  /// What readers can see under each name.
+  static Map<String, int> _counts() {
+    final c = <String, int>{};
+    for (final p in Library.poems) {
+      c[p.poet] = (c[p.poet] ?? 0) + 1;
+    }
+    for (final x in Library.shawahid) {
+      if (!x.shown) continue;
+      final n = x.own ? x.scholar : x.poet;
+      if (n.isNotEmpty) c[n] = (c[n] ?? 0) + 1;
+    }
+    return c;
+  }
+
+  static void _open(BuildContext context, String name) {
+    final asPoet = Library.ofPoet(name).isNotEmpty || Library.shawahid.any((x) => !x.own && x.poet == name && x.shown);
+    if (!asPoet && Library.shawahid.any((x) => x.own && x.scholar == name)) {
+      openShawahid(context, name, own: true);
+    } else {
+      openPoet(context, name);
+    }
+  }
+
+  /// Developer: where this name goes.
+  static void choose(BuildContext context, String name) {
+    final now = Store.i.diwanOf(name);
+    showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      builder: (c) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+            child: Text(name, textAlign: TextAlign.center, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: C.ink(context))),
+          ),
+          for (final (key, title) in parts)
+            ListTile(
+              leading: Icon(now == key ? Icons.check_circle_rounded : Icons.add_circle_outline_rounded, color: C.accent(context)),
+              title: Text(now == key ? 'هو في «$title»' : 'أضفه إلى «$title»'),
+              onTap: () {
+                Navigator.pop(c);
+                if (now == key) return;
+                Store.i.setDiwan(name, key);
+                toast(context, 'أُضيف إلى «$title»');
+              },
+            ),
+          if (now != null)
+            ListTile(
+              leading: const Icon(Icons.remove_circle_outline_rounded),
+              title: const Text('أخرجه من الديوان'),
+              onTap: () {
+                Navigator.pop(c);
+                Store.i.setDiwan(name, null);
+                toast(context, 'أُخرج من الديوان');
+              },
+            ),
+          const SizedBox(height: 12),
+        ]),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+        listenable: Store.i,
+        builder: (context, _) {
+          final dev = Store.i.developer;
+          final counts = _counts();
+          final chapterCounts = <int, int>{};
+          for (final p in Library.poems) {
+            chapterCounts[p.chapter] = (chapterCounts[p.chapter] ?? 0) + 1;
+          }
+          final chapters = Library.chapters.where((c) => c.section == 2).toList();
+          return Scaffold(
+            appBar: AppBar(title: const Text('ديوان العلماء والصحابة')),
+            body: ListView(padding: const EdgeInsets.fromLTRB(16, 0, 16, 40), children: [
+              if (dev)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 14),
+                  child: SoftCard(
+                    onTap: () => push(context, const DiwanPickScreen()),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    child: Row(children: [
+                      Icon(Icons.person_search_rounded, color: C.accent(context)),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text('أضف اسماً إلى الديوان', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: C.ink(context))),
+                          Text('ابحث عن الاسم ثم اختر: الصحابة أو العلماء (للمطوّر)', style: TextStyle(fontSize: 13.5, color: C.muted(context))),
+                        ]),
+                      ),
+                      Icon(Icons.chevron_left_rounded, color: C.muted(context)),
+                    ]),
+                  ),
+                ),
+              for (final (key, title) in parts) ..._part(context, title, Store.i.diwan[key]!, counts, dev),
+              if (chapters.isNotEmpty) ...[
+                _head(context, 'مختارات الديوان'),
+                _box(context, [
+                  for (final c in chapters)
+                    ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 18),
+                      title: Text(c.name, style: TextStyle(fontSize: 17, color: C.ink(context))),
+                      trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                        Text(Ar.num(chapterCounts[c.index] ?? 0), style: TextStyle(fontSize: 15, color: C.muted(context))),
+                        Icon(Icons.chevron_left_rounded, color: C.muted(context)),
+                      ]),
+                      onTap: () => openList(context, c.name, Library.ofChapter(c.index)),
+                    ),
+                ]),
+              ],
+            ]),
+          );
+        },
+      );
+
+  /// Readers see a name once something of his is shown; the developer sees every name he added.
+  List<Widget> _part(BuildContext context, String title, List<String> names, Map<String, int> counts, bool dev) {
+    final list = [
+      for (final n in names)
+        if (dev || (counts[n] ?? 0) > 0) n
+    ];
+    if (list.isEmpty) return const [];
+    return [
+      _head(context, title),
+      _box(context, [
+        for (final n in list)
+          ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 18),
+            title: Text(n, style: TextStyle(fontSize: 17, color: C.ink(context))),
+            subtitle: (counts[n] ?? 0) == 0 ? Text('لم يُظهَر من شعره شيء بعد، فلا يراه القرّاء', style: TextStyle(fontSize: 13, color: C.muted(context))) : null,
+            trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+              Text(Ar.num(counts[n] ?? 0), style: TextStyle(fontSize: 15, color: C.muted(context))),
+              Icon(Icons.chevron_left_rounded, color: C.muted(context)),
+            ]),
+            onTap: () => _open(context, n),
+            onLongPress: dev ? () => choose(context, n) : null,
+          ),
+      ]),
+    ];
+  }
+
+  Widget _head(BuildContext context, String title) => Padding(
+        padding: const EdgeInsets.fromLTRB(6, 10, 6, 10),
+        child: Text(title, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: C.accent(context))),
+      );
+
+  Widget _box(BuildContext context, List<Widget> rows) => Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        decoration: BoxDecoration(color: C.card(context), borderRadius: BorderRadius.circular(24), border: Border.all(color: C.line(context))),
+        clipBehavior: Clip.antiAlias,
+        child: Column(children: [
+          for (var i = 0; i < rows.length; i++) ...[
+            if (i > 0) Divider(height: 1, indent: 18, endIndent: 18, color: C.line(context)),
+            rows[i],
+          ],
+        ]),
+      );
+}
+
+/// Developer: every name the app knows (poets of the book, of «كتب الشعر» and of the
+/// citations, and the scholars with verse of their own). A tap puts the name in the diwan.
+class DiwanPickScreen extends StatefulWidget {
+  const DiwanPickScreen({super.key});
+  @override
+  State<DiwanPickScreen> createState() => _DiwanPickState();
+}
+
+class _DiwanPickState extends State<DiwanPickScreen> {
+  String q = '';
+  late final List<String> names = () {
+    final s = <String>{
+      for (final p in Library.poets) p.name,
+      for (final x in Library.shawahid)
+        if (x.own) x.scholar else if (x.poet.isNotEmpty) x.poet,
+    }..remove('بلا نسبة');
+    return s.toList()..sort((a, b) => Ar.norm(a).compareTo(Ar.norm(b)));
+  }();
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+        listenable: Store.i,
+        builder: (context, _) {
+          final k = Ar.norm(q);
+          final list = k.isEmpty ? names : names.where((n) => Ar.norm(n).contains(k)).toList();
+          return Scaffold(
+            appBar: AppBar(title: const Text('أضف اسماً إلى الديوان')),
+            body: Column(children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                child: TextField(
+                  autofocus: true,
+                  onChanged: (v) => setState(() => q = v),
+                  decoration: InputDecoration(
+                    hintText: 'ابحث عن شاعر أو عالم',
+                    prefixIcon: const Icon(Icons.search_rounded),
+                    filled: true,
+                    fillColor: C.card(context),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(18), borderSide: BorderSide(color: C.line(context))),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(18), borderSide: BorderSide(color: C.line(context))),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: list.isEmpty
+                    ? Center(child: Text('لا يوجد هذا الاسم في التطبيق', style: TextStyle(color: C.muted(context))))
+                    : ListView.builder(
+                        padding: const EdgeInsets.only(bottom: 40),
+                        itemCount: list.length,
+                        itemBuilder: (context, i) {
+                          final part = Store.i.diwanOf(list[i]);
+                          return ListTile(
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 22),
+                            title: Text(list[i], style: TextStyle(fontSize: 17, color: C.ink(context))),
+                            trailing: part == null
+                                ? Icon(Icons.add_rounded, color: C.muted(context))
+                                : Text(part == 'sahaba' ? 'الصحابة' : 'العلماء', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: C.accent(context))),
+                            onTap: () => DiwanScreen.choose(context, list[i]),
+                          );
+                        },
+                      ),
+              ),
+            ]),
+          );
+        },
+      );
+}
