@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../data.dart';
@@ -89,6 +91,7 @@ class BrowseScreen extends StatelessWidget {
             ),
           ]),
         ),
+        const ErasWheel(),
         const SectionTitle('مختارات'),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -253,5 +256,99 @@ class BrowseScreen extends StatelessWidget {
             ]),
           ),
         ]),
+      );
+}
+
+/// «دائرة العصور»: the eras set around one big circle. The middle opens them all, each small circle opens its own era.
+class ErasWheel extends StatelessWidget {
+  const ErasWheel({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final have = <String>{
+      for (final p in Library.poems)
+        if (p.era.isNotEmpty) p.era,
+    };
+    final eras = [
+      for (final e in Library.eras)
+        if (have.contains(e)) e,
+    ];
+    if (eras.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 22, 16, 0),
+      child: Center(
+        child: LayoutBuilder(builder: (context, box) {
+          final size = math.min(box.maxWidth, 340.0);
+          final d = size * 0.2; // one era's circle
+          final r = (size - d) / 2; // where the eras sit
+          final mid = size * 0.36;
+          return SizedBox(
+            width: size,
+            height: size,
+            child: Stack(children: [
+              Positioned(
+                left: d / 2,
+                top: d / 2,
+                width: size - d,
+                height: size - d,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(shape: BoxShape.circle, color: C.card(context), border: Border.all(color: C.line(context), width: 1.5)),
+                ),
+              ),
+              Positioned(
+                left: (size - mid) / 2,
+                top: (size - mid) / 2,
+                width: mid,
+                height: mid,
+                child: _disc(
+                  context,
+                  fill: C.accent(context),
+                  edge: C.accent(context),
+                  onTap: () => push(context, Builder(builder: erasScreen)),
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    Text('العصور', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: C.card(context), height: 1.3)),
+                    Text('كلّها', style: TextStyle(fontSize: 13, color: C.card(context).withValues(alpha: 0.85), height: 1.3)),
+                  ]),
+                ),
+              ),
+              // From the top, turning to the left as Arabic reads: oldest era first.
+              for (var i = 0; i < eras.length; i++)
+                Positioned(
+                  left: size / 2 - r * math.sin(2 * math.pi * i / eras.length) - d / 2,
+                  top: size / 2 - r * math.cos(2 * math.pi * i / eras.length) - d / 2,
+                  width: d,
+                  height: d,
+                  child: _disc(
+                    context,
+                    fill: C.soft(context),
+                    edge: C.line(context),
+                    onTap: () => openList(context, 'العصر: ${eras[i]}', Library.ofEra(eras[i])),
+                    child: Text(
+                      eras[i].replaceFirst(' ', '\n'),
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: C.ink(context), height: 1.25),
+                    ),
+                  ),
+                ),
+            ]),
+          );
+        }),
+      ),
+    );
+  }
+
+  Widget _disc(BuildContext context, {required Color fill, required Color edge, required VoidCallback onTap, required Widget child}) => Material(
+        color: fill,
+        shape: CircleBorder(side: BorderSide(color: edge)),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(6),
+              child: FittedBox(fit: BoxFit.scaleDown, child: child),
+            ),
+          ),
+        ),
       );
 }
