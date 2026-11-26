@@ -159,6 +159,22 @@ android {''', 1)
     buildTypes {''', 1)
     g = g.replace('signingConfig = signingConfigs.getByName("debug")',
                   'signingConfig = if (keyProps.isNotEmpty()) signingConfigs.getByName("release") else signingConfigs.getByName("debug")', 1)
+# R8 keep rules: stop release shrinking from removing WorkManager's Room database class.
+pro = Path("android/app/proguard-rules.pro")
+pro.write_text("""-keep class androidx.work.** { *; }
+-keep class * extends androidx.room.RoomDatabase { *; }
+-keep class **_Impl { *; }
+-dontwarn androidx.work.**
+""", encoding="utf-8")
+if "proguard-rules.pro" not in g:
+    if "isMinifyEnabled" not in g:
+        g = re.sub(r"(buildTypes\s*\{\s*release\s*\{)",
+                   r'\1\n            isMinifyEnabled = true\n            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")',
+                   g, count=1)
+    else:
+        g = re.sub(r"(buildTypes\s*\{\s*release\s*\{)",
+                   r'\1\n            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")',
+                   g, count=1)
 kts.write_text(g, encoding="utf-8")
 print("build.gradle.kts patched")
 
