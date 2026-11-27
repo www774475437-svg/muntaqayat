@@ -469,6 +469,7 @@ class Cloud extends ChangeNotifier {
         shuruh: a['shuruh'] is String ? jsonDecode(a['shuruh'] as String) as Map<String, dynamic> : null,
         features: a['features'] is Map ? Map<String, dynamic>.from(a['features'] as Map) : null,
         diwan: a['diwan'] is String ? jsonDecode(a['diwan'] as String) as Map<String, dynamic> : null,
+        edits: a['edits'] is String ? jsonDecode(a['edits'] as String) as Map<String, dynamic> : null,
       );
     } catch (_) {}
   }
@@ -496,6 +497,7 @@ class Cloud extends ChangeNotifier {
         'payLink': s.payLink,
         'shuruh': jsonEncode(s.shuruh),
         'diwan': jsonEncode(s.diwan),
+        'edits': jsonEncode(s.edits),
         'features': s.features,
         'bannedDevices': bannedDevices,
         'mods': jsonEncode(mods),

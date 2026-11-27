@@ -18,6 +18,7 @@ import 'golden.dart' show reportDialog;
 import 'sharh.dart';
 import 'plus.dart';
 import 'lists.dart';
+import 'edit.dart';
 
 const siteUrl = 'https://muntaqayat.com/';
 
@@ -278,6 +279,12 @@ class _PoemScreenState extends State<PoemScreen> {
           onPressed: () => Store.i.toggleReviewed(p.id),
           icon: Icon(ok ? Icons.verified_rounded : Icons.check_rounded),
           label: Text(ok ? 'تمّ التحقق ✓ (اضغط للإلغاء)' : 'تمّ التحقق من هذا المقطع'),
+        ),
+        const SizedBox(height: 8),
+        OutlinedButton.icon(
+          onPressed: () => push(context, EditPieceScreen.poem(p)),
+          icon: const Icon(Icons.edit_rounded, size: 18),
+          label: Text(Store.i.edits.containsKey('p:${p.id}') ? 'تحرير (معدَّل)' : 'تحرير: النص والتشكيل واسم الشاعر'),
         ),
       ]),
     );

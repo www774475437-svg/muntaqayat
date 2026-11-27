@@ -7,6 +7,7 @@ import '../services/cloud.dart';
 import '../ui.dart';
 import '../services/likes.dart';
 import 'lists.dart';
+import 'edit.dart';
 import 'poem.dart' show copyVerses, formatVerses, siteUrl;
 
 /// Like with its count, copy and share under a cited verse, the same as on the poem's own page.
@@ -246,6 +247,12 @@ class _ScholarShawahidState extends State<ScholarShawahidScreen> {
                       label: const Text('إخفاء'),
                     ),
                   ),
+                if (Store.i.developer)
+                  IconButton(
+                    tooltip: 'تحرير',
+                    onPressed: () => push(context, EditPieceScreen.piece(x)),
+                    icon: const Icon(Icons.edit_rounded),
+                  ),
                 if (!x.draft)
                   IconButton(
                     tooltip: 'أعده إلى المسودة',
@@ -391,7 +398,9 @@ class ShahidPieceScreen extends StatelessWidget {
   final Shahid piece;
   const ShahidPieceScreen({super.key, required this.piece});
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => ListenableBuilder(listenable: Store.i, builder: (context, _) => _page(context));
+
+  Widget _page(BuildContext context) {
     final x = piece;
     final name = x.own ? x.scholar : (x.poet.isEmpty ? 'بلا نسبة' : x.poet);
     return Scaffold(
@@ -418,6 +427,15 @@ class ShahidPieceScreen extends StatelessWidget {
         if (x.edition.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 4), child: Text('الطبعة: ${x.edition}', style: TextStyle(fontSize: 13, color: C.muted(context)))),
         const SizedBox(height: 6),
         shahidActions(context, x),
+        if (Store.i.developer)
+          Padding(
+            padding: const EdgeInsets.only(top: 14),
+            child: OutlinedButton.icon(
+              onPressed: () => push(context, EditPieceScreen.piece(x)),
+              icon: const Icon(Icons.edit_rounded, size: 18),
+              label: Text(Store.i.edits.containsKey('s:${x.id}') ? 'تحرير (معدَّل)' : 'تحرير: النص والتشكيل واسم الشاعر'),
+            ),
+          ),
       ]),
     );
   }

@@ -12,11 +12,12 @@ class Poem {
   final int chapter;
   final int section;
   final int page;
-  final List<List<String>> lines;
+  // The text, the poet and what follows from him can be corrected by the developer («تحرير»).
+  List<List<String>> lines;
   final List<String> notes;
-  final String poet;
-  final String era;
-  final String death;
+  String poet;
+  String era;
+  String death;
   final String poetNote;
   final String rhyme;
   final List<String> flags;
@@ -181,14 +182,15 @@ class Matn {
 
 /// A verse a scholar quoted in one of his books («مما استشهد به العلماء»).
 class Shahid {
-  final String id, scholar, book, edition, vol, page, poet, by, url;
+  final String id, scholar, book, edition, vol, page, by, url;
+  String poet; // the developer can correct it («تحرير»)
 
   /// Set for a verse taken from a book of verses («نهاية الأرب»), not cited by a scholar.
   final String author, died, era;
 
   /// The scholar's own verse, found in his book: it stands under «من شعره», apart from what he cited.
   final bool own;
-  final List<List<String>> lines;
+  List<List<String>> lines;
 
   /// A poet's own diwan: its pieces carry a line above them (title, occasion, meter).
   final String note;
@@ -312,6 +314,7 @@ class Library {
 
   /// Re-applies the developer's hidden / deleted marks.
   static void refresh() {
+    _applyEdits();
     poems = all.where((p) => !p.allGone).toList();
     // What the developer showed from the citations and from «كتب الشعر», under a known name.
     // A piece whose verses already stand in the app («المكررة») is not repeated.
@@ -341,6 +344,45 @@ class Library {
         if (x.shown && x.dup.isEmpty && x.lines.isNotEmpty) Poem.ofShahid(x)
     ];
     wide = [...poems, ...shownPieces];
+  }
+
+  /// What each piece said before any correction, so a correction can be taken back.
+  static final Map<String, (String, List<List<String>>, String, String)> _orig = {};
+
+  /// Puts the developer's corrections (text, poet) on the selections and the pieces, in place,
+  /// so every page that holds one shows it corrected.
+  static void _applyEdits() {
+    final e = Store.i.edits;
+    if (e.isEmpty && _orig.isEmpty) return;
+    final known = {for (final p in poets) p.name: p};
+    List<List<String>> read(Object? v, List<List<String>> or) {
+      if (v is! List || v.isEmpty) return or;
+      return [
+        for (final l in v) [for (final h in (l as List)) '$h']
+      ];
+    }
+
+    for (final p in all) {
+      final k = 'p:${p.id}';
+      final x = e[k];
+      if (x == null && !_orig.containsKey(k)) continue;
+      final o = _orig[k] ??= (p.poet, p.lines, p.era, p.death);
+      final name = (x?['poet'] as String?)?.trim() ?? '';
+      p.lines = read(x?['lines'], o.$2);
+      p.poet = name.isEmpty ? o.$1 : name;
+      final moved = p.poet != o.$1 ? known[p.poet] : null;
+      p.era = moved?.era ?? o.$3;
+      p.death = moved?.death ?? o.$4;
+    }
+    for (final s in shawahid) {
+      final k = 's:${s.id}';
+      final x = e[k];
+      if (x == null && !_orig.containsKey(k)) continue;
+      final o = _orig[k] ??= (s.poet, s.lines, '', '');
+      final name = (x?['poet'] as String?)?.trim() ?? '';
+      s.lines = read(x?['lines'], o.$2);
+      s.poet = name.isEmpty ? o.$1 : name;
+    }
   }
 
   /// Poets who are not in the book and came in with a shown piece; and how many shown pieces stand under each name.
@@ -612,6 +654,29 @@ class Store extends ChangeNotifier {
   bool teacher = false; // «خانة المعلّم» turned on in settings
   List<String> students = []; // personal numbers the teacher added before
   Map<String, List<Map<String, String>>> shuruh = {}; // matn → [{title,url}] added by the developer
+  /// The developer's corrections: 'p:<selection number>' or 's:<piece id>' → {poet, lines}.
+  Map<String, Map<String, dynamic>> edits = {};
+
+  /// Saves a correction; with neither a poet nor lines, takes it back to what the source says.
+  void setEdit(String key, {String? poet, List<List<String>>? lines}) {
+    if (poet == null && lines == null) {
+      edits.remove(key);
+    } else {
+      edits[key] = {if (poet != null) 'poet': poet, if (lines != null) 'lines': lines};
+    }
+    _p.setString('edits', jsonEncode(edits));
+    Library.refresh();
+    notifyListeners();
+    cloudPush?.call();
+  }
+
+  void _readEdits(Map<String, dynamic> j) {
+    edits = {
+      for (final x in j.entries)
+        if (x.value is Map) x.key: Map<String, dynamic>.from(x.value as Map)
+    };
+  }
+
   /// «ديوان العلماء والصحابة»: the names the developer put in each part ('sahaba', 'ulama').
   /// Whatever is shown under such a name stands there by itself, as on the poet's own page.
   Map<String, List<String>> diwan = {'sahaba': [], 'ulama': []};
@@ -667,6 +732,7 @@ class Store extends ChangeNotifier {
       final b = jsonDecode(_p.getString('best') ?? '{}') as Map<String, dynamic>;
       best = b.map((k, v) => MapEntry(k, (v as num).toInt()));
       _readDiwan(jsonDecode(_p.getString('diwan') ?? '{}') as Map<String, dynamic>);
+      _readEdits(jsonDecode(_p.getString('edits') ?? '{}') as Map<String, dynamic>);
       final sh = jsonDecode(_p.getString('shuruh') ?? '{}') as Map<String, dynamic>;
       shuruh = sh.map((k, v) => MapEntry(k, [for (final x in v as List) Map<String, String>.from(x as Map)]));
     } catch (_) {}
@@ -912,13 +978,17 @@ class Store extends ChangeNotifier {
     notifyListeners();
   }
 
-  void applyCloud({List<String>? shShown, List<String>? shHidden, List<String>? verified, List<String>? hidden, List<String>? deleted, bool? plus, String? payLink, Map<String, dynamic>? shuruh, Map<String, dynamic>? features, Map<String, dynamic>? diwan}) {
+  void applyCloud({List<String>? shShown, List<String>? shHidden, List<String>? verified, List<String>? hidden, List<String>? deleted, bool? plus, String? payLink, Map<String, dynamic>? shuruh, Map<String, dynamic>? features, Map<String, dynamic>? diwan, Map<String, dynamic>? edits}) {
     if (features != null) {
       this.features = {
         for (final e in features.entries)
           if (e.value is bool) e.key: e.value as bool
       };
       _p.setString('features', jsonEncode(this.features));
+    }
+    if (edits != null) {
+      _readEdits(edits);
+      _p.setString('edits', jsonEncode(this.edits));
     }
     if (diwan != null) {
       _readDiwan(diwan);
