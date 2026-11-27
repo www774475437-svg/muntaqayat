@@ -18,6 +18,31 @@ class Notifs {
   static final fresh = ValueNotifier<int>(0);
   static int followers = 0, likes = 0;
   static List<Doc> posts = [], replies = [], tests = [];
+
+  /// The developer only: what readers wrote to him.
+  static List<Doc> inbox = [];
+  static int get inboxNew => [for (final m in inbox) if (_at(m['at']) > _seen('devmsg')) m].length;
+
+  /// Readers whose latest message has no reply yet.
+  static int get inboxWaiting {
+    final seen = <String>{};
+    var n = 0;
+    for (final m in inbox) {
+      if (seen.add('${m['uid']}') && '${m['reply'] ?? ''}'.isEmpty) n++;
+    }
+    return n;
+  }
+
+  /// He opened «من راسلني»: the bell stops counting what is there now.
+  static void inboxSeen() {
+    final id = Cloud.i.uid;
+    if (_p == null || id.isEmpty) return;
+    _p!.setInt('nf:devmsg:$id', DateTime.now().millisecondsSinceEpoch);
+    fresh.value = max(0, fresh.value - _inboxCounted);
+    _inboxCounted = 0;
+  }
+
+  static int _inboxCounted = 0;
   static bool loaded = false;
   static Future<void>? _job;
   static SharedPreferences? _p;
@@ -48,10 +73,12 @@ class Notifs {
     likes = posts.fold<int>(0, (s, q) => s + max(0, _at(q['likes'])));
     replies = [for (final m in r[2] as List<Doc>) if ('${m['reply'] ?? ''}'.isNotEmpty) m]..sort((a, b) => _at(b['replyAt']).compareTo(_at(a['replyAt'])));
     tests = r[3] as List<Doc>;
+    inbox = c.isDev ? [for (final m in await c.allMessages()) if ('${m['uid']}' != c.uid) m] : [];
+    _inboxCounted = inboxNew;
     loaded = true;
     _p!.setInt('nf:last', now);
     await Forum.i.peek();
-    fresh.value = newFollowers + newLikes + newReplies.length + newWarns.length + newTests + forumNew;
+    fresh.value = newFollowers + newLikes + newReplies.length + newWarns.length + newTests + forumNew + _inboxCounted;
   }
 
   /// Replies to me in the forum and private notes from its supervisors: these always reach the bell.
@@ -65,7 +92,7 @@ class Notifs {
     _p!.setInt('nf:likes:$id', likes);
     _p!.setInt('nf:tests:$id', tests.length);
     _p!.setInt('nf:at:$id', DateTime.now().millisecondsSinceEpoch);
-    fresh.value = 0;
+    fresh.value = _inboxCounted;
   }
 }
 
@@ -174,6 +201,8 @@ class _NotifsScreenState extends State<NotifsScreen> {
                     const SizedBox(width: 10),
                     Expanded(child: _count(context, Icons.thumb_up_alt_outlined, 'الإعجابات', Notifs.likes, nl, () => push(context, QuotesScreen(of: c.uid, title: 'اقتباساتي')))),
                   ]),
+                  const SizedBox(height: 10),
+                  _inboxRow(context),
                   const SectionTitle('الجديد'),
                   if (nothingNew) Padding(padding: const EdgeInsets.symmetric(vertical: 10), child: Text('لا جديد منذ آخر مرة.', style: TextStyle(color: C.muted(context), fontSize: 15))),
                   if (nf > 0) _line(context, Icons.person_add_alt_1_outlined, 'تابعك ${Ar.num(nf)} منذ آخر مرة', () => push(context, FollowListScreen(title: 'المتابِعون', load: () => c.followers(c.uid)))),
@@ -234,6 +263,46 @@ class _NotifsScreenState extends State<NotifsScreen> {
           ]),
         ]),
       );
+
+  /// The long row under the two numbers: the developer's inbox, or the reader's letters to him.
+  Widget _inboxRow(BuildContext context) {
+    final dev = Cloud.i.isDev;
+    final n = dev ? Notifs.inboxNew : nr.length;
+    final wait = dev ? Notifs.inboxWaiting : 0;
+    return SoftCard(
+      padding: const EdgeInsets.all(14),
+      onTap: () async {
+        if (dev) Notifs.inboxSeen();
+        await push(context, dev ? const DevMessagesScreen() : const MessageDevScreen());
+        if (!mounted) return;
+        if (dev) await Notifs.load(force: true);
+        if (mounted) setState(() {});
+      },
+      child: Row(children: [
+        Icon(Icons.mark_email_unread_outlined, size: 24, color: C.accent(context)),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(dev ? 'من راسلني' : 'مراسلة المطوّر', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: C.ink(context))),
+            Text(
+              dev
+                  ? (wait > 0 ? '${Ar.num(wait)} ينتظرون ردّك' : 'لا أحد ينتظر ردّك')
+                  : (n > 0 ? 'ردّ عليك المطوّر' : 'اكتب له، ويصلك ردّه هنا'),
+              style: TextStyle(fontSize: 13.5, color: C.muted(context)),
+            ),
+          ]),
+        ),
+        if (n > 0)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+            decoration: BoxDecoration(color: const Color(0xFFB3261E), borderRadius: BorderRadius.circular(12)),
+            child: Text(Ar.num(n), style: const TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.w700)),
+          ),
+        const SizedBox(width: 4),
+        Icon(Icons.chevron_left_rounded, color: C.muted(context)),
+      ]),
+    );
+  }
 
   Widget _line(BuildContext context, IconData icon, String text, VoidCallback? onTap) => Padding(
         padding: const EdgeInsets.only(bottom: 8),
