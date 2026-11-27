@@ -915,7 +915,9 @@ class _ForumScreenState extends State<ForumScreen> {
                             if (i == list.length) {
                               if (!f.hasOlder) return Padding(padding: const EdgeInsets.all(14), child: Center(child: Text('تُحفظ رسائل ثلاثين يوماً فقط.', style: TextStyle(fontSize: 12.5, color: C.muted(context)))));
                               return Center(
-                                child: TextButton(
+                                child: TextButton.icon(
+                                  style: TextButton.styleFrom(foregroundColor: const Color(0xFFC0392B), padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14)),
+                                  icon: const Icon(Icons.keyboard_arrow_up_rounded, size: 28),
                                   onPressed: loadingOlder
                                       ? null
                                       : () async {
@@ -923,7 +925,7 @@ class _ForumScreenState extends State<ForumScreen> {
                                           await f.loadOlder();
                                           if (mounted) setState(() => loadingOlder = false);
                                         },
-                                  child: Text(loadingOlder ? 'يحمّل…' : (list.isEmpty ? 'لا رسائل اليوم. اعرض الأقدم' : 'اعرض الأقدم')),
+                                  label: Text(loadingOlder ? 'يحمّل…' : (list.isEmpty ? 'لا رسائل اليوم. اعرض الأقدم' : 'اعرض الأقدم'), style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w700)),
                                 ),
                               );
                             }

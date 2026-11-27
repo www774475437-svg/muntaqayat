@@ -457,8 +457,11 @@ class GoldenVerseCard extends StatelessWidget {
   final Poem poem;
   final List<int> ans;
   final bool compact;
+
+  /// The home page's plate: the same plate, thinner, so it does not fill the screen.
+  final bool slim;
   final DateTime? date; // the day it was won; today when absent
-  const GoldenVerseCard({super.key, required this.poem, required this.ans, this.compact = false, this.date});
+  const GoldenVerseCard({super.key, required this.poem, required this.ans, this.compact = false, this.slim = false, this.date});
 
   static const _grounds = [
     [Color(0xFF0E1A2B), Color(0xFF1B2F4B)],
@@ -490,7 +493,7 @@ class GoldenVerseCard extends StatelessWidget {
     final halves = [for (final h in v) if (h.trim().isNotEmpty) _split(h)];
     final wordCount = halves.fold(0, (a, h) => a + h.length);
     final goldWords = total == 0 ? 0 : (all ? wordCount : (wordCount * right / total).floor());
-    final size = compact ? 17.0 : 24.0;
+    final size = compact ? 17.0 : (slim ? 21.0 : 24.0);
     final shader = LinearGradient(colors: golds, begin: Alignment.topCenter, end: Alignment.bottomCenter).createShader(Rect.fromLTWH(0, 0, 300, size * 2.2));
     var seen = 0;
     Widget half(List<String> words) {
@@ -502,11 +505,11 @@ class GoldenVerseCard extends StatelessWidget {
       }
       return FittedBox(
         fit: BoxFit.scaleDown,
-        child: Text.rich(TextSpan(children: spans), textDirection: TextDirection.rtl, style: TextStyle(fontFamily: font, fontSize: size, height: 1.9, fontWeight: FontWeight.w700)),
+        child: Text.rich(TextSpan(children: spans), textDirection: TextDirection.rtl, style: TextStyle(fontFamily: font, fontSize: size, height: slim ? 1.6 : 1.9, fontWeight: FontWeight.w700)),
       );
     }
 
-    final pad = compact ? 18.0 : 30.0;
+    final pad = compact ? 18.0 : (slim ? 16.0 : 30.0);
     return ClipRRect(
       borderRadius: BorderRadius.circular(compact ? 16 : 22),
       child: DecoratedBox(
@@ -517,11 +520,11 @@ class GoldenVerseCard extends StatelessWidget {
             padding: EdgeInsets.fromLTRB(pad, pad + 4, pad, pad),
             child: Column(mainAxisSize: MainAxisSize.min, children: [
               Text('بيت الذهب', style: TextStyle(fontSize: compact ? 11 : 13, letterSpacing: 0, color: (all ? golds[0] : _grey).withValues(alpha: 0.9))),
-              SizedBox(height: compact ? 6 : 12),
+              SizedBox(height: compact ? 6 : (slim ? 4 : 12)),
               for (final h in halves) half(h),
-              SizedBox(height: compact ? 6 : 12),
+              SizedBox(height: compact ? 6 : (slim ? 4 : 12)),
               if (!poem.unattributed) Text(poem.poet, style: TextStyle(fontSize: compact ? 11.5 : 14, color: Colors.white.withValues(alpha: 0.75))),
-              SizedBox(height: compact ? 8 : 14),
+              SizedBox(height: compact ? 8 : (slim ? 6 : 14)),
               Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                 for (final a in ans)
                   Padding(
@@ -532,9 +535,9 @@ class GoldenVerseCard extends StatelessWidget {
                     ),
                   ),
               ]),
-              SizedBox(height: compact ? 6 : 10),
+              SizedBox(height: compact ? 6 : (slim ? 4 : 10)),
               Text(all ? 'مكتمل' : '${Ar.num(right)} من ${Ar.num(total)}', style: TextStyle(fontSize: compact ? 11 : 13, fontWeight: FontWeight.w700, color: all ? golds[0] : _grey)),
-              SizedBox(height: compact ? 8 : 14),
+              SizedBox(height: compact ? 8 : (slim ? 6 : 14)),
               Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                 AppMark(size: compact ? 22 : 28, color: Colors.white.withValues(alpha: 0.7)),
                 const SizedBox(width: 8),
@@ -664,7 +667,8 @@ class GoldenPlate extends StatefulWidget {
   final List<int> ans;
   final DateTime? date;
   final VoidCallback? onTap;
-  const GoldenPlate({super.key, required this.poem, required this.ans, this.date, this.onTap});
+  final bool slim;
+  const GoldenPlate({super.key, required this.poem, required this.ans, this.date, this.onTap, this.slim = false});
   @override
   State<GoldenPlate> createState() => _GoldenPlateState();
 }
@@ -697,7 +701,7 @@ class _GoldenPlateState extends State<GoldenPlate> {
           child: Tooltip(message: tip, child: Padding(padding: const EdgeInsets.all(8), child: Icon(icon, size: 17, color: C.muted(context)))),
         );
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      InkWell(onTap: widget.onTap, child: RepaintBoundary(key: _key, child: GoldenVerseCard(poem: widget.poem, ans: widget.ans, date: widget.date))),
+      InkWell(onTap: widget.onTap, child: RepaintBoundary(key: _key, child: GoldenVerseCard(poem: widget.poem, ans: widget.ans, date: widget.date, slim: widget.slim))),
       Row(mainAxisAlignment: MainAxisAlignment.end, children: [
         mark(Icons.copy_rounded, 'نسخ', () {
           Clipboard.setData(ClipboardData(text: _text));

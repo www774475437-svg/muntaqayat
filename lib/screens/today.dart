@@ -93,7 +93,7 @@ class TodayScreen extends StatelessWidget {
         if (goldenDoneToday())
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: GoldenPlate(poem: day, ans: Golden.todayAnswers, onTap: () => openPoem(context, day)),
+            child: GoldenPlate(poem: day, ans: Golden.todayAnswers, slim: true, onTap: () => openPoem(context, day)),
           )
         else
           InkWell(
