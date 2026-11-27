@@ -567,7 +567,7 @@ class DeveloperHub extends StatelessWidget {
               SwitchListTile(contentPadding: EdgeInsets.zero, dense: true, value: Store.i.feature(k), onChanged: (v) => Store.i.setFeature(k, v), title: Text(t, style: const TextStyle(fontSize: 16)), subtitle: Text(sub)),
             const Divider(height: 28),
             Text('مجلس الشعر: شغّل وأوقف', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: C.accent(context))),
-            for (final (k, t) in const [('tasks', 'المهام اليومية'), ('duel', 'المبارزة'), ('friday', 'جولة الجمعة المضاعفة'), ('weekly', 'شاعر الأسبوع'), ('golden', 'بيت الذهب')])
+            for (final (k, t) in const [('tasks', 'المهام اليومية'), ('duel', 'المبارزات (مخفية حتى تشغّلها)'), ('train', 'التدريب (مخفي حتى تشغّله)'), ('friday', 'جولة الجمعة المضاعفة'), ('weekly', 'شاعر الأسبوع'), ('golden', 'بيت الذهب')])
               SwitchListTile(contentPadding: EdgeInsets.zero, dense: true, value: Store.i.feature(k), onChanged: (v) => Store.i.setFeature(k, v), title: Text(t, style: const TextStyle(fontSize: 16))),
             if (Vault.ready)
               SwitchListTile(

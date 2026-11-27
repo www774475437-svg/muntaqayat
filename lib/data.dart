@@ -603,7 +603,9 @@ class Store extends ChangeNotifier {
 
   /// Switches the developer sets for everyone (daily tasks, duel, Friday round, poet of the week…). On unless turned off.
   Map<String, bool> features = {};
-  bool feature(String k) => features[k] ?? true;
+  /// On unless the developer switched it off; «المبارزات» and «تدريب» are off until he switches them on.
+  static const _offAtFirst = {'duel', 'train'};
+  bool feature(String k) => features[k] ?? !_offAtFirst.contains(k);
   void setFeature(String k, bool v) {
     features[k] = v;
     _p.setString('features', jsonEncode(features));
