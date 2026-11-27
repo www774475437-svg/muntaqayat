@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
@@ -557,6 +559,17 @@ class DeveloperHub extends StatelessWidget {
                   ],
                 ),
               );
+            }),
+            _row(context, Icons.save_alt_rounded, 'نسخة احتياطية لتعديلاتي', 'ملف فيه كل ما حرّرته وأظهرته وأخفيته ووثّقته ورتّبته', () async {
+              final text = const JsonEncoder.withIndent(' ').convert(Store.i.devBackup());
+              final day = DateTime.now().toIso8601String().substring(0, 10);
+              try {
+                await Share.shareXFiles([XFile.fromData(Uint8List.fromList(utf8.encode(text)), mimeType: 'application/json', name: 'muntaqayat-backup-$day.json')], text: 'نسخة احتياطية — منتقيات الشعر $day');
+              } catch (_) {
+                // Where files cannot be shared (some browsers), the text itself is copied.
+                await Clipboard.setData(ClipboardData(text: text));
+                if (context.mounted) toast(context, 'نُسخت النسخة الاحتياطية نصاً: الصقها في ملاحظة أو رسالة لنفسك');
+              }
             }),
             const Divider(height: 28),
             Text('النشر في «قوافي»: شغّل وأوقف', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: C.accent(context))),

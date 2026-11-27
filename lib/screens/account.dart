@@ -77,7 +77,7 @@ class AccountScreen extends StatelessWidget {
             _tile(context, Icons.workspace_premium_outlined, 'منتقيات+', 'الشروح والكتاب باسمك',
                 () => Navigator.of(context).push(MaterialPageRoute(fullscreenDialog: true, builder: (_) => const PlusScreen()))),
           _tile(context, Icons.lightbulb_outline_rounded, 'اقترح بيتاً أو قصيدة', '', () => suggest(context, 'اقتراح بيت أو قصيدة:\n')),
-          _tile(context, Icons.mark_email_unread_outlined, 'راسل المطوّر', 'رسالة في اليوم، وعشرون للمشتركين', () => push(context, const MessageDevScreen())),
+          _tile(context, Icons.mark_email_unread_outlined, 'راسل المطوّر', s.plusVisible ? 'رسالة في اليوم، وعشرون للمشتركين' : '', () => push(context, const MessageDevScreen())),
           // Moderators the developer added: their own way into the pages they were given.
           if (!Cloud.i.isDev && (Cloud.i.can('حظر') || Cloud.i.can('بلاغات')))
             _tile(context, Icons.flag_outlined, 'البلاغات', 'ما بلّغ عنه القرّاء', () => push(context, const DevReportsScreen())),
@@ -142,7 +142,7 @@ class CollectionsScreen extends StatelessWidget {
                 final n = await askName(context, 'مجموعة جديدة', 'مثلاً: للحفظ');
                 if (n == null) return;
                 if (!Store.i.canCreateCollection) {
-                  if (context.mounted) toast(context, 'المجاني مجموعتان، وفي كل واحدة ٦٠٠ مقطع. المشترك بلا حد.');
+                  if (context.mounted) toast(context, Store.i.plusVisible ? 'المجاني مجموعتان، وفي كل واحدة ٦٠٠ مقطع. المشترك بلا حد.' : 'الحد مجموعتان، وفي كل واحدة ٦٠٠ مقطع.');
                   return;
                 }
                 Store.i.createCollection(n);
@@ -253,10 +253,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 selected: {s.themeMode},
                 onSelectionChanged: (v) => s.setTheme(v.first),
               ),
+              // With the subscription hidden, a reader who is not a subscriber sees no locked colours at all.
+              if (s.plusVisible) ...[
               const SizedBox(height: 22),
               Text('لون التطبيق', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: C.ink(context))),
-              const SizedBox(height: 4),
-              Text('الألوان الأخرى لمشتركي «بلس»', style: TextStyle(fontSize: 13, color: C.muted(context))),
+              if (!Store.plusUser) ...[
+                const SizedBox(height: 4),
+                Text('الألوان الأخرى لمشتركي «بلس»', style: TextStyle(fontSize: 13, color: C.muted(context))),
+              ],
               const SizedBox(height: 10),
               Wrap(spacing: 10, runSpacing: 10, children: [
                 for (final p in Palette.all)
@@ -294,6 +298,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   ),
               ]),
+              ],
               const SizedBox(height: 22),
               Text('حجم خط الأبيات', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: C.ink(context))),
               Slider(value: s.fontScale, min: 0.8, max: 1.5, divisions: 7, onChanged: s.setFontScale),
@@ -396,7 +401,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 subtitle: const Text('أبو عبد الرحمن أحمد الأثري'),
                 onTap: () => launchUrl(Uri.parse('https://t.me/alhsaar4'), mode: LaunchMode.externalApplication),
               ),
-              ListTile(
+              if (s.plusVisible) ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.lightbulb_rounded),
                 title: const Text('إزالة الإضافات'),

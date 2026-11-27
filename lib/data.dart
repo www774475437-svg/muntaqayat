@@ -615,10 +615,51 @@ class Store extends ChangeNotifier {
 
   /// Set by the cloud service: a subscriber has no limit on collections.
   static bool plusUser = false;
+
+  /// Whether anything about the subscription may be shown to this reader: the developer's
+  /// switch is on, or he is a subscriber already. Off means no locks, no «للمشتركين» anywhere.
+  bool get plusVisible => plusOn || plusUser;
+
+  /// «مسودّاتي»: the reader's own poems kept on the phone before he publishes them.
+  List<Map<String, dynamic>> drafts = [];
+  void _readDrafts() {
+    try {
+      drafts = [for (final x in jsonDecode(_p.getString('drafts') ?? '[]') as List) Map<String, dynamic>.from(x as Map)];
+    } catch (_) {}
+  }
+
+  /// Saves a draft; [at] is the one being edited (its time is its name), or null for a new one.
+  int saveDraft(Map<String, dynamic> d, {int? at}) {
+    final id = at ?? DateTime.now().millisecondsSinceEpoch;
+    drafts.removeWhere((x) => x['at'] == id);
+    drafts.insert(0, {...d, 'at': id});
+    if (drafts.length > 40) drafts = drafts.sublist(0, 40);
+    _p.setString('drafts', jsonEncode(drafts));
+    notifyListeners();
+    cloudPush?.call();
+    return id;
+  }
+
+  void deleteDraft(int at) {
+    drafts.removeWhere((x) => x['at'] == at);
+    _p.setString('drafts', jsonEncode(drafts));
+    notifyListeners();
+    cloudPush?.call();
+  }
+
+  /// The developer's own work on this device, for a file he keeps: what he edited, showed, hid,
+  /// verified, deleted and arranged.
+  static const _devKeys = ['edits', 'diwan', 'browse', 'features', 'shuruh', 'hidden', 'deleted', 'verified', 'shShown', 'shHidden', 'modHidden', 'reviewed', 'payLink', 'plusShow'];
+  Map<String, dynamic> devBackup() => {
+        'app': 'muntaqayat',
+        'at': DateTime.now().toIso8601String(),
+        for (final k in _devKeys)
+          if (_p.get(k) != null) k: _p.get(k)
+      };
   static const freeCollections = 2, freeCollectionSize = 600;
 
   /// What follows the account from one phone to another.
-  static const _backupKeys = ['likes', 'followed', 'collections', 'memorized', 'memLog', 'reviewed', 'myNotes', 'majlis', 'seen', 'days', 'reads', 'best', 'certName', 'students', 'studentNames', 'testLog'];
+  static const _backupKeys = ['likes', 'followed', 'collections', 'memorized', 'memLog', 'reviewed', 'myNotes', 'majlis', 'seen', 'days', 'reads', 'best', 'certName', 'students', 'studentNames', 'testLog', 'drafts'];
   Map<String, dynamic> exportAll() => {
         for (final k in _backupKeys)
           if (_p.get(k) != null) k: _p.get(k)
@@ -754,6 +795,7 @@ class Store extends ChangeNotifier {
       testLog = [for (final x in jsonDecode(_p.getString('testLog') ?? '[]') as List) Map<String, dynamic>.from(x as Map)];
     } catch (_) {}
     certName = _p.getString('certName') ?? '';
+    _readDrafts();
     repeat = _p.getInt('repeat') ?? 3;
     plusOn = _p.getBool('plusShow') ?? false;
     payLink = _p.getString('payLink') ?? '';

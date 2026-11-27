@@ -460,6 +460,10 @@ class _QawafiScreenState extends State<QawafiScreen> {
             const SizedBox(height: 16),
             _choice(c, Icons.edit_note_rounded, 'من شعري', 'قصيدة أو أبيات كتبتها أنت (قصيدتان في اليوم)', () => Navigator.pop(c, 0)),
             const SizedBox(height: 10),
+            if (Store.i.feature('pubOwn')) ...[
+              _choice(c, Icons.inventory_2_outlined, 'مسودّاتي', Store.i.drafts.isEmpty ? 'ما كتبته وحفظته قبل نشره' : '${Ar.num(Store.i.drafts.length)} محفوظة عندك', () => Navigator.pop(c, 2)),
+              const SizedBox(height: 10),
+            ],
             _choice(c, Icons.format_quote_rounded, 'اقتباس من المنتقيات', 'بيت من شعر التطبيق يظهر في صفحتك (عشرة في اليوم)', () => Navigator.pop(c, 1)),
           ]),
         ),
@@ -471,7 +475,7 @@ class _QawafiScreenState extends State<QawafiScreen> {
       return;
     }
     if (!await needAccount(context, 'تنشر شعرك واقتباساتك فتظهر في صفحتك وفي «قوافي».') || !mounted) return;
-    await push2(context, r == 0 ? const PublishOwnScreen() : const QuotePickerScreen());
+    await push2(context, r == 0 ? const PublishOwnScreen() : (r == 2 ? const DraftsScreen() : const QuotePickerScreen()));
     if (!mounted) return;
     posts = await Cloud.i.wall();
     if (mounted) setState(_rebuild);
@@ -1112,9 +1116,78 @@ class OwnPoemScreen extends StatelessWidget {
 // ------------------------------------------------------------ publishing one's own poetry
 
 class PublishOwnScreen extends StatefulWidget {
-  const PublishOwnScreen({super.key});
+  /// A draft from «مسودّاتي» to go on with, or null for a new poem.
+  final Map<String, dynamic>? draft;
+  const PublishOwnScreen({super.key, this.draft});
   @override
   State<PublishOwnScreen> createState() => _PublishOwnScreenState();
+}
+
+/// «مسودّاتي»: what the reader wrote and kept. It follows the developer's switch for
+/// members publishing their own poetry: with that off, nobody reaches this page.
+class DraftsScreen extends StatelessWidget {
+  const DraftsScreen({super.key});
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+        listenable: Store.i,
+        builder: (context, _) {
+          final d = Store.i.drafts;
+          return Scaffold(
+            appBar: AppBar(title: const Text('مسودّاتي')),
+            floatingActionButton: FloatingActionButton.extended(
+              onPressed: () => push2(context, const PublishOwnScreen()),
+              icon: const Icon(Icons.edit_note_rounded),
+              label: const Text('قصيدة جديدة'),
+            ),
+            body: d.isEmpty
+                ? const EmptyNote(Icons.edit_note_rounded, 'لا مسودّات بعد. اكتب قصيدتك واضغط «احفظ مسودّة»، ثم انشرها متى شئت.')
+                : ListView(padding: const EdgeInsets.fromLTRB(16, 0, 16, 110), children: [
+                    Text('محفوظة عندك، لا يراها أحد حتى تنشرها.', style: TextStyle(color: C.muted(context))),
+                    const SizedBox(height: 8),
+                    for (final x in d)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: SoftCard(
+                          padding: const EdgeInsets.fromLTRB(16, 12, 6, 12),
+                          onTap: () => push2(context, PublishOwnScreen(draft: x)),
+                          child: Row(children: [
+                            Expanded(
+                              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                if ('${x['title'] ?? ''}'.isNotEmpty) Text('${x['title']}', style: TextStyle(fontFamily: verseFont, fontSize: 20, fontWeight: FontWeight.w700, color: C.ink(context))),
+                                Text(_first(x), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontFamily: verseFont, fontSize: 18, height: 1.7, color: C.ink(context))),
+                                Text('${Ar.verses((x['lines'] as List? ?? []).length)}  ·  ${ago(x['at'])}', style: TextStyle(fontSize: 13, color: C.muted(context))),
+                              ]),
+                            ),
+                            IconButton(
+                              tooltip: 'احذف المسودّة',
+                              icon: Icon(Icons.delete_outline_rounded, color: C.muted(context)),
+                              onPressed: () async {
+                                final ok = await showDialog<bool>(
+                                  context: context,
+                                  builder: (c) => AlertDialog(
+                                    title: const Text('حذف المسودّة؟'),
+                                    actions: [
+                                      TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('إلغاء')),
+                                      FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('حذف')),
+                                    ],
+                                  ),
+                                );
+                                if (ok == true) Store.i.deleteDraft(_n(x['at']));
+                              },
+                            ),
+                          ]),
+                        ),
+                      ),
+                  ]),
+          );
+        },
+      );
+
+  static String _first(Map<String, dynamic> x) {
+    final l = x['lines'] as List? ?? [];
+    if (l.isEmpty || l.first is! List || (l.first as List).isEmpty) return '(بلا أبيات)';
+    return '${(l.first as List).first}';
+  }
 }
 
 class _PublishOwnScreenState extends State<PublishOwnScreen> {
@@ -1124,6 +1197,46 @@ class _PublishOwnScreenState extends State<PublishOwnScreen> {
   String purpose = '';
   bool pledge = false;
   bool busy = false;
+  int? draftAt;
+
+  @override
+  void initState() {
+    super.initState();
+    final d = widget.draft;
+    if (d == null) return;
+    draftAt = d['at'] is num ? (d['at'] as num).toInt() : null;
+    title.text = '${d['title'] ?? ''}';
+    meter = '${d['meter'] ?? ''}';
+    purpose = '${d['purpose'] ?? ''}';
+    final l = d['lines'] as List? ?? [];
+    if (l.isNotEmpty) {
+      for (final r in rows) {
+        r.$1.dispose();
+        r.$2.dispose();
+      }
+      rows
+        ..clear()
+        ..addAll([
+          for (final x in l)
+            if (x is List) (TextEditingController(text: x.isNotEmpty ? '${x[0]}' : ''), TextEditingController(text: x.length > 1 ? '${x[1]}' : ''))
+        ]);
+      if (rows.isEmpty) rows.add((TextEditingController(), TextEditingController()));
+    }
+  }
+
+  /// Keeps what is written so far, complete or not, on the phone.
+  void _saveDraft() {
+    final lines = [
+      for (final r in rows)
+        if (r.$1.text.trim().isNotEmpty || r.$2.text.trim().isNotEmpty) [r.$1.text.trim(), r.$2.text.trim()]
+    ];
+    if (lines.isEmpty && title.text.trim().isEmpty) {
+      toast(context, 'اكتب شيئاً أولاً.');
+      return;
+    }
+    draftAt = Store.i.saveDraft({'title': title.text.trim(), 'lines': lines, 'meter': meter, 'purpose': purpose}, at: draftAt);
+    toast(context, 'حُفظت في «مسودّاتي»');
+  }
 
   @override
   void dispose() {
@@ -1157,14 +1270,19 @@ class _PublishOwnScreenState extends State<PublishOwnScreen> {
     if (!mounted) return;
     setState(() => busy = false);
     toast(context, r ?? 'نُشرت قصيدتك');
-    if (r == null) Navigator.pop(context);
+    if (r == null) {
+      if (draftAt != null) Store.i.deleteDraft(draftAt!);
+      Navigator.pop(context);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final left = Cloud.i.ownLeft;
     return Scaffold(
-      appBar: AppBar(title: const Text('انشر من شعرك')),
+      appBar: AppBar(title: const Text('انشر من شعرك'), actions: [
+        TextButton.icon(onPressed: _saveDraft, icon: const Icon(Icons.save_outlined, size: 20), label: const Text('احفظ مسودّة')),
+      ]),
       body: ListView(padding: const EdgeInsets.fromLTRB(18, 4, 18, 120), children: [
         Text('شعر فقط، كتبته أنت. بقي لك اليوم ${Ar.num(left < 0 ? 0 : left)} من ${Cloud.i.ownMax == 2 ? 'قصيدتين' : '${Ar.num(Cloud.i.ownMax > 9 ? 9 : Cloud.i.ownMax)} قصائد'}.', style: TextStyle(color: C.muted(context), height: 1.6)),
         const SizedBox(height: 14),
@@ -1234,6 +1352,13 @@ class _PublishOwnScreenState extends State<PublishOwnScreen> {
           onPressed: busy ? null : _send,
           icon: const Icon(Icons.send_rounded),
           label: Text(busy ? 'جارٍ النشر…' : 'انشر', style: const TextStyle(fontSize: 17)),
+        ),
+        const SizedBox(height: 8),
+        OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
+          onPressed: _saveDraft,
+          icon: const Icon(Icons.save_outlined),
+          label: const Text('احفظ مسودّة وانشرها لاحقاً', style: TextStyle(fontSize: 16)),
         ),
       ]),
     );

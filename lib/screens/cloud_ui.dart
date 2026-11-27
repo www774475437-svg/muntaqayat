@@ -15,7 +15,7 @@ import 'majlis.dart';
 import 'majlis_plus.dart';
 import 'mutun.dart';
 import 'poem.dart';
-import 'qawafi.dart' show titlePresets, MemberScreen;
+import 'qawafi.dart' show titlePresets, MemberScreen, DraftsScreen;
 import 'sharh.dart';
 
 // Screens that talk to the server: accounts, quotes, tests by number,
@@ -155,6 +155,7 @@ class MyAchievements extends StatelessWidget {
       const SizedBox(height: 10),
       const GoldenSummary(),
       const SizedBox(height: 10),
+      _row(context, Icons.map_outlined, 'خريطة قراءتي', 'قرأت ${Ar.num(ReadingMapScreen.percent())}٪ من الكتاب', () => push(context, const ReadingMapScreen())),
       _row(context, Icons.bookmark_border_rounded, 'المحفوظات', 'حفظت ${Ar.verses(memo)}', () => push(context, const MutunScreen())),
       _row(context, Icons.people_outline_rounded, 'شعرائي', '${Ar.num(s.followed.length)} من الشعراء تتابعهم', () => push(context, const MyPoetsScreen())),
       if (c.hasTitle('الشارح')) _row(context, Icons.menu_book_rounded, 'شروحي', 'ما شرحته من الأبيات', () => push(context, SharhListScreen(uid: c.uid, name: c.name))),
@@ -165,6 +166,73 @@ class MyAchievements extends StatelessWidget {
           child: Text('سجّلت ${ago(joined)}. تُحدَّث الأرقام على الخادم مرة في اليوم.', textAlign: TextAlign.center, style: TextStyle(color: C.muted(context), fontSize: 13.5)),
         ),
     ]);
+  }
+}
+
+/// «خريطة قراءتي»: how much of every chapter of the book the reader has opened.
+class ReadingMapScreen extends StatelessWidget {
+  const ReadingMapScreen({super.key});
+
+  static int percent() {
+    final all = Library.poems.length;
+    if (all == 0) return 0;
+    return Library.poems.where((p) => (Store.i.reads[p.id] ?? 0) > 0).length * 100 ~/ all;
+  }
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+        listenable: Store.i,
+        builder: (context, _) {
+          final r = Store.i.reads;
+          final all = Library.poems.length;
+          final done = Library.poems.where((p) => (r[p.id] ?? 0) > 0).length;
+          final bySection = <int, List<Chapter>>{};
+          for (final c in Library.chapters) {
+            bySection.putIfAbsent(c.section, () => []).add(c);
+          }
+          return Scaffold(
+            appBar: AppBar(title: const Text('خريطة قراءتي')),
+            body: ListView(padding: const EdgeInsets.fromLTRB(16, 0, 16, 40), children: [
+              SoftCard(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  Text('قرأت ${Ar.num(done)} من ${Ar.num(all)} مقطعاً', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: C.ink(context))),
+                  const SizedBox(height: 10),
+                  LinearProgressIndicator(value: all == 0 ? 0 : done / all, minHeight: 10, borderRadius: BorderRadius.circular(6)),
+                  const SizedBox(height: 6),
+                  Text('${Ar.num(all == 0 ? 0 : done * 100 ~/ all)}٪ من «${Library.book}». يُحسب المقطع مقروءاً إذا فتحته.', style: TextStyle(fontSize: 13.5, color: C.muted(context))),
+                ]),
+              ),
+              for (final e in bySection.entries) ...[
+                if (e.key >= 0 && e.key < Library.sections.length) _section(context, Library.sections[e.key]),
+                for (final c in e.value) _chapter(context, c, r),
+              ],
+            ]),
+          );
+        },
+      );
+
+  Widget _chapter(BuildContext context, Chapter c, Map<int, int> r) {
+    final list = Library.ofChapter(c.index);
+    if (list.isEmpty) return const SizedBox.shrink();
+    final done = list.where((p) => (r[p.id] ?? 0) > 0).length;
+    final full = done == list.length;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: SoftCard(
+        padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
+        onTap: () => openList(context, c.name, list),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Row(children: [
+            Expanded(child: Text(c.name, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: C.ink(context)))),
+            if (full) const Icon(Icons.check_circle_rounded, size: 18, color: bookGreen),
+            const SizedBox(width: 6),
+            Text('${Ar.num(done)} / ${Ar.num(list.length)}', style: TextStyle(fontSize: 13.5, color: C.muted(context))),
+          ]),
+          const SizedBox(height: 8),
+          LinearProgressIndicator(value: done / list.length, minHeight: 6, borderRadius: BorderRadius.circular(4), color: full ? bookGreen : null),
+        ]),
+      ),
+    );
   }
 }
 
@@ -189,6 +257,7 @@ class MyAccount extends StatelessWidget {
         const SizedBox(height: 10),
       ],
       _row(context, Icons.people_outline_rounded, 'من أتابعهم', 'ابحث عن أي شخص برقمه الشخصي', () => push(context, const FollowingScreen())),
+      if (Store.i.feature('pubOwn')) _row(context, Icons.inventory_2_outlined, 'مسودّاتي', 'شعرك المحفوظ عندك قبل نشره', () => push(context, const DraftsScreen())),
       if (Vault.backgrounds) _row(context, Icons.wallpaper_rounded, 'خلفية صفحتي', 'تظهر أعلى صفحتك لكل من يزورها', () => push(context, const MyBackgroundScreen())),
       _row(context, Icons.mark_email_unread_outlined, 'راسل المطوّر', '', () => push(context, const MessageDevScreen())),
       Wrap(spacing: 6, runSpacing: 6, children: [
