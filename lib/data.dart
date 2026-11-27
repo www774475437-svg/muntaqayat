@@ -37,7 +37,7 @@ class Poem {
   /// A piece the developer showed from the citations or from a book of verses, as a selection,
   /// so it stands in its era, its rhyme and the search beside the selections of the book.
   factory Poem.ofShahid(Shahid x) {
-    final name = x.own ? x.scholar : x.poet;
+    final name = x.own ? x.scholar : (x.poet.isEmpty ? 'بلا نسبة' : x.poet);
     final poet = Library.poetByName[name];
     return Poem.fromJson({
       'id': Library.shahidNumber(x.id),
@@ -315,12 +315,43 @@ class Library {
     poems = all.where((p) => !p.allGone).toList();
     // What the developer showed from the citations and from «كتب الشعر», under a known name.
     // A piece whose verses already stand in the app («المكررة») is not repeated.
+    // A poet known only from what was shown (not one of the book's poets) gets his place among
+    // the poets, with the era and the year his source gives.
+    final base = <String>{for (final p in poets) p.name};
+    final added = <String, Poet>{};
+    shownCount.clear();
+    for (final x in shawahid) {
+      if (!x.shown || x.dup.isNotEmpty) continue;
+      final name = x.own ? x.scholar : x.poet;
+      if (name.isEmpty) continue;
+      shownCount[name] = (shownCount[name] ?? 0) + 1;
+      if (x.own || base.contains(name)) continue;
+      final old = added[name];
+      if (old == null || (old.era.isEmpty && x.era.isNotEmpty)) {
+        added[name] = Poet.fromJson({'name': name, 'era': x.era.isNotEmpty ? x.era : (old?.era ?? ''), 'death': x.died.isNotEmpty ? x.died : (old?.death ?? ''), 'count': 0});
+      }
+    }
+    shownPoets = added.values.toList();
+    poetByName
+      ..clear()
+      ..addEntries(poets.map((p) => MapEntry(p.name, p)))
+      ..addEntries(shownPoets.map((p) => MapEntry(p.name, p)));
     shownPieces = [
       for (final x in shawahid)
-        if (x.shown && x.dup.isEmpty && (x.own || x.poet.isNotEmpty)) Poem.ofShahid(x)
+        if (x.shown && x.dup.isEmpty && x.lines.isNotEmpty) Poem.ofShahid(x)
     ];
     wide = [...poems, ...shownPieces];
   }
+
+  /// Poets who are not in the book and came in with a shown piece; and how many shown pieces stand under each name.
+  static List<Poet> shownPoets = [];
+  static final Map<String, int> shownCount = {};
+
+  /// Every selection a reader finds under this name: the book's and the shown pieces.
+  static int countOf(Poet p) => p.count + (shownCount[p.name] ?? 0);
+
+  /// Selections whose era is not known (with the unattributed ones).
+  static List<Poem> get noEra => wide.where((p) => p.era.isEmpty).toList();
 
   /// The shown pieces as selections, and the selections of the book with them: the eras,
   /// the rhymes and the search read [wide]; the chapters, the review and the games keep to [poems].
@@ -403,11 +434,10 @@ class Library {
   /// Named poets only (without «بلا نسبة»), most selections first.
   /// A poet known only from a diwan in «كتب الشعر» appears once one of his pieces is shown.
   static List<Poet> get namedPoets {
-    final shownOf = <String>{
-      for (final x in shawahid)
-        if (x.poet.isNotEmpty && x.shown) x.poet
-    };
-    return poets.where((p) => p.name != 'بلا نسبة' && (p.count > 0 || shownOf.contains(p.name))).toList();
+    return [
+      ...poets.where((p) => p.name != 'بلا نسبة' && (p.count > 0 || shownCount.containsKey(p.name))),
+      ...shownPoets,
+    ];
   }
 
   static int _dayIndex([DateTime? d]) {

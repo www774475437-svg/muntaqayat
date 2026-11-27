@@ -289,7 +289,8 @@ class _ErasWheelState extends State<ErasWheel> with SingleTickerProviderStateMix
     if (eras.isEmpty) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 22, 16, 0),
-      child: Center(
+      child: Column(children: [
+        Center(
         child: LayoutBuilder(builder: (context, box) {
           final size = math.min(box.maxWidth, 340.0);
           final d = size * 0.2; // one era's circle
@@ -355,7 +356,29 @@ class _ErasWheelState extends State<ErasWheel> with SingleTickerProviderStateMix
             ]),
           );
         }),
-      ),
+        ),
+        // Under the wheel, in a shade of its own: what has no known era.
+        if (Library.wide.any((p) => p.era.isEmpty))
+          Padding(
+            padding: const EdgeInsets.only(top: 14),
+            child: Material(
+              color: const Color(0xFF2F8F5B).withValues(alpha: 0.12),
+              shape: StadiumBorder(side: BorderSide(color: const Color(0xFF2F8F5B).withValues(alpha: 0.45))),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: () => openList(context, 'لا يُعرف عصره', Library.noEra),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 11),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    const Icon(Icons.help_outline_rounded, size: 19, color: Color(0xFF2F6B4F)),
+                    const SizedBox(width: 8),
+                    Text('لا يُعرف عصره', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: C.ink(context))),
+                  ]),
+                ),
+              ),
+            ),
+          ),
+      ]),
     );
   }
 

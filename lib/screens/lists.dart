@@ -243,13 +243,15 @@ Widget erasScreen(BuildContext context) {
     for (final e in Library.eras)
       if ((counts[e] ?? 0) > 0) (e == 'صدر الإسلام' ? 'عصر صدر الإسلام' : 'العصر ال${e == 'حديث' ? 'حديث' : e}', counts[e]!, () => openList(context, 'العصر: $e', Library.ofEra(e))),
   ];
+  final unknown = Library.noEra;
+  if (unknown.isNotEmpty) rows.add(('لا يُعرف عصره', unknown.length, () => openList(context, 'لا يُعرف عصره', Library.noEra)));
   return CountList(title: 'العصور', intro: 'من العصر الجاهلي إلى العصر الحديث، مرتّبة على التاريخ.', rows: rows);
 }
 
 Widget poetsScreen(BuildContext context) {
   final rows = [
-    for (final p in Library.namedPoets) (p.name, p.count, () => openPoet(context, p.name)),
-  ];
+    for (final p in Library.namedPoets) (p.name, Library.countOf(p), () => openPoet(context, p.name)),
+  ]..sort((a, b) => b.$2.compareTo(a.$2));
   final un = Library.poetByName['بلا نسبة'];
   if (un != null) rows.add(('أبيات بلا نسبة', un.count, () => openPoet(context, 'بلا نسبة')));
   return CountList(title: 'الشعراء', intro: 'مرتّبون على عدد مختاراتهم في الكتاب.', rows: rows, searchable: true);
