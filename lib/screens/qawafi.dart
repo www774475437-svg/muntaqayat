@@ -1255,7 +1255,7 @@ class _MemberScreenState extends State<MemberScreen> {
   Doc? user;
   List<Doc> posts = [];
   bool loading = true;
-  int tab = 0; // 0 his poetry, 1 his quotes
+  int tab = 0; // 0 his poetry, 1 his quotes; on one's own page also 2 achievements, 3 account
   int sort = 0; // 0 newest, 1 most liked
   Future<int>? followers;
   int followersN = 0;
@@ -1320,28 +1320,44 @@ class _MemberScreenState extends State<MemberScreen> {
                     _favVerse(context),
                     _fingerprint(context, own, quotes),
                     const SizedBox(height: 10),
-                    Row(children: [
-                      _tabBtn(context, 'ديوانه ${Ar.num(own.length)}', 0),
-                      const SizedBox(width: 8),
-                      _tabBtn(context, 'اقتباساته ${Ar.num(quotes.length)}', 1),
-                      const Spacer(),
-                      PopupMenuButton<int>(
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(children: [
+                        _tabBtn(context, '${mine ? 'ديواني' : 'ديوانه'} ${Ar.num(own.length)}', 0),
+                        const SizedBox(width: 8),
+                        _tabBtn(context, '${mine ? 'اقتباساتي' : 'اقتباساته'} ${Ar.num(quotes.length)}', 1),
+                        if (mine) ...[
+                          const SizedBox(width: 8),
+                          _tabBtn(context, 'إنجازاتي', 2),
+                          const SizedBox(width: 8),
+                          _tabBtn(context, 'حسابي', 3),
+                        ],
+                      ]),
+                    ),
+                    if (tab < 2) Align(
+                      alignment: AlignmentDirectional.centerEnd,
+                      child: PopupMenuButton<int>(
                         tooltip: 'الترتيب',
                         initialValue: sort,
                         onSelected: (v) => setState(() => sort = v),
                         itemBuilder: (_) => const [PopupMenuItem(value: 0, child: Text('الأحدث')), PopupMenuItem(value: 1, child: Text('الأكثر إعجاباً'))],
                         child: Padding(
                           padding: const EdgeInsets.all(8),
-                          child: Row(children: [
+                          child: Row(mainAxisSize: MainAxisSize.min, children: [
                             Icon(Icons.sort_rounded, color: C.muted(context)),
                             const SizedBox(width: 4),
                             Text(sort == 0 ? 'الأحدث' : 'الأكثر إعجاباً', style: TextStyle(color: C.muted(context))),
                           ]),
                         ),
                       ),
-                    ]),
+                    ),
                     const SizedBox(height: 8),
-                    ..._list(context, tab == 0 ? own : quotes),
+                    if (mine && tab == 2)
+                      const MyAchievements()
+                    else if (mine && tab == 3)
+                      const MyAccount()
+                    else
+                      ..._list(context, tab == 0 ? own : quotes),
                     if (!c.signedIn) ...[
                       const SizedBox(height: 16),
                       Text('ادخل بحسابك لترى المتابِعين وتفاصيل الصفحة كاملة.', textAlign: TextAlign.center, style: TextStyle(color: C.muted(context))),
@@ -1736,10 +1752,10 @@ class _MemberScreenState extends State<MemberScreen> {
           if (mine)
             ListTile(
               leading: const Icon(Icons.manage_accounts_outlined),
-              title: const Text('حسابي وأرقامي'),
+              title: const Text('حسابي وتسجيل الخروج'),
               onTap: () {
                 Navigator.pop(s);
-                push(context, const ProfileScreen());
+                setState(() => tab = 3);
               },
             ),
           if (!mine && user != null)

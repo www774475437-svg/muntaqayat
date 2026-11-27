@@ -41,7 +41,7 @@ class AccountScreen extends StatelessWidget {
               _stat(context, Ar.num(s.days.length), 'يوماً'),
             ]),
             const SizedBox(height: 14),
-            Text(Cloud.i.signedIn ? 'أنت داخل باسم «${Cloud.i.name}». رقمك الشخصي: ${Cloud.i.publicId}' : 'ادخل بحسابك ليكون لك رقم شخصي، فتنشر الاقتباسات وتدخل لوحة الصدارة ويصلك اختبار معلّمك.',
+            Text(Cloud.i.signedIn ? 'أنت داخل باسم «${Cloud.i.name}». رقمك الشخصي: ${Cloud.i.publicId}\nفي صفحتك الشخصية: ديوانك واقتباساتك وإنجازاتك ومتابعوك وتسجيل الخروج.' : 'ادخل بحسابك ليكون لك رقم شخصي، فتنشر الاقتباسات وتدخل لوحة الصدارة ويصلك اختبار معلّمك.',
                 style: TextStyle(fontSize: 15, color: C.muted(context), height: 1.6)),
             const SizedBox(height: 12),
             SizedBox(
@@ -60,7 +60,6 @@ class AccountScreen extends StatelessWidget {
         ),
         const SizedBox(height: 14),
         _group(context, [
-          _tile(context, Icons.badge_outlined, 'صفحتك الشخصية', 'رقمك الشخصي', () => push(context, const ProfileScreen())),
           _tile(context, Icons.format_quote_rounded, 'الاقتباسات', '', () => push(context, const QuotesScreen())),
           _tile(context, Icons.school_outlined, 'خانة المعلّم', s.teacher ? 'مفعّلة' : '', () => push(context, const TeacherScreen())),
           _tile(context, Icons.assignment_outlined, 'اختباراتي', '', () => push(context, const StudentTestsScreen())),

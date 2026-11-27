@@ -92,180 +92,157 @@ Future<bool> needAccount(BuildContext context, [String why = '']) async {
 
 // ------------------------------------------------------------ profile
 
+/// Old way in. The one personal page is [MemberScreen]: the reader's own page holds his
+/// numbers, achievements and account as well. With no account, he is asked to sign in.
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-        listenable: Listenable.merge([Cloud.i, Store.i]),
+        listenable: Cloud.i,
         builder: (context, _) {
-          final s = Store.i, c = Cloud.i;
-          final memo = s.memorized.values.fold<int>(0, (a, b) => a + b.length);
-          final joined = c.profile['joined'];
+          final c = Cloud.i;
+          if (c.signedIn) return MemberScreen(uid: c.uid, name: c.name, publicId: c.publicId);
           return Scaffold(
             appBar: AppBar(title: const Text('صفحتك الشخصية')),
-            body: ListView(padding: const EdgeInsets.fromLTRB(16, 0, 16, 40), children: [
-              SoftCard(
-                child: Column(children: [
-                  const RoundIcon(Icons.person_rounded, size: 72),
-                  const SizedBox(height: 8),
-                  Text(c.signedIn ? c.name : 'لم تدخل بعد', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: C.ink(context))),
-                  const SizedBox(height: 4),
-                  if (c.signedIn && c.publicId.isNotEmpty)
-                    InkWell(
-                      onTap: () {
-                        Clipboard.setData(ClipboardData(text: c.publicId));
-                        toast(context, 'نُسخ رقمك الشخصي');
-                      },
-                      child: Row(mainAxisSize: MainAxisSize.min, children: [
-                        Text('رقمك الشخصي: ${c.publicId}', style: TextStyle(fontSize: 16, color: C.accent(context), fontWeight: FontWeight.w700)),
-                        const SizedBox(width: 6),
-                        Icon(Icons.copy_rounded, size: 16, color: C.muted(context)),
-                      ]),
-                    )
-                  else
-                    Text('رقمك الشخصي: ٧ أرقام ثابتة لا تتغير', style: TextStyle(color: C.muted(context))),
-                  const SizedBox(height: 6),
-                  Wrap(spacing: 6, runSpacing: 6, alignment: WrapAlignment.center, children: [
-                    RankBadge(Majlis.total),
-                    if (c.isDev) const Tag('حساب المطوّر'),
-                    if (c.plus) const Tag('مشترك'),
-                  ]),
-                  const SizedBox(height: 12),
-                  const GoldenSummary(),
-                  if (c.signedIn)
-                    Wrap(alignment: WrapAlignment.center, spacing: 4, children: [
-                      if (c.hasTitle('الشارح')) TextButton.icon(onPressed: () => push(context, SharhListScreen(uid: c.uid, name: c.name)), icon: const Icon(Icons.menu_book_rounded, size: 18), label: const Text('شروحي')),
-                      TextButton.icon(onPressed: () => requestBadge(context), icon: const Icon(Icons.workspace_premium_outlined, size: 18), label: const Text('اطلب شارة')),
-                      if (Vault.backgrounds) TextButton.icon(onPressed: () => push(context, const MyBackgroundScreen()), icon: const Icon(Icons.wallpaper_rounded, size: 18), label: const Text('خلفية صفحتي')),
-                    ]),
-                  if (c.signedIn) ...[
-                    const SizedBox(height: 12),
-                    Row(children: [
-                      _count(context, FutureBuilder<int>(future: c.followersCount(c.uid), builder: (_, s) => Text(Ar.num(s.data ?? 0), style: _numStyle(context))), 'المتابِعون',
-                          () => push(context, FollowListScreen(title: 'المتابِعون', load: () => c.followers(c.uid)))),
-                      _count(context, Text(Ar.num((c.profile['following'] as List? ?? []).length), style: _numStyle(context)), 'يتابع',
-                          () => push(context, FollowListScreen(title: 'يتابع', load: () => c.usersByUid(List<String>.from(c.profile['following'] as List? ?? []))))),
-                      _count(context, Text(Ar.num(s.followed.length), style: _numStyle(context)), 'الشعراء', () => push(context, const MyPoetsScreen())),
-                    ]),
-                    const Divider(height: 22),
-                  ],
-                  const SizedBox(height: 14),
-                  Row(children: [
-                    _stat(context, Ar.num(s.likes.length), 'إعجاب'),
-                    _stat(context, Ar.num(_n(c.profile['points'])), 'نقطة'),
-                    _stat(context, Ar.num(memo), 'بيتاً حفظه'),
-                    _stat(context, Ar.num(s.days.length), 'يوماً'),
-                  ]),
-                  const SizedBox(height: 14),
-                  SizedBox(
-                    width: double.infinity,
-                    child: c.signedIn
-                        ? OutlinedButton.icon(onPressed: () => _rename(context), icon: const Icon(Icons.edit_outlined), label: const Text('غيّر اسمك'))
-                        : FilledButton.icon(
-                            onPressed: () => needAccount(context),
-                            icon: const Icon(Icons.login_rounded),
-                            label: const Text('ادخل بحساب جوجل'),
-                          ),
-                  ),
-                ]),
-              ),
-              if (c.banned || c.suspended || c.warns.isNotEmpty) ...[
-                const SizedBox(height: 10),
-                SoftCard(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(c.banned ? 'حسابك محظور عن النشر' : (c.suspended ? 'حسابك موقوف مؤقتاً عن النشر' : 'وصلك إنذار'), style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: Color(0xFFB3261E))),
-                    if ((c.banned || c.suspended) && c.blockReason.isNotEmpty) Text('السبب: ${c.blockReason}', style: TextStyle(height: 1.6, color: C.ink(context))),
-                    for (final w in c.warns.reversed.take(3)) Text('• ${w['text']} (${ago(w['at'])})', style: TextStyle(height: 1.6, color: C.ink(context))),
-                    TextButton(onPressed: () => push(context, const MessageDevScreen()), child: const Text('راسل المطوّر للمراجعة')),
-                  ]),
-                ),
-              ],
-              _section(context, 'في صفحتك'),
-              _row(context, Icons.format_quote_rounded, 'اقتباساتي', 'ما نشرته من أبيات (عشرة في اليوم)', () async {
-                if (await needAccount(context) && context.mounted) push(context, QuotesScreen(of: c.uid, title: 'اقتباساتي'));
-              }),
-              _row(context, Icons.bookmark_border_rounded, 'المحفوظات', 'حفظت ${Ar.verses(memo)}', () => push(context, const MutunScreen())),
-              _row(context, Icons.people_outline_rounded, 'من أتابعهم', 'ابحث عن أي شخص برقمه الشخصي', () => push(context, const FollowingScreen())),
-              _row(context, Icons.local_fire_department_outlined, 'الأيام المتتالية', '${Ar.num(_n(c.profile['streak']))} يوماً متتالياً في المجلس', () {}),
-              if (joined is num)
-                _row(context, Icons.event_outlined, 'تاريخ التسجيل', ago(joined), () {}),
-              const SizedBox(height: 8),
-              Text('تُحدَّث أرقام صفحتك على الخادم مرة في اليوم، لا لحظة بلحظة.', style: TextStyle(color: C.muted(context), fontSize: 13.5)),
-              if (c.signedIn) ...[
+            body: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                const Center(child: RoundIcon(Icons.person_rounded, size: 84)),
                 const SizedBox(height: 14),
-                TextButton.icon(
-                  onPressed: () async {
-                    await c.signOut();
-                    if (context.mounted) toast(context, 'خرجت من حسابك');
-                  },
-                  icon: const Icon(Icons.logout_rounded),
-                  label: const Text('اخرج من الحساب'),
+                Text('ادخل بحسابك لتكون لك صفحة شخصية برقم ثابت: ديوانك واقتباساتك وأوسمتك ومتابعوك.',
+                    textAlign: TextAlign.center, style: TextStyle(fontSize: 16.5, height: 1.7, color: C.muted(context))),
+                const SizedBox(height: 18),
+                FilledButton.icon(
+                  style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
+                  onPressed: () => needAccount(context),
+                  icon: const Icon(Icons.login_rounded),
+                  label: const Text('ادخل بحساب جوجل', style: TextStyle(fontSize: 17)),
                 ),
-                TextButton.icon(
-                  onPressed: () async {
-                    final ok = await showDialog<bool>(
-                      context: context,
-                      builder: (d) => AlertDialog(
-                        title: const Text('حذف الحساب'),
-                        content: const Text('يُحذف حسابك وكل ما فيه على الخادم: اسمك ورقمك الشخصي ونقاطك وما نشرته ورسائلك، خلال ثلاثين يوماً، ولا يُسترجع بعدها. ما في جوالك من إعجابات ومجموعات يبقى في الجوال.'),
-                        actions: [
-                          TextButton(onPressed: () => Navigator.pop(d), child: const Text('إلغاء')),
-                          FilledButton(onPressed: () => Navigator.pop(d, true), style: FilledButton.styleFrom(backgroundColor: const Color(0xFFB3261E)), child: const Text('احذف حسابي')),
-                        ],
-                      ),
-                    );
-                    if (ok != true) return;
-                    final done = await c.requestDeletion();
-                    if (context.mounted) toast(context, done ? 'وصل طلب الحذف، وخرجت من حسابك' : 'تعذّر الإرسال. حاول مرة أخرى.');
-                  },
-                  icon: const Icon(Icons.delete_forever_outlined, color: Color(0xFFB3261E)),
-                  label: const Text('احذف حسابي', style: TextStyle(color: Color(0xFFB3261E))),
-                ),
-              ],
-            ]),
+              ]),
+            ),
           );
         },
       );
+}
 
-  TextStyle _numStyle(BuildContext context) => TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: C.ink(context));
-  Widget _count(BuildContext context, Widget n, String label, VoidCallback onTap) => Expanded(
-        child: InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: Column(children: [n, Text(label, style: TextStyle(fontSize: 13, color: C.muted(context)))]),
-          ),
-        ),
-      );
+/// «إنجازاتي» in the reader's own page: بيوت الذهب, his numbers and what he memorized.
+class MyAchievements extends StatelessWidget {
+  const MyAchievements({super.key});
 
   Widget _stat(BuildContext context, String n, String label) => Expanded(
         child: Column(children: [
-          Text(n, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: C.accent(context))),
-          Text(label, style: TextStyle(fontSize: 12.5, color: C.muted(context))),
+          Text(n, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: C.accent(context))),
+          Text(label, textAlign: TextAlign.center, style: TextStyle(fontSize: 12.5, color: C.muted(context))),
         ]),
       );
 
-  void _rename(BuildContext context) {
-    final t = TextEditingController(text: Cloud.i.name);
-    showDialog(
-      context: context,
-      builder: (d) => AlertDialog(
-        title: const Text('اسمك الظاهر للناس'),
-        content: TextField(controller: t, maxLength: 20, decoration: const InputDecoration(hintText: 'اسم لائق')),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(d), child: const Text('إلغاء')),
-          FilledButton(
-            onPressed: () async {
-              Navigator.pop(d);
-              final ok = await Cloud.i.setName(t.text);
-              if (context.mounted) toast(context, ok ? 'حُفظ الاسم' : 'تعذّر الحفظ');
-            },
-            child: const Text('حفظ'),
-          ),
-        ],
+  @override
+  Widget build(BuildContext context) {
+    final s = Store.i, c = Cloud.i;
+    final memo = s.memorized.values.fold<int>(0, (a, b) => a + b.length);
+    final joined = c.profile['joined'];
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      SoftCard(
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 6),
+        child: Row(children: [
+          _stat(context, Ar.num(_n(c.profile['points'])), 'نقطة'),
+          _stat(context, Ar.num(memo), 'بيتاً حفظه'),
+          _stat(context, Ar.num(_n(c.profile['streak'])), 'يوماً متتالياً'),
+          _stat(context, Ar.num(s.days.length), 'يوماً'),
+          _stat(context, Ar.num(s.likes.length), 'إعجاب'),
+        ]),
       ),
-    );
+      const SizedBox(height: 10),
+      const GoldenSummary(),
+      const SizedBox(height: 10),
+      _row(context, Icons.bookmark_border_rounded, 'المحفوظات', 'حفظت ${Ar.verses(memo)}', () => push(context, const MutunScreen())),
+      _row(context, Icons.people_outline_rounded, 'شعرائي', '${Ar.num(s.followed.length)} من الشعراء تتابعهم', () => push(context, const MyPoetsScreen())),
+      if (c.hasTitle('الشارح')) _row(context, Icons.menu_book_rounded, 'شروحي', 'ما شرحته من الأبيات', () => push(context, SharhListScreen(uid: c.uid, name: c.name))),
+      _row(context, Icons.workspace_premium_outlined, 'اطلب شارة', 'الشارح، المقتبس، شاعر موثّق…', () => requestBadge(context)),
+      if (joined is num)
+        Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Text('سجّلت ${ago(joined)}. تُحدَّث الأرقام على الخادم مرة في اليوم.', textAlign: TextAlign.center, style: TextStyle(color: C.muted(context), fontSize: 13.5)),
+        ),
+    ]);
+  }
+}
+
+/// «حسابي» in the reader's own page: whom he follows, his page's background, signing out.
+class MyAccount extends StatelessWidget {
+  const MyAccount({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Cloud.i;
+    void home() => Navigator.of(context).popUntil((r) => r.isFirst);
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      if (c.banned || c.suspended || c.warns.isNotEmpty) ...[
+        SoftCard(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(c.banned ? 'حسابك محظور عن النشر' : (c.suspended ? 'حسابك موقوف مؤقتاً عن النشر' : 'وصلك إنذار'), style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: Color(0xFFB3261E))),
+            if ((c.banned || c.suspended) && c.blockReason.isNotEmpty) Text('السبب: ${c.blockReason}', style: TextStyle(height: 1.6, color: C.ink(context))),
+            for (final w in c.warns.reversed.take(3)) Text('• ${w['text']} (${ago(w['at'])})', style: TextStyle(height: 1.6, color: C.ink(context))),
+            TextButton(onPressed: () => push(context, const MessageDevScreen()), child: const Text('راسل المطوّر للمراجعة')),
+          ]),
+        ),
+        const SizedBox(height: 10),
+      ],
+      _row(context, Icons.people_outline_rounded, 'من أتابعهم', 'ابحث عن أي شخص برقمه الشخصي', () => push(context, const FollowingScreen())),
+      if (Vault.backgrounds) _row(context, Icons.wallpaper_rounded, 'خلفية صفحتي', 'تظهر أعلى صفحتك لكل من يزورها', () => push(context, const MyBackgroundScreen())),
+      _row(context, Icons.mark_email_unread_outlined, 'راسل المطوّر', '', () => push(context, const MessageDevScreen())),
+      Wrap(spacing: 6, runSpacing: 6, children: [
+        if (c.isDev) const Tag('حساب المطوّر'),
+        if (c.plus) const Tag('مشترك'),
+      ]),
+      const SizedBox(height: 10),
+      OutlinedButton.icon(
+        style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
+        onPressed: () async {
+          final ok = await showDialog<bool>(
+            context: context,
+            builder: (d) => AlertDialog(
+              title: const Text('تسجيل الخروج'),
+              content: const Text('تخرج من حسابك على هذا الجهاز. إعجاباتك ومجموعاتك تبقى في الجهاز.'),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(d), child: const Text('إلغاء')),
+                FilledButton(onPressed: () => Navigator.pop(d, true), child: const Text('اخرج')),
+              ],
+            ),
+          );
+          if (ok != true) return;
+          await c.signOut();
+          if (!context.mounted) return;
+          toast(context, 'خرجت من حسابك');
+          home();
+        },
+        icon: const Icon(Icons.logout_rounded),
+        label: const Text('تسجيل الخروج', style: TextStyle(fontSize: 16.5)),
+      ),
+      const SizedBox(height: 4),
+      TextButton.icon(
+        onPressed: () async {
+          final ok = await showDialog<bool>(
+            context: context,
+            builder: (d) => AlertDialog(
+              title: const Text('حذف الحساب'),
+              content: const Text('يُحذف حسابك وكل ما فيه على الخادم: اسمك ورقمك الشخصي ونقاطك وما نشرته ورسائلك، خلال ثلاثين يوماً، ولا يُسترجع بعدها. ما في جوالك من إعجابات ومجموعات يبقى في الجوال.'),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(d), child: const Text('إلغاء')),
+                FilledButton(onPressed: () => Navigator.pop(d, true), style: FilledButton.styleFrom(backgroundColor: const Color(0xFFB3261E)), child: const Text('احذف حسابي')),
+              ],
+            ),
+          );
+          if (ok != true) return;
+          final done = await c.requestDeletion();
+          if (!context.mounted) return;
+          toast(context, done ? 'وصل طلب الحذف، وخرجت من حسابك' : 'تعذّر الإرسال. حاول مرة أخرى.');
+          if (done) home();
+        },
+        icon: const Icon(Icons.delete_forever_outlined, color: Color(0xFFB3261E)),
+        label: const Text('احذف حسابي', style: TextStyle(color: Color(0xFFB3261E))),
+      ),
+    ]);
   }
 }
 
