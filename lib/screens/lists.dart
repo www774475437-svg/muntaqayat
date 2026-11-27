@@ -253,7 +253,7 @@ Widget poetsScreen(BuildContext context) {
     for (final p in Library.namedPoets) (p.name, Library.countOf(p), () => openPoet(context, p.name)),
   ]..sort((a, b) => b.$2.compareTo(a.$2));
   final un = Library.poetByName['بلا نسبة'];
-  if (un != null) rows.add(('أبيات بلا نسبة', un.count, () => openPoet(context, 'بلا نسبة')));
+  if (un != null) rows.add(('أبيات بلا نسبة', Library.countOf(un), () => openPoet(context, 'بلا نسبة')));
   return CountList(title: 'الشعراء', intro: 'مرتّبون على عدد مختاراتهم في الكتاب.', rows: rows, searchable: true);
 }
 

@@ -334,6 +334,15 @@ class Library {
         added[name] = Poet.fromJson({'name': name, 'era': x.era.isNotEmpty ? x.era : (old?.era ?? ''), 'death': x.died.isNotEmpty ? x.died : (old?.death ?? ''), 'count': 0});
       }
     }
+    // The book's selections under each name as they stand now (a corrected poet moves his piece),
+    // and a name the developer wrote that is new to the app gets a page of its own.
+    bookCount.clear();
+    for (final p in poems) {
+      bookCount[p.poet] = (bookCount[p.poet] ?? 0) + 1;
+      if (!base.contains(p.poet) && !added.containsKey(p.poet) && p.poet != 'بلا نسبة') {
+        added[p.poet] = Poet.fromJson({'name': p.poet, 'era': p.era, 'death': p.death, 'count': 0});
+      }
+    }
     shownPoets = added.values.toList();
     poetByName
       ..clear()
@@ -390,7 +399,8 @@ class Library {
   static final Map<String, int> shownCount = {};
 
   /// Every selection a reader finds under this name: the book's and the shown pieces.
-  static int countOf(Poet p) => p.count + (shownCount[p.name] ?? 0);
+  static final Map<String, int> bookCount = {};
+  static int countOf(Poet p) => (bookCount[p.name] ?? 0) + (shownCount[p.name] ?? 0);
 
   /// Selections whose era is not known (with the unattributed ones).
   static List<Poem> get noEra => wide.where((p) => p.era.isEmpty).toList();
@@ -477,7 +487,7 @@ class Library {
   /// A poet known only from a diwan in «كتب الشعر» appears once one of his pieces is shown.
   static List<Poet> get namedPoets {
     return [
-      ...poets.where((p) => p.name != 'بلا نسبة' && (p.count > 0 || shownCount.containsKey(p.name))),
+      ...poets.where((p) => p.name != 'بلا نسبة' && (p.count > 0 || countOf(p) > 0)),
       ...shownPoets,
     ];
   }
@@ -504,7 +514,8 @@ class Library {
   static List<Poem> get additions => poems.where((p) => p.src == 'add').toList();
 
   static Poet poetOfDay() {
-    final list = namedPoets.where((p) => p.count >= 2).toList();
+    // From the book's own list alone, so every phone names the same poet whatever was shown or corrected.
+    final list = poets.where((p) => p.name != 'بلا نسبة' && p.count >= 2).toList();
     return list[(_dayIndex() * 13) % list.length];
   }
 

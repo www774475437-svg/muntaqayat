@@ -90,7 +90,38 @@ class _EditPieceState extends State<EditPieceScreen> {
       body: ListView(padding: const EdgeInsets.fromLTRB(16, 0, 16, 40), children: [
         Text('عدّل اسم الشاعر أو نصّ الأبيات وتشكيلها ثم احفظ.', style: TextStyle(fontSize: 14.5, color: C.muted(context))),
         const SizedBox(height: 14),
-        TextField(controller: _poet, style: const TextStyle(fontSize: 18), decoration: _box(context, 'اسم الشاعر')),
+        TextField(controller: _poet, onChanged: (_) => setState(() {}), style: const TextStyle(fontSize: 18), decoration: _box(context, 'اسم الشاعر')),
+        // Names the app already has: a tap writes the name exactly, so the piece joins that poet's page.
+        // A name that is not here opens a new page for its poet.
+        Builder(builder: (context) {
+          final q = Ar.norm(_poet.text.trim());
+          if (q.length < 2) return const SizedBox.shrink();
+          final hits = [
+            for (final n in Library.poetByName.keys)
+              if (n != _poet.text.trim() && Ar.norm(n).contains(q)) n
+          ].take(6).toList();
+          if (hits.isEmpty) {
+            return Library.poetByName.containsKey(_poet.text.trim())
+                ? const SizedBox.shrink()
+                : Padding(
+                    padding: const EdgeInsets.fromLTRB(6, 8, 6, 0),
+                    child: Text('اسم جديد: ستُنشأ له صفحة شاعر عند الحفظ.', style: TextStyle(fontSize: 13.5, color: C.muted(context))),
+                  );
+          }
+          return Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Wrap(spacing: 6, runSpacing: 2, children: [
+              for (final n in hits)
+                ActionChip(
+                  label: Text(n),
+                  onPressed: () => setState(() {
+                    _poet.text = n;
+                    _poet.selection = TextSelection.collapsed(offset: n.length);
+                  }),
+                ),
+            ]),
+          );
+        }),
         for (var i = 0; i < _lines.length; i++) ...[
           Padding(
             padding: const EdgeInsets.fromLTRB(6, 18, 6, 8),
