@@ -273,7 +273,7 @@ class _NotifsScreenState extends State<NotifsScreen> {
       padding: const EdgeInsets.all(14),
       onTap: () async {
         if (dev) Notifs.inboxSeen();
-        await push(context, dev ? const DevMessagesScreen() : const MessageDevScreen());
+        await Navigator.of(context).push(MaterialPageRoute(builder: (_) => dev ? const DevMessagesScreen() : const MessageDevScreen()));
         if (!mounted) return;
         if (dev) await Notifs.load(force: true);
         if (mounted) setState(() {});
