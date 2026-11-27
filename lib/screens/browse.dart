@@ -93,109 +93,71 @@ class BrowseScreen extends StatelessWidget {
         ),
         const ErasWheel(),
         const SectionTitle('مختارات'),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(children: [
-            Expanded(
-              child: _pick(context, Icons.auto_stories_outlined, 'أبواب الإيمان', 'والرقائق', () => push(context, const ChaptersScreen(section: 0))),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _pick(context, Icons.format_list_bulleted_rounded, 'الأبواب العامة', 'حكمة وأخلاق وأدب', () => push(context, const ChaptersScreen(section: 1))),
-            ),
-          ]),
-        ),
-        const SizedBox(height: 12),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: _pick(context, Icons.mosque_outlined, 'ديوان العلماء والصحابة', 'ابن القيم، ابن تيمية، الشافعي، الخنساء، حسان…',
-              () => push(context, const DiwanScreen())),
-        ),
-        const SizedBox(height: 12),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(children: [
-            Expanded(child: _pick(context, Icons.menu_book_rounded, 'أبيات الكتاب', 'العلامة الخضراء · ${Ar.num(Library.bookPoems.length)}', () => openList(context, 'أبيات الكتاب', Library.bookPoems, subtitle: 'كل ما في كتاب «منتقيات شعرية»'))),
-            const SizedBox(width: 12),
-            Expanded(child: _pick(context, Icons.verified_rounded, 'الأبيات الموثّقة', 'العلامة الزرقاء · ${Ar.num(Library.verifiedPoems.length)}', () => openList(context, 'الأبيات الموثّقة', Library.verifiedPoems, subtitle: 'ما وثّقه المطوّر بيتاً بيتاً'))),
-          ]),
-        ),
-        const SizedBox(height: 12),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(children: [
-            Expanded(child: _pick(context, Icons.format_quote_rounded, 'أمثال من الشعر', 'أكثر من ألفَي بيت سائر', () => push(context, const AmthalScreen()))),
-            const SizedBox(width: 12),
-            Expanded(child: _pick(context, Icons.short_text_rounded, 'حِكَم قصيرة', 'بيت واحد لحالتك', () => push(context, const HikamScreen()))),
-          ]),
-        ),
-        const SizedBox(height: 12),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(children: [
-            Expanded(child: _pick(context, Icons.quiz_rounded, 'مسابقة الأمثال', 'ثلاثة أسئلة كل يوم', () => push(context, const ProverbQuizScreen()))),
-            const SizedBox(width: 12),
-            Expanded(child: _pick(context, Icons.auto_stories_rounded, 'مجمع الأمثال', 'المثل وشرحه وقصته', () => push(context, const MajmaScreen()))),
-          ]),
-        ),
-        const SizedBox(height: 12),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(children: [
-            Expanded(child: _pick(context, Icons.auto_stories_outlined, 'قصائد لها قصة', 'سبب القصيدة وخبرها', () => push(context, const StoriesScreen()))),
-            const SizedBox(width: 12),
-            Expanded(child: _pick(context, Icons.timeline_rounded, 'رحلة العصور', 'من الجاهلي إلى الحديث', () => push(context, const ErasJourneyScreen()))),
-          ]),
-        ),
-        const SizedBox(height: 12),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: _pick(context, Icons.forum_outlined, 'بيت وجوابه', 'المعارضات والنقائض بين الشعراء', () => push(context, const AnswersScreen())),
-        ),
-        const SizedBox(height: 12),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(children: [
-            Expanded(child: _pick(context, Icons.lightbulb_outline_rounded, 'مجلس الشعر', 'تحدّي اليوم وديوانك', () => push(context, const MajlisScreen()))),
-            const SizedBox(width: 12),
-            Expanded(child: _pick(context, Icons.emoji_events_outlined, 'لوحة الصدارة', 'الأسبوع والشهر', () => push(context, const LeaderboardScreen()))),
-          ]),
-        ),
-        const SizedBox(height: 12),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(children: [
-            Expanded(child: _pick(context, Icons.extension_outlined, 'أكمل البيت', 'اختر الشطر الثاني', () => push(context, const GameScreen(kind: 0)))),
-            const SizedBox(width: 12),
-            Expanded(child: _pick(context, Icons.person_search_outlined, 'من القائل؟', 'اعرف الشاعر', () => push(context, const GameScreen(kind: 1)))),
-          ]),
-        ),
-        const SizedBox(height: 12),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: _pick(context, Icons.school_outlined, 'متون طالب العلم وقصائده', 'احفظ وراجع واختبر نفسك كتابةً',
-              () => push(context, const MutunScreen())),
-        ),
-        const SizedBox(height: 12),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(children: [
-            Expanded(child: _pick(context, Icons.format_quote_rounded, 'مما استشهد به العلماء', 'بالكتاب والصفحة', () => push(context, const ShawahidScreen()))),
-            const SizedBox(width: 12),
-            Expanded(child: _pick(context, Icons.manage_search_rounded, 'من قائل هذا البيت؟', 'الصق وابحث', () => push(context, const WhoSaidScreen()))),
-          ]),
-        ),
-        if (VerseBooksScreen.visible) ...[
-          const SizedBox(height: 12),
+        if (Store.i.developer)
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: _pick(context, Icons.auto_stories_outlined, 'كتب استُخرجت أشعارها', 'أولها «نهاية الأرب» للنويري', () => push(context, const VerseBooksScreen())),
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+            child: Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: OutlinedButton.icon(
+                onPressed: () => push(context, const BrowseEditScreen()),
+                icon: const Icon(Icons.swap_vert_rounded, size: 18),
+                label: const Text('رتّب الأزرار وأخفِ ما تشاء (للمطوّر)'),
+              ),
+            ),
           ),
-        ],
+        ..._pickRows(context),
         const SectionTitle('قصائد لك'),
         TwoColumns(poems: forYou, onTap: (p) => openPoem(context, p)),
       ]),
     );
+  }
+
+  /// The buttons of «مختارات», in the order the developer chose and without what he hid.
+  /// Two stand in a row; a wide one, or one left alone, takes the row.
+  List<Widget> _pickRows(BuildContext context) {
+    final open = <String, VoidCallback>{
+      'iman': () => push(context, const ChaptersScreen(section: 0)),
+      'general': () => push(context, const ChaptersScreen(section: 1)),
+      'diwan': () => push(context, const DiwanScreen()),
+      'book': () => openList(context, 'أبيات الكتاب', Library.bookPoems, subtitle: 'كل ما في كتاب «منتقيات شعرية»'),
+      'verified': () => openList(context, 'الأبيات الموثّقة', Library.verifiedPoems, subtitle: 'ما وثّقه المطوّر بيتاً بيتاً'),
+      'amthal': () => push(context, const AmthalScreen()),
+      'hikam': () => push(context, const HikamScreen()),
+      'quiz': () => push(context, const ProverbQuizScreen()),
+      'majma': () => push(context, const MajmaScreen()),
+      'stories': () => push(context, const StoriesScreen()),
+      'journey': () => push(context, const ErasJourneyScreen()),
+      'answers': () => push(context, const AnswersScreen()),
+      'majlis': () => push(context, const MajlisScreen()),
+      'board': () => push(context, const LeaderboardScreen()),
+      'complete': () => push(context, const GameScreen(kind: 0)),
+      'whogame': () => push(context, const GameScreen(kind: 1)),
+      'mutun': () => push(context, const MutunScreen()),
+      'shawahid': () => push(context, const ShawahidScreen()),
+      'whosaid': () => push(context, const WhoSaidScreen()),
+      'books': () => push(context, const VerseBooksScreen()),
+    };
+    String sub(BrowsePick x) => switch (x.id) {
+          'book' => 'العلامة الخضراء · ${Ar.num(Library.bookPoems.length)}',
+          'verified' => 'العلامة الزرقاء · ${Ar.num(Library.verifiedPoems.length)}',
+          _ => x.sub,
+        };
+    final list = [
+      for (final x in BrowsePick.ordered())
+        if (!Store.i.browseHidden.contains(x.id) && (x.id != 'books' || VerseBooksScreen.visible)) x
+    ];
+    Widget card(BrowsePick x) => _pick(context, x.icon, x.title, sub(x), open[x.id]!);
+    final rows = <Widget>[];
+    for (var i = 0; i < list.length; i++) {
+      final x = list[i];
+      final pair = !x.wide && i + 1 < list.length && !list[i + 1].wide;
+      rows.add(Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        child: pair ? Row(children: [Expanded(child: card(x)), const SizedBox(width: 12), Expanded(child: card(list[i + 1]))]) : card(x),
+      ));
+      if (pair) i++;
+    }
+    return rows;
   }
 
   void _mostLiked(BuildContext context) {
@@ -449,4 +411,109 @@ class _WheelLine extends CustomPainter {
 
   @override
   bool shouldRepaint(_WheelLine old) => old.n != n || old.r != r || old.d != d || old.color != color;
+}
+
+
+/// One button of «مختارات» in «تصفّح».
+class BrowsePick {
+  final String id, title, sub;
+  final IconData icon;
+  final bool wide;
+  const BrowsePick(this.id, this.icon, this.title, this.sub, {this.wide = false});
+
+  /// As the page was first laid out.
+  static const all = [
+    BrowsePick('iman', Icons.auto_stories_outlined, 'أبواب الإيمان', 'والرقائق'),
+    BrowsePick('general', Icons.format_list_bulleted_rounded, 'الأبواب العامة', 'حكمة وأخلاق وأدب'),
+    BrowsePick('diwan', Icons.mosque_outlined, 'ديوان العلماء والصحابة', 'ابن القيم، ابن تيمية، الشافعي، الخنساء، حسان…', wide: true),
+    BrowsePick('book', Icons.menu_book_rounded, 'أبيات الكتاب', 'العلامة الخضراء'),
+    BrowsePick('verified', Icons.verified_rounded, 'الأبيات الموثّقة', 'العلامة الزرقاء'),
+    BrowsePick('amthal', Icons.format_quote_rounded, 'أمثال من الشعر', 'أكثر من ألفَي بيت سائر'),
+    BrowsePick('hikam', Icons.short_text_rounded, 'حِكَم قصيرة', 'بيت واحد لحالتك'),
+    BrowsePick('quiz', Icons.quiz_rounded, 'مسابقة الأمثال', 'ثلاثة أسئلة كل يوم'),
+    BrowsePick('majma', Icons.auto_stories_rounded, 'مجمع الأمثال', 'المثل وشرحه وقصته'),
+    BrowsePick('stories', Icons.auto_stories_outlined, 'قصائد لها قصة', 'سبب القصيدة وخبرها'),
+    BrowsePick('journey', Icons.timeline_rounded, 'رحلة العصور', 'من الجاهلي إلى الحديث'),
+    BrowsePick('answers', Icons.forum_outlined, 'بيت وجوابه', 'المعارضات والنقائض بين الشعراء', wide: true),
+    BrowsePick('majlis', Icons.lightbulb_outline_rounded, 'مجلس الشعر', 'تحدّي اليوم وديوانك'),
+    BrowsePick('board', Icons.emoji_events_outlined, 'لوحة الصدارة', 'الأسبوع والشهر'),
+    BrowsePick('complete', Icons.extension_outlined, 'أكمل البيت', 'اختر الشطر الثاني'),
+    BrowsePick('whogame', Icons.person_search_outlined, 'من القائل؟', 'اعرف الشاعر'),
+    BrowsePick('mutun', Icons.school_outlined, 'متون طالب العلم وقصائده', 'احفظ وراجع واختبر نفسك كتابةً', wide: true),
+    BrowsePick('shawahid', Icons.format_quote_rounded, 'مما استشهد به العلماء', 'بالكتاب والصفحة'),
+    BrowsePick('whosaid', Icons.manage_search_rounded, 'من قائل هذا البيت؟', 'الصق وابحث'),
+    BrowsePick('books', Icons.auto_stories_outlined, 'كتب استُخرجت أشعارها', 'أولها «نهاية الأرب» للنويري', wide: true),
+  ];
+
+  /// In the developer's order; a button added to the app later keeps its first place after them.
+  static List<BrowsePick> ordered() {
+    final order = Store.i.browseOrder;
+    if (order.isEmpty) return all;
+    final by = {for (final x in all) x.id: x};
+    return [
+      for (final id in order)
+        if (by.containsKey(id)) by[id]!,
+      for (final x in all)
+        if (!order.contains(x.id)) x,
+    ];
+  }
+}
+
+/// Developer: drag the buttons of «مختارات» into the order he wants, and switch off what he hides.
+/// It reaches every reader.
+class BrowseEditScreen extends StatelessWidget {
+  const BrowseEditScreen({super.key});
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+        listenable: Store.i,
+        builder: (context, _) {
+          final list = BrowsePick.ordered();
+          final hidden = Store.i.browseHidden;
+          return Scaffold(
+            appBar: AppBar(
+              title: const Text('أزرار «تصفّح»'),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Store.i.setBrowse(const [], const {});
+                    toast(context, 'عاد الترتيب الأصلي');
+                  },
+                  child: const Text('الأصل'),
+                ),
+              ],
+            ),
+            body: Column(children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                child: Text('اضغط على الزر مطوّلاً ثم اسحبه إلى مكانه (وعلى الحاسوب اسحبه من الخطوط)، وأطفئ المفتاح لتخفيه. يتغيّر عند كل القرّاء.', style: TextStyle(color: C.muted(context), height: 1.6)),
+              ),
+              Expanded(
+                child: ReorderableListView(
+                  padding: const EdgeInsets.only(bottom: 40),
+                  onReorder: (from, to) {
+                    final ids = [for (final x in list) x.id];
+                    if (to > from) to--;
+                    ids.insert(to, ids.removeAt(from));
+                    Store.i.setBrowse(ids, hidden);
+                  },
+                  children: [
+                    for (final x in list)
+                      SwitchListTile(
+                        key: ValueKey(x.id),
+                        secondary: Icon(x.icon, color: C.accent(context)),
+                        title: Text(x.title),
+                        value: !hidden.contains(x.id),
+                        onChanged: (on) {
+                          final h = {...hidden};
+                          on ? h.remove(x.id) : h.add(x.id);
+                          Store.i.setBrowse([for (final y in list) y.id], h);
+                        },
+                      ),
+                  ],
+                ),
+              ),
+            ]),
+          );
+        },
+      );
 }

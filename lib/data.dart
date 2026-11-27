@@ -667,6 +667,22 @@ class Store extends ChangeNotifier {
   bool teacher = false; // «خانة المعلّم» turned on in settings
   List<String> students = []; // personal numbers the teacher added before
   Map<String, List<Map<String, String>>> shuruh = {}; // matn → [{title,url}] added by the developer
+  /// «تصفّح»: the order of its buttons as the developer set it (empty = as first laid out), and the ones he hid.
+  List<String> browseOrder = [];
+  Set<String> browseHidden = {};
+  void setBrowse(List<String> order, Set<String> hidden) {
+    browseOrder = [...order];
+    browseHidden = {...hidden};
+    _p.setString('browse', jsonEncode({'order': browseOrder, 'hidden': browseHidden.toList()}));
+    notifyListeners();
+    cloudPush?.call();
+  }
+
+  void _readBrowse(Map<String, dynamic> j) {
+    browseOrder = [for (final x in (j['order'] as List? ?? const [])) '$x'];
+    browseHidden = {for (final x in (j['hidden'] as List? ?? const [])) '$x'};
+  }
+
   /// The developer's corrections: 'p:<selection number>' or 's:<piece id>' → {poet, lines}.
   Map<String, Map<String, dynamic>> edits = {};
 
@@ -752,6 +768,7 @@ class Store extends ChangeNotifier {
       best = b.map((k, v) => MapEntry(k, (v as num).toInt()));
       _readDiwan(jsonDecode(_p.getString('diwan') ?? '{}') as Map<String, dynamic>);
       _readEdits(jsonDecode(_p.getString('edits') ?? '{}') as Map<String, dynamic>);
+      _readBrowse(jsonDecode(_p.getString('browse') ?? '{}') as Map<String, dynamic>);
       final sh = jsonDecode(_p.getString('shuruh') ?? '{}') as Map<String, dynamic>;
       shuruh = sh.map((k, v) => MapEntry(k, [for (final x in v as List) Map<String, String>.from(x as Map)]));
     } catch (_) {}
@@ -1003,13 +1020,17 @@ class Store extends ChangeNotifier {
     _p.setStringList('modHidden', modHidden.toList());
   }
 
-  void applyCloud({List<String>? shShown, List<String>? shHidden, List<String>? verified, List<String>? hidden, List<String>? deleted, bool? plus, String? payLink, Map<String, dynamic>? shuruh, Map<String, dynamic>? features, Map<String, dynamic>? diwan, Map<String, dynamic>? edits}) {
+  void applyCloud({List<String>? shShown, List<String>? shHidden, List<String>? verified, List<String>? hidden, List<String>? deleted, bool? plus, String? payLink, Map<String, dynamic>? shuruh, Map<String, dynamic>? features, Map<String, dynamic>? diwan, Map<String, dynamic>? edits, Map<String, dynamic>? browse}) {
     if (features != null) {
       this.features = {
         for (final e in features.entries)
           if (e.value is bool) e.key: e.value as bool
       };
       _p.setString('features', jsonEncode(this.features));
+    }
+    if (browse != null) {
+      _readBrowse(browse);
+      _p.setString('browse', jsonEncode(browse));
     }
     if (edits != null) {
       _readEdits(edits);

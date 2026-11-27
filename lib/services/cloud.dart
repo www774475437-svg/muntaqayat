@@ -493,6 +493,7 @@ class Cloud extends ChangeNotifier {
         features: a['features'] is Map ? Map<String, dynamic>.from(a['features'] as Map) : null,
         diwan: a['diwan'] is String ? jsonDecode(a['diwan'] as String) as Map<String, dynamic> : null,
         edits: edits,
+        browse: a['browse'] is String ? jsonDecode(a['browse'] as String) as Map<String, dynamic> : null,
       );
     } catch (_) {}
   }
@@ -520,6 +521,7 @@ class Cloud extends ChangeNotifier {
         'payLink': s.payLink,
         'shuruh': jsonEncode(s.shuruh),
         'diwan': jsonEncode(s.diwan),
+        'browse': jsonEncode({'order': s.browseOrder, 'hidden': s.browseHidden.toList()}),
         'features': s.features,
         'bannedDevices': bannedDevices,
         'mods': jsonEncode(mods),

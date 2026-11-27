@@ -46,7 +46,9 @@ class PoetScreen extends StatelessWidget {
   Widget _build(BuildContext context) {
     final poet = Library.poetByName[name];
     final poems = Library.ofPoet(name);
-    final verses = poems.fold<int>(0, (s, p) => s + p.verseCount);
+    // What was shown of him from the citations and the books of verse counts with the book's selections.
+    final shown = name == 'بلا نسبة' ? const <Shahid>[] : Library.shawahid.where((x) => x.poet == name && !x.own && x.shown).toList();
+    final verses = poems.fold<int>(0, (s, p) => s + p.verseCount) + shown.fold<int>(0, (s, x) => s + x.lines.length);
     final follows = Store.i.follows(name);
     final chapters = <String>{for (final p in poems) p.chapterName};
     return Scaffold(
@@ -73,7 +75,7 @@ class PoetScreen extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Row(children: [
-            _stat(context, Ar.num(poems.length), 'مقطعاً في الكتاب'),
+            _stat(context, Ar.num(poems.length + shown.length), 'مقطعاً'),
             const SizedBox(width: 10),
             _stat(context, Ar.num(verses), 'بيتاً'),
             const SizedBox(width: 10),
