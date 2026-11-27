@@ -1885,7 +1885,25 @@ class _ModerationScreenState extends State<ModerationScreen> {
 /// The developer adds supervisors by email and chooses what each may do.
 class ModsScreen extends StatelessWidget {
   const ModsScreen({super.key});
-  static const perms = ['حظر', 'إيقاف', 'بلاغات', 'رسائل', 'مراجعة', 'توثيق'];
+  static const perms = ['حظر', 'إيقاف', 'بلاغات', 'رسائل', 'مراجعة', 'توثيق', 'تحرير', 'إخفاء'];
+
+  /// Every power a supervisor can be given.
+  static List<String> get allPerms => [...perms, 'شواهد', for (final s in Library.shawahidScholars) 'شواهد: $s', 'كتب الشعر', 'منتدى'];
+
+  /// What each power lets him do, in a few words.
+  static const about = {
+    'تحرير': 'يعدّل نص الأبيات وتشكيلها واسم الشاعر',
+    'إخفاء': 'يخفي بيتاً عن القرّاء ويعيد ما أخفاه',
+    'توثيق': 'يضع العلامة الزرقاء',
+    'شواهد': 'يُظهر ويخفي شواهد العلماء كلهم',
+    'كتب الشعر': 'يُظهر ويخفي أشعار الدواوين',
+    'حظر': 'يحظر الحسابات',
+    'إيقاف': 'ينذر ويوقف مؤقتاً',
+    'بلاغات': 'يقرأ البلاغات',
+    'رسائل': 'يقرأ الرسائل ويرد',
+    'مراجعة': 'يحذف الاقتباسات المخالفة',
+    'منتدى': 'يدير المنتدى',
+  };
   @override
   Widget build(BuildContext context) => ListenableBuilder(
         listenable: Cloud.i,
@@ -1918,7 +1936,7 @@ class ModsScreen extends StatelessWidget {
               label: const Text('أضف مشرفاً'),
             ),
             body: ListView(padding: const EdgeInsets.fromLTRB(16, 0, 16, 100), children: [
-              Text('أضف بريد المشرف ثم اختر صلاحياته. تظهر له الأزرار في التطبيق حين يدخل بذلك البريد. تنفيذها على الخادم ينتظر نشر القواعد الجديدة من اللابتوب.',
+              Text('أضف المشرف ببريده من هنا، أو من صفحته الشخصية (⋯ ثم «اجعله مشرفاً»)، ثم اختر صلاحياته. تظهر له الأزرار حين يدخل بحسابه. ما يصنعه كل مشرف تراه في «سجلّ المشرفين».',
                   style: TextStyle(color: C.muted(context), height: 1.6)),
               const SizedBox(height: 10),
               if (mods.isEmpty) const EmptyNote(Icons.admin_panel_settings_outlined, 'لا مشرفين بعد.'),
@@ -1929,11 +1947,15 @@ class ModsScreen extends StatelessWidget {
                     padding: const EdgeInsets.all(12),
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Row(children: [
-                        Expanded(child: Text(e.key, textDirection: TextDirection.ltr, style: TextStyle(fontWeight: FontWeight.w700, color: C.ink(context)))),
+                        Expanded(
+                          child: e.key.contains('@')
+                              ? Text(e.key, textDirection: TextDirection.ltr, style: TextStyle(fontWeight: FontWeight.w700, color: C.ink(context)))
+                              : Text('${Cloud.i.modNames[e.key] ?? 'مشرف من صفحته'}', style: TextStyle(fontWeight: FontWeight.w700, color: C.ink(context))),
+                        ),
                         IconButton(onPressed: () => Cloud.i.setMod(e.key, null), icon: const Icon(Icons.delete_outline_rounded)),
                       ]),
                       Wrap(spacing: 6, children: [
-                        for (final p in [...perms, 'شواهد', for (final s in Library.shawahidScholars) 'شواهد: $s', 'كتب الشعر', 'منتدى'])
+                        for (final p in allPerms)
                           FilterChip(
                             label: Text(p),
                             selected: (e.value as List).contains(p),
@@ -1950,6 +1972,117 @@ class ModsScreen extends StatelessWidget {
             ]),
           );
         },
+      );
+}
+
+/// The developer gives one member, from his page, the powers he chooses.
+class ModPermsScreen extends StatelessWidget {
+  final String uid, name;
+  const ModPermsScreen({super.key, required this.uid, required this.name});
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+        listenable: Cloud.i,
+        builder: (context, _) {
+          final mine = [for (final x in (Cloud.i.mods[uid] as List? ?? const [])) '$x'];
+          final isMod = Cloud.i.mods.containsKey(uid);
+          return Scaffold(
+            appBar: AppBar(title: const Text('صلاحيات المشرف')),
+            body: ListView(padding: const EdgeInsets.fromLTRB(16, 0, 16, 40), children: [
+              Text(name, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: C.ink(context))),
+              const SizedBox(height: 4),
+              Text(isMod ? 'مشرف الآن. فعّل له ما تريد، وما يصنعه يُكتب في «سجلّ المشرفين».' : 'ليس مشرفاً بعد. فعّل أي صلاحية ليصير مشرفاً.',
+                  style: TextStyle(color: C.muted(context), height: 1.6)),
+              const SizedBox(height: 10),
+              for (final p in ModsScreen.allPerms)
+                SwitchListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                  title: Text(p),
+                  subtitle: ModsScreen.about[p] == null ? null : Text(ModsScreen.about[p]!),
+                  value: mine.contains(p),
+                  onChanged: (on) {
+                    final l = [...mine];
+                    on ? l.add(p) : l.remove(p);
+                    Cloud.i.setMod(uid, l, name: name);
+                  },
+                ),
+              if (isMod) ...[
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    Cloud.i.setMod(uid, null);
+                    toast(context, 'أُزيل من المشرفين');
+                    Navigator.pop(context);
+                  },
+                  icon: const Icon(Icons.person_remove_outlined),
+                  label: const Text('أزله من المشرفين'),
+                ),
+              ],
+            ]),
+          );
+        },
+      );
+}
+
+/// «سجلّ المشرفين»: what each supervisor did (edits, hiding, showing), newest first.
+class ModLogScreen extends StatefulWidget {
+  const ModLogScreen({super.key});
+  @override
+  State<ModLogScreen> createState() => _ModLogScreenState();
+}
+
+class _ModLogScreenState extends State<ModLogScreen> {
+  late Future<List<Doc>> job = Cloud.i.modLog();
+  String who = '';
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AppBar(
+          title: const Text('سجلّ المشرفين'),
+          actions: [IconButton(onPressed: () => setState(() => job = Cloud.i.modLog()), icon: const Icon(Icons.refresh_rounded))],
+        ),
+        body: !Cloud.i.isDev
+            ? const EmptyNote(Icons.lock_outline_rounded, 'هذه الصفحة للمطوّر.')
+            : FutureBuilder<List<Doc>>(
+                future: job,
+                builder: (context, snap) {
+                  if (!snap.hasData) return const Center(child: CircularProgressIndicator());
+                  final all = snap.data!;
+                  if (all.isEmpty) return const EmptyNote(Icons.history_rounded, 'لا شيء في السجلّ بعد.');
+                  final counts = <String, int>{};
+                  final names = <String, String>{};
+                  for (final x in all) {
+                    final u = '${x['uid']}';
+                    counts[u] = (counts[u] ?? 0) + 1;
+                    names[u] = '${x['name'] ?? ''}'.isEmpty ? '${x['email'] ?? u}' : '${x['name']}';
+                  }
+                  final list = who.isEmpty ? all : all.where((x) => '${x['uid']}' == who).toList();
+                  return ListView(padding: const EdgeInsets.fromLTRB(16, 0, 16, 40), children: [
+                    Wrap(spacing: 6, runSpacing: 2, children: [
+                      ChoiceChip(label: Text('الكل ${Ar.num(all.length)}'), selected: who.isEmpty, onSelected: (_) => setState(() => who = '')),
+                      for (final u in counts.keys)
+                        ChoiceChip(label: Text('${names[u]} ${Ar.num(counts[u]!)}'), selected: who == u, onSelected: (_) => setState(() => who = u)),
+                    ]),
+                    const SizedBox(height: 10),
+                    for (final x in list)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: SoftCard(
+                          padding: const EdgeInsets.all(12),
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Row(children: [
+                              Expanded(child: Text('${names['${x['uid']}']} — ${x['what']}', style: TextStyle(fontWeight: FontWeight.w700, color: C.ink(context)))),
+                              Text(ago(x['at']), style: TextStyle(fontSize: 12.5, color: C.muted(context))),
+                            ]),
+                            if ('${x['text'] ?? ''}'.isNotEmpty)
+                              Padding(padding: const EdgeInsets.only(top: 4), child: Text('${x['text']}', style: TextStyle(fontFamily: verseFont, fontSize: 17, color: C.ink(context)))),
+                            if ('${x['email'] ?? ''}'.isNotEmpty)
+                              Text('${x['email']}', textDirection: TextDirection.ltr, style: TextStyle(fontSize: 12, color: C.muted(context))),
+                          ]),
+                        ),
+                      ),
+                  ]);
+                },
+              ),
       );
 }
 

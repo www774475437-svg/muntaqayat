@@ -1762,6 +1762,16 @@ class _MemberScreenState extends State<MemberScreen> {
                 _grantTitles(context);
               },
             ),
+          if (c.isDev && Store.i.developer && !mine)
+            ListTile(
+              leading: const Icon(Icons.add_moderator_outlined),
+              title: Text(c.mods.containsKey(widget.uid) ? 'صلاحياته في الإشراف' : 'اجعله مشرفاً'),
+              subtitle: const Text('تحرير الأبيات، الإخفاء، الشواهد… تختار له'),
+              onTap: () {
+                Navigator.pop(s);
+                push(context, ModPermsScreen(uid: widget.uid, name: name));
+              },
+            ),
           if (!mine && user != null && (c.isDev || c.can('حظر') || c.can('إيقاف')))
             ListTile(
               leading: const Icon(Icons.admin_panel_settings_outlined),

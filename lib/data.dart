@@ -634,7 +634,9 @@ class Store extends ChangeNotifier {
   Set<String> days = {};
   Map<String, Set<int>> memorized = {};
   int wird = 5;
-  Set<String> hidden = {}; // developer: hidden verses, p:ID:v
+  Set<String> hidden = {}; // hidden verses, p:ID:v (the developer's and the supervisors')
+  Set<String> modHidden = {}; // of those, the ones a supervisor hid (kept in a list of their own on the server)
+  static void Function(String key, bool on, bool wasMod)? cloudHidden;
   Set<String> deleted = {}; // developer: removed for good
   List<String> seen = []; // challenge: verses already asked, 'id:line'
   Map<String, String> studentNames = {}; // teacher: personal number → name
@@ -667,8 +669,13 @@ class Store extends ChangeNotifier {
     _p.setString('edits', jsonEncode(edits));
     Library.refresh();
     notifyListeners();
-    cloudPush?.call();
   }
+
+  static List<List<String>>? linesOf(Object? v) => v is List
+      ? [
+          for (final l in v) [for (final h in (l as List)) '$h']
+        ]
+      : null;
 
   void _readEdits(Map<String, dynamic> j) {
     edits = {
@@ -710,6 +717,7 @@ class Store extends ChangeNotifier {
     shShown = (_p.getStringList('shShown') ?? []).toSet();
     shHidden = (_p.getStringList('shHidden') ?? []).toSet();
     hidden = (_p.getStringList('hidden') ?? []).toSet();
+    modHidden = (_p.getStringList('modHidden') ?? []).toSet();
     deleted = (_p.getStringList('deleted') ?? []).toSet();
     seen = _p.getStringList('seen') ?? [];
     try {
@@ -978,6 +986,12 @@ class Store extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// A supervisor's hidden verses, as the server lists them.
+  void setModHidden(Iterable<String> keys) {
+    modHidden = keys.toSet();
+    _p.setStringList('modHidden', modHidden.toList());
+  }
+
   void applyCloud({List<String>? shShown, List<String>? shHidden, List<String>? verified, List<String>? hidden, List<String>? deleted, bool? plus, String? payLink, Map<String, dynamic>? shuruh, Map<String, dynamic>? features, Map<String, dynamic>? diwan, Map<String, dynamic>? edits}) {
     if (features != null) {
       this.features = {
@@ -1007,8 +1021,8 @@ class Store extends ChangeNotifier {
       _p.setStringList('shHidden', shHidden);
     }
     if (hidden != null) {
-      this.hidden = hidden.toSet();
-      _p.setStringList('hidden', hidden);
+      this.hidden = {...hidden, ...modHidden};
+      _p.setStringList('hidden', this.hidden.toList());
     }
     if (deleted != null) {
       this.deleted = deleted.toSet();
@@ -1054,10 +1068,13 @@ class Store extends ChangeNotifier {
 
   void setHidden(String key, bool on) {
     on ? hidden.add(key) : hidden.remove(key);
+    final wasMod = modHidden.contains(key);
+    if (!on && modHidden.remove(key)) _p.setStringList('modHidden', modHidden.toList());
     _p.setStringList('hidden', hidden.toList());
     Library.refresh();
     notifyListeners();
     cloudPush?.call();
+    cloudHidden?.call(key, on, wasMod);
   }
 
   /// Removes a hidden verse for good (it leaves the hidden list too).

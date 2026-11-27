@@ -247,7 +247,7 @@ class _ScholarShawahidState extends State<ScholarShawahidScreen> {
                       label: const Text('إخفاء'),
                     ),
                   ),
-                if (Store.i.developer)
+                if (Cloud.i.modCan('تحرير'))
                   IconButton(
                     tooltip: 'تحرير',
                     onPressed: () => push(context, EditPieceScreen.piece(x)),
@@ -427,7 +427,7 @@ class ShahidPieceScreen extends StatelessWidget {
         if (x.edition.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 4), child: Text('الطبعة: ${x.edition}', style: TextStyle(fontSize: 13, color: C.muted(context)))),
         const SizedBox(height: 6),
         shahidActions(context, x),
-        if (Store.i.developer)
+        if (Cloud.i.modCan('تحرير'))
           Padding(
             padding: const EdgeInsets.only(top: 14),
             child: OutlinedButton.icon(

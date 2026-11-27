@@ -531,7 +531,8 @@ class DeveloperHub extends StatelessWidget {
             _row(context, Icons.mark_email_unread_outlined, 'الرسائل', 'رسائل المستخدمين وطلبات الاختبارات', () => push(context, const DevMessagesScreen())),
             _row(context, Icons.flag_outlined, 'البلاغات', 'الأسماء والمنشورات المبلّغ عنها، والحظر', () => push(context, const DevReportsScreen())),
             _row(context, Icons.gpp_bad_outlined, 'المخالفون', 'المحظورون والموقوفون مؤقتاً والمنذَرون', () => push(context, const ModerationScreen())),
-            _row(context, Icons.admin_panel_settings_outlined, 'المشرفون', 'أضف مشرفين ببريدهم وحدّد صلاحياتهم', () => push(context, const ModsScreen())),
+            _row(context, Icons.admin_panel_settings_outlined, 'المشرفون', 'أضف مشرفين ببريدهم أو من صفحاتهم وحدّد صلاحياتهم', () => push(context, const ModsScreen())),
+            _row(context, Icons.history_rounded, 'سجلّ المشرفين', 'ما صنعه كل مشرف: تحرير وإخفاء وإظهار', () => push(context, const ModLogScreen())),
             _row(context, Icons.workspace_premium_outlined, 'الشارات وأصحابها', 'كل شارة ومن منحتها له', () => push(context, const BadgeHoldersScreen())),
             if (Vault.ready) ...[
               _row(context, Icons.cloud_outlined, 'التخزين السحابي', 'كم استعملت من المساحة، وكم عليك', () => push(context, const StorageUsageScreen())),

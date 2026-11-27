@@ -68,6 +68,7 @@ class Cloud extends ChangeNotifier {
       ready = true;
       Store.cloudPush = _schedulePush;
       Store.isDevAccount = () => isDev;
+      Store.cloudHidden = _hiddenChanged;
       FirebaseAuth.instance.authStateChanges().listen(_onUser);
       unawaited(pullConfig());
     } catch (_) {
@@ -446,6 +447,26 @@ class Cloud extends ChangeNotifier {
       }
       final app = await _db.collection('config').doc('app').get();
       final marks = await _db.collection('config').doc('marks').get();
+      // The corrections («تحرير») stand in a record of their own, so a supervisor's change is one small write.
+      Map<String, dynamic>? edits;
+      try {
+        final e = await _db.collection('config').doc('edits').get();
+        if (e.exists) {
+          // On the server a correction keeps its verses as one text ('l'), since a list within a list is not stored.
+          edits = {};
+          final m = e.data()?['m'];
+          if (m is Map) {
+            for (final x in m.entries) {
+              final v = x.value;
+              if (v is! Map) continue;
+              edits['${x.key}'] = {
+                if (v['poet'] is String) 'poet': v['poet'],
+                if (v['l'] is String) 'lines': jsonDecode(v['l'] as String),
+              };
+            }
+          }
+        }
+      } catch (_) {}
       _p.setInt('cfgAt', _now);
       if (!marks.exists && !app.exists) {
         if (isDev) await _push();
@@ -455,9 +476,11 @@ class Cloud extends ChangeNotifier {
       if (app.exists) {
         _p.setStringList('bannedDevices', List<String>.from(a['bannedDevices'] as List? ?? []));
         _p.setString('mods', a['mods'] is String ? a['mods'] as String : '{}');
+        _p.setString('modNames', a['modNames'] is String ? a['modNames'] as String : '{}');
         if (a['mutedReporters'] is List) _p.setStringList('mutedReporters', List<String>.from(a['mutedReporters'] as List));
         if (a['acceptedSharh'] is List) _p.setStringList('acceptedSharh', List<String>.from(a['acceptedSharh'] as List));
       }
+      if (marks.exists) Store.i.setModHidden(List<String>.from(m['modHidden'] as List? ?? []));
       Store.i.applyCloud(
         verified: marks.exists ? List<String>.from(m['verified'] as List? ?? []) : null,
         shShown: marks.exists && m['shShown'] is List ? List<String>.from(m['shShown'] as List) : null,
@@ -469,7 +492,7 @@ class Cloud extends ChangeNotifier {
         shuruh: a['shuruh'] is String ? jsonDecode(a['shuruh'] as String) as Map<String, dynamic> : null,
         features: a['features'] is Map ? Map<String, dynamic>.from(a['features'] as Map) : null,
         diwan: a['diwan'] is String ? jsonDecode(a['diwan'] as String) as Map<String, dynamic> : null,
-        edits: a['edits'] is String ? jsonDecode(a['edits'] as String) as Map<String, dynamic> : null,
+        edits: edits,
       );
     } catch (_) {}
   }
@@ -487,7 +510,7 @@ class Cloud extends ChangeNotifier {
     try {
       await _db.collection('config').doc('marks').set({
         'verified': s.verified.toList(),
-        'hidden': s.hidden.toList(),
+        'hidden': s.hidden.difference(s.modHidden).toList(),
         'deleted': s.deleted.toList(),
         'at': _now,
         // The cited verses' lists are left as they are: each change to them is sent on its own (setShahid).
@@ -497,10 +520,10 @@ class Cloud extends ChangeNotifier {
         'payLink': s.payLink,
         'shuruh': jsonEncode(s.shuruh),
         'diwan': jsonEncode(s.diwan),
-        'edits': jsonEncode(s.edits),
         'features': s.features,
         'bannedDevices': bannedDevices,
         'mods': jsonEncode(mods),
+        'modNames': jsonEncode(modNames),
         'mutedReporters': mutedReporters,
         'acceptedSharh': acceptedSharh,
         'at': _now,
@@ -1188,6 +1211,7 @@ class Cloud extends ChangeNotifier {
         'shShown': state > 0 ? FieldValue.arrayUnion([id]) : FieldValue.arrayRemove([id]),
         'shHidden': state < 0 ? FieldValue.arrayUnion([id]) : FieldValue.arrayRemove([id]),
       }).timeout(const Duration(seconds: 15));
+      logMod(state > 0 ? 'إظهار' : (state < 0 ? 'إخفاء مقطع' : 'إعادة إلى المسودة'), 's:$id', _pieceText(id));
       return true;
     } catch (_) {
       Store.i.setShahid(id, before);
@@ -1195,13 +1219,94 @@ class Cloud extends ChangeNotifier {
     }
   }
 
-  bool can(String what) => isDev || (signedIn && ((mods[user!.email] as List?)?.contains(what) ?? false));
-  void setMod(String email, List<String>? perms) {
+  /// A supervisor is known by his email, or by his account when the developer chose him from his page.
+  bool can(String what) {
+    if (isDev) return true;
+    if (!signedIn) return false;
     final m = mods;
-    perms == null ? m.remove(email) : m[email.trim().toLowerCase()] = perms;
+    return ((m[user!.email] as List?)?.contains(what) ?? false) || ((m[uid] as List?)?.contains(what) ?? false);
+  }
+
+  /// Whether the editing tools show here: the developer with his tools opened, or a supervisor given this power.
+  bool modCan(String what) => Store.i.developer || (!isDev && can(what));
+
+  /// The names of the supervisors chosen from their pages: account → name.
+  Map<String, dynamic> get modNames => Map<String, dynamic>.from(jsonDecode(_p.getString('modNames') ?? '{}') as Map);
+
+  /// [who] is an email, or an account id (then [name] is kept to show beside it).
+  void setMod(String who, List<String>? perms, {String? name}) {
+    final key = who.contains('@') ? who.trim().toLowerCase() : who.trim();
+    final m = mods;
+    perms == null ? m.remove(key) : m[key] = perms;
     _p.setString('mods', jsonEncode(m));
+    final n = modNames;
+    if (perms == null) n.remove(key);
+    if (perms != null && name != null && name.isNotEmpty) n[key] = name;
+    _p.setString('modNames', jsonEncode(n));
     notifyListeners();
     _schedulePush();
+  }
+
+  // ------------------------------------------------------------ corrections, hiding, and the supervisors' log
+
+  String _pieceText(String shahidId) {
+    final x = Library.shahidOf(shahidId);
+    return x == null || x.lines.isEmpty ? '' : x.lines.first.join(' … ');
+  }
+
+  /// Saves a correction of a piece (or takes it back when both are null) for every reader.
+  /// One small write, so the developer and the supervisors do not undo each other.
+  Future<bool> setEdit(String key, {String? poet, List<List<String>>? lines, String note = ''}) async {
+    final before = Store.i.edits[key];
+    Store.i.setEdit(key, poet: poet, lines: lines);
+    try {
+      final doc = _db.collection('config').doc('edits');
+      if (poet == null && lines == null) {
+        await doc.update({FieldPath(['m', key]): FieldValue.delete(), 'at': _now}).timeout(const Duration(seconds: 15));
+      } else {
+        // A list within a list is not stored by the server: the verses go as one text.
+        await doc.set({
+          'm': {
+            key: {'poet': poet ?? '', 'l': jsonEncode(lines ?? const [])}
+          },
+          'at': _now,
+        }, SetOptions(merge: true)).timeout(const Duration(seconds: 15));
+      }
+      logMod(poet == null && lines == null ? 'إرجاع الأصل' : 'تحرير', key, note);
+      return true;
+    } catch (_) {
+      before == null ? Store.i.setEdit(key) : Store.i.setEdit(key, poet: before['poet'] as String?, lines: Store.linesOf(before['lines']));
+      return false;
+    }
+  }
+
+  /// A verse was hidden or shown again: the supervisor's own list on the server follows.
+  void _hiddenChanged(String key, bool on, bool wasMod) {
+    if (!ready || !signedIn) return;
+    final mod = !isDev && can('إخفاء');
+    if (!mod && !(isDev && !on && wasMod)) return;
+    if (mod && on) Store.i.setModHidden({...Store.i.modHidden, key});
+    _db.collection('config').doc('marks').update({'modHidden': on ? FieldValue.arrayUnion([key]) : FieldValue.arrayRemove([key])}).then((_) {}, onError: (_) {});
+    if (mod) {
+      final part = key.split(':');
+      final p = part.length == 3 ? Library.byId[int.tryParse(part[1])] : null;
+      final v = part.length == 3 ? (int.tryParse(part[2]) ?? 0) : 0;
+      logMod(on ? 'إخفاء بيت' : 'إظهار بيت', key, p != null && v >= 1 && v <= p.lines.length ? p.lines[v - 1].join(' … ') : '');
+    }
+  }
+
+  /// One line in the supervisors' log, for the developer to read. The developer's own work is not logged.
+  void logMod(String what, String key, String text) {
+    if (isDev || !signedIn) return;
+    _db.collection('modlog').add({'uid': uid, 'email': user?.email ?? '', 'name': name, 'what': what, 'key': key, 'text': text.length > 160 ? text.substring(0, 160) : text, 'at': _now}).then((_) {}, onError: (_) {});
+  }
+
+  Future<List<Doc>> modLog() async {
+    try {
+      return _docs(await _db.collection('modlog').orderBy('at', descending: true).limit(400).get());
+    } catch (_) {
+      return [];
+    }
   }
 
   void banDevice(String device, bool on) {

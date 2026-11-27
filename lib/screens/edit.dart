@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../data.dart';
+import '../services/cloud.dart';
 import '../ui.dart';
 
-/// Developer: correct a piece — the poet's name and the wording or vowelling of each
+/// The developer, or a supervisor given «تحرير»: correct a piece — the poet's name and the wording or vowelling of each
 /// hemistich. The correction goes to every reader; «أرجِع الأصل» takes it back.
 class EditPieceScreen extends StatefulWidget {
   /// 'p:<selection number>' for a selection of the book, 's:<piece id>' for a shown piece.
@@ -43,6 +44,22 @@ class _EditPieceState extends State<EditPieceScreen> {
     super.dispose();
   }
 
+  bool busy = false;
+
+  Future<void> _send({String? poet, List<List<String>>? lines}) async {
+    setState(() => busy = true);
+    final first = (lines ?? widget.lines).isEmpty ? '' : (lines ?? widget.lines).first.join(' … ');
+    final ok = await Cloud.i.setEdit(widget.editKey, poet: poet, lines: lines, note: first);
+    if (!mounted) return;
+    setState(() => busy = false);
+    if (!ok) {
+      toast(context, 'تعذّر الحفظ. تحقّق من الإنترنت ومن صلاحيتك ثم أعد المحاولة.');
+      return;
+    }
+    toast(context, poet == null && lines == null ? 'أُرجع إلى الأصل' : 'حُفظ التعديل ويصل إلى القرّاء');
+    Navigator.pop(context);
+  }
+
   void _save() {
     // An emptied hemistich keeps what it had: a verse never loses a half by mistake.
     final lines = [
@@ -52,16 +69,10 @@ class _EditPieceState extends State<EditPieceScreen> {
         ]
     ];
     final poet = _poet.text.trim();
-    Store.i.setEdit(widget.editKey, poet: poet.isEmpty ? widget.poet : poet, lines: lines);
-    toast(context, 'حُفظ التعديل ويصل إلى القرّاء');
-    Navigator.pop(context);
+    _send(poet: poet.isEmpty ? widget.poet : poet, lines: lines);
   }
 
-  void _reset() {
-    Store.i.setEdit(widget.editKey);
-    toast(context, 'أُرجع إلى الأصل');
-    Navigator.pop(context);
-  }
+  void _reset() => _send();
 
   InputDecoration _box(BuildContext context, String label) => InputDecoration(
         labelText: label,
@@ -77,7 +88,7 @@ class _EditPieceState extends State<EditPieceScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('تحرير')),
       body: ListView(padding: const EdgeInsets.fromLTRB(16, 0, 16, 40), children: [
-        Text('للمطوّر: عدّل اسم الشاعر أو نصّ الأبيات وتشكيلها ثم احفظ.', style: TextStyle(fontSize: 14.5, color: C.muted(context))),
+        Text('عدّل اسم الشاعر أو نصّ الأبيات وتشكيلها ثم احفظ.', style: TextStyle(fontSize: 14.5, color: C.muted(context))),
         const SizedBox(height: 14),
         TextField(controller: _poet, style: const TextStyle(fontSize: 18), decoration: _box(context, 'اسم الشاعر')),
         for (var i = 0; i < _lines.length; i++) ...[
@@ -99,7 +110,7 @@ class _EditPieceState extends State<EditPieceScreen> {
         const SizedBox(height: 18),
         FilledButton.icon(
           style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
-          onPressed: _save,
+          onPressed: busy ? null : _save,
           icon: const Icon(Icons.check_rounded),
           label: const Text('حفظ', style: TextStyle(fontSize: 17)),
         ),
@@ -107,7 +118,7 @@ class _EditPieceState extends State<EditPieceScreen> {
           const SizedBox(height: 10),
           OutlinedButton.icon(
             style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
-            onPressed: _reset,
+            onPressed: busy ? null : _reset,
             icon: const Icon(Icons.undo_rounded),
             label: const Text('أرجِع الأصل', style: TextStyle(fontSize: 16)),
           ),

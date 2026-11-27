@@ -182,7 +182,7 @@ class _PoemScreenState extends State<PoemScreen> {
           SelectionArea(
             child: Column(children: [
               for (var i = 0; i < p.lines.length; i++)
-                if (!p.deletedVerse(i + 1) && (!p.hiddenVerse(i + 1) || Store.i.developer))
+                if (!p.deletedVerse(i + 1) && (!p.hiddenVerse(i + 1) || Cloud.i.modCan('إخفاء')))
                   GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onLongPress: () => setState(() => _sel.contains(i) ? _sel.remove(i) : _sel.add(i)),
@@ -199,13 +199,18 @@ class _PoemScreenState extends State<PoemScreen> {
                               padding: EdgeInsets.only(top: 10),
                               child: Tooltip(message: 'بيت موثّق', child: Icon(Icons.verified_rounded, size: 19, color: verifiedBlue)),
                             ),
-                          if (Store.i.developer) ...[
-                            VerifyButton('p:${p.id}:${i + 1}', what: 'هذا البيت'),
+                          if (Store.i.developer) VerifyButton('p:${p.id}:${i + 1}', what: 'هذا البيت'),
+                          if (Cloud.i.modCan('إخفاء')) ...[
                             IconButton(
                               tooltip: p.hiddenVerse(i + 1) ? 'إظهار البيت' : 'إخفاء البيت',
                               visualDensity: VisualDensity.compact,
                               onPressed: () {
                                 final h = !p.hiddenVerse(i + 1);
+                                // What the developer hid himself, a supervisor does not bring back.
+                                if (!h && !Store.i.developer && !Store.i.modHidden.contains('p:${p.id}:${i + 1}')) {
+                                  toast(context, 'هذا البيت أخفاه المطوّر');
+                                  return;
+                                }
                                 Store.i.setHidden('p:${p.id}:${i + 1}', h);
                                 toast(context, h ? 'أُخفي البيت عن القرّاء' : 'عاد البيت ظاهراً');
                               },
@@ -251,6 +256,15 @@ class _PoemScreenState extends State<PoemScreen> {
             ]),
           ),
           if (Store.i.developer) _review(context),
+          if (!Store.i.developer && Cloud.i.modCan('تحرير'))
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 18, 18, 0),
+              child: OutlinedButton.icon(
+                onPressed: () => push(context, EditPieceScreen.poem(p)),
+                icon: const Icon(Icons.edit_rounded, size: 18),
+                label: const Text('تحرير (للمشرف): النص والتشكيل واسم الشاعر'),
+              ),
+            ),
           if (related.isNotEmpty) ...[
             SectionTitle('من الباب نفسه', onMore: () => openList(context, p.chapterName, Library.ofChapter(p.chapter))),
             TwoColumns(poems: related, onTap: (x) => openPoem(context, x)),

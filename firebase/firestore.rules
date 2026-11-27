@@ -8,7 +8,12 @@ service cloud.firestore {
     function me(uid) { return signedIn() && request.auth.uid == uid; }
     // المشرفون: يضيفهم المطوّر ببريدهم في config/mods، ولكل واحد صلاحياته.
     function modsList() { return get(/databases/$(database)/documents/config/mods).data.list; }
-    function can(p) { return isDev() || (signedIn() && request.auth.token.email_verified == true && request.auth.token.email in modsList() && p in modsList()[request.auth.token.email]); }
+    // المشرف يُعرف بحسابه (إن اختاره المطوّر من صفحته الشخصية) أو ببريده الموثّق.
+    function myPerms() {
+      return request.auth.uid in modsList() ? modsList()[request.auth.uid]
+        : ((request.auth.token.email_verified == true && request.auth.token.email in modsList()) ? modsList()[request.auth.token.email] : []);
+    }
+    function can(p) { return isDev() || (signedIn() && p in myPerms()); }
     function notBanned() { return !(get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('banned', false)); }
 
     // سجلّ واحد لكل مستخدم: الاسم والرقم الشخصي والعدادات (قراءة واحدة).
@@ -65,11 +70,20 @@ service cloud.firestore {
     }
     // إعدادات عامة (مثل إظهار الاشتراك) والإحصائيات المجمّعة.
     // مشرف الشواهد (لكل العلماء أو لعالم واحد) يغيّر قائمتي الإظهار والإخفاء فقط.
-    function shMod() { return signedIn() && request.auth.token.email_verified == true && request.auth.token.email in modsList() && modsList()[request.auth.token.email].hasAny(['شواهد', 'شواهد: ابن القيم', 'شواهد: ابن تيمية', 'شواهد: ابن الجوزي', 'شواهد: ابن باز', 'شواهد: ابن عثيمين', 'كتب الشعر']); }
+    function shMod() { return signedIn() && myPerms().hasAny(['شواهد', 'شواهد: ابن القيم', 'شواهد: ابن تيمية', 'شواهد: ابن الجوزي', 'شواهد: ابن باز', 'شواهد: ابن عثيمين', 'كتب الشعر']); }
     match /config/{id} {
       allow read: if true;
       allow write: if isDev() || (id == 'marks' && can('توثيق'));
       allow update: if id == 'marks' && shMod() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['shShown', 'shHidden']);
+      // مشرف «إخفاء»: قائمته الخاصة بما أخفاه من الأبيات، ولا يمسّ ما أخفاه المطوّر.
+      allow update: if id == 'marks' && can('إخفاء') && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['modHidden']);
+      // مشرف «تحرير»: تصحيحات النص واسم الشاعر في سجلّها الخاص.
+      allow create, update: if id == 'edits' && can('تحرير');
+    }
+    // سجلّ المشرفين: يكتب كل واحد سطره، ويقرؤه المطوّر وحده.
+    match /modlog/{id} {
+      allow create: if signedIn() && request.resource.data.uid == request.auth.uid;
+      allow read, delete: if isDev();
     }
     // المنتدى: رسائل كل يوم في سجلّ واحد. يكتب فيه من يُسمح له الآن، والمشرفون («منتدى») يديرونه.
     function fState() { return get(/databases/$(database)/documents/forum/state).data; }
