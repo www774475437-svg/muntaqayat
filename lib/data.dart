@@ -30,6 +30,34 @@ class Poem {
   /// For a verse a scholar cited, shown in the feed: who cited it and where.
   final String cite, citeScholar;
 
+  /// Set for a piece shown from the citations or from «كتب الشعر»: the id of its [Shahid].
+  final String shahidId;
+  bool get fromShahid => shahidId.isNotEmpty;
+
+  /// A piece the developer showed from the citations or from a book of verses, as a selection,
+  /// so it stands in its era, its rhyme and the search beside the selections of the book.
+  factory Poem.ofShahid(Shahid x) {
+    final name = x.own ? x.scholar : x.poet;
+    final poet = Library.poetByName[name];
+    return Poem.fromJson({
+      'id': Library.shahidNumber(x.id),
+      'ch': 0,
+      'sec': 0,
+      'page': 0,
+      'lines': x.lines,
+      'notes': <String>[],
+      'poet': name,
+      'era': x.era.isNotEmpty ? x.era : (poet?.era ?? ''),
+      'death': x.died.isNotEmpty ? x.died : (poet?.death ?? ''),
+      'rhyme': Ar.rhymeOf(x.lines),
+      'flags': <String>[],
+      'src': 'shahid',
+      'cite': x.citeLine,
+      'citeScholar': x.scholar,
+      'shahid': x.id,
+    });
+  }
+
   Poem.fromJson(Map<String, dynamic> j)
       : id = j['id'] as int,
         chapter = j['ch'] as int,
@@ -48,7 +76,8 @@ class Poem {
         status = (j['status'] as String?) ?? '',
         src = (j['src'] as String?) ?? 'book',
         cite = (j['cite'] as String?) ?? '',
-        citeScholar = (j['citeScholar'] as String?) ?? '';
+        citeScholar = (j['citeScholar'] as String?) ?? '',
+        shahidId = (j['shahid'] as String?) ?? '';
 
   /// Number of verses, counting a lone hemistich line as a verse.
   int get verseCount => lines.length;
@@ -76,7 +105,8 @@ class Poem {
 
   bool get unattributed => poet == 'بلا نسبة';
 
-  String get chapterName => Library.chapters[chapter].name;
+  /// The chapter of the book; for a piece shown from elsewhere, where it was taken from.
+  String get chapterName => fromShahid ? cite : Library.chapters[chapter].name;
 
   String get plainText => lines.map((l) => l.join(' ')).join(' ');
 }
@@ -281,7 +311,42 @@ class Library {
   static final Map<int, Poem> byId = {};
 
   /// Re-applies the developer's hidden / deleted marks.
-  static void refresh() => poems = all.where((p) => !p.allGone).toList();
+  static void refresh() {
+    poems = all.where((p) => !p.allGone).toList();
+    // What the developer showed from the citations and from «كتب الشعر», under a known name.
+    // A piece whose verses already stand in the app («المكررة») is not repeated.
+    shownPieces = [
+      for (final x in shawahid)
+        if (x.shown && x.dup.isEmpty && (x.own || x.poet.isNotEmpty)) Poem.ofShahid(x)
+    ];
+    wide = [...poems, ...shownPieces];
+  }
+
+  /// The shown pieces as selections, and the selections of the book with them: the eras,
+  /// the rhymes and the search read [wide]; the chapters, the review and the games keep to [poems].
+  static List<Poem> shownPieces = [];
+  static List<Poem> wide = [];
+
+  /// A steady number for a piece from its id, the same on every device and in every version
+  /// (kept small enough for the web, where numbers are not whole past 2^53).
+  static int shahidNumber(String id) {
+    var h = 7;
+    for (final c in id.codeUnits) {
+      h = (h * 31 + c) % 1000000007;
+    }
+    return 1000000000 + h;
+  }
+
+  static Shahid? shahidOf(String id) {
+    if (_shahidById.length != shawahid.length) {
+      _shahidById
+        ..clear()
+        ..addEntries(shawahid.map((x) => MapEntry(x.id, x)));
+    }
+    return _shahidById[id];
+  }
+
+  static final Map<String, Shahid> _shahidById = {};
   static List<Poem> get bookPoems => poems.where((p) => p.fromBook).toList();
   static List<Poem> get verifiedPoems => poems.where((p) => p.anyVerified).toList();
   static final Map<String, Poet> poetByName = {};
@@ -331,9 +396,9 @@ class Library {
   }
 
   static List<Poem> ofPoet(String name) => poems.where((p) => p.poet == name).toList();
-  static List<Poem> ofEra(String era) => poems.where((p) => p.era == era).toList();
+  static List<Poem> ofEra(String era) => wide.where((p) => p.era == era).toList();
   static List<Poem> ofChapter(int c) => poems.where((p) => p.chapter == c).toList();
-  static List<Poem> ofRhyme(String r) => poems.where((p) => p.rhyme == r).toList();
+  static List<Poem> ofRhyme(String r) => wide.where((p) => p.rhyme == r).toList();
 
   /// Named poets only (without «بلا نسبة»), most selections first.
   /// A poet known only from a diwan in «كتب الشعر» appears once one of his pieces is shown.
@@ -389,6 +454,21 @@ class Library {
 /// Arabic text helpers.
 class Ar {
   static final _marks = RegExp('[ً-ٰٟۡؐ-ؚـ]');
+
+  /// The rhyme letter of a piece, roughly: the last letter of its first verse, past a closing
+  /// long vowel («عقلا» → ل، «أمري» → ر).
+  static String rhymeOf(List<List<String>> lines) {
+    if (lines.isEmpty || lines.first.isEmpty) return '';
+    var t = plain(lines.first.last).replaceAll(RegExp('[^\u0621-\u064A]'), '');
+    if (t.length > 2 && t.endsWith('وا')) t = t.substring(0, t.length - 2);
+    if (t.length > 1 && 'اويى'.contains(t[t.length - 1])) t = t.substring(0, t.length - 1);
+    if (t.isEmpty) return '';
+    final c = t[t.length - 1];
+    if ('أإآؤئ'.contains(c)) return 'ء';
+    if (c == 'ة') return 'ه';
+    if (c == 'ى') return 'ي';
+    return c;
+  }
 
   /// Without tashkeel (for display when the reader hides it).
   static String plain(String s) => s.replaceAll(_marks, '');
@@ -798,6 +878,7 @@ class Store extends ChangeNotifier {
     if (state < 0) shHidden.add(id);
     _p.setStringList('shShown', shShown.toList());
     _p.setStringList('shHidden', shHidden.toList());
+    Library.refresh();
     notifyListeners();
   }
 

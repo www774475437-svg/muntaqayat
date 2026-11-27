@@ -260,13 +260,26 @@ class BrowseScreen extends StatelessWidget {
 }
 
 /// «دائرة العصور»: the eras set around one big circle. The middle opens them all, each small circle opens its own era.
-class ErasWheel extends StatelessWidget {
+class ErasWheel extends StatefulWidget {
   const ErasWheel({super.key});
+  @override
+  State<ErasWheel> createState() => _ErasWheelState();
+}
+
+class _ErasWheelState extends State<ErasWheel> with SingleTickerProviderStateMixin {
+  // A green line goes round the wheel without hurry: about four seconds for each era.
+  late final AnimationController _turn = AnimationController(vsync: this, duration: const Duration(seconds: 40))..repeat();
+
+  @override
+  void dispose() {
+    _turn.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final have = <String>{
-      for (final p in Library.poems)
+      for (final p in Library.wide)
         if (p.era.isNotEmpty) p.era,
     };
     final eras = [
@@ -330,6 +343,15 @@ class ErasWheel extends StatelessWidget {
                     ),
                   ),
                 ),
+              // The moving line is only drawn over the wheel; taps pass through it.
+              if (!MediaQuery.of(context).disableAnimations)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: RepaintBoundary(
+                      child: CustomPaint(painter: _WheelLine(_turn, eras.length, r, d, const Color(0xFF2F8F5B))),
+                    ),
+                  ),
+                ),
             ]),
           );
         }),
@@ -351,4 +373,57 @@ class ErasWheel extends StatelessWidget {
           ),
         ),
       );
+}
+
+
+/// The line of «دائرة العصور»: it comes to an era along the big circle, goes once round
+/// that era's small circle while the circle takes a little of its colour, then moves on
+/// to the next era, and so round them all.
+class _WheelLine extends CustomPainter {
+  final Animation<double> turn;
+  final int n;
+  final double r, d;
+  final Color color;
+  _WheelLine(this.turn, this.n, this.r, this.d, this.color) : super(repaint: turn);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (n < 2) return;
+    final c = size.center(Offset.zero);
+    final step = 2 * math.pi / n;
+    final v = turn.value * n;
+    final i = v.floor() % n;
+    final t = v - v.floor();
+    // Where era i sits, as an angle of the canvas (the eras go round to the left).
+    double at(int k) => -math.pi / 2 - step * k;
+    Offset onRing(double a) => c + Offset(math.cos(a), math.sin(a)) * r;
+    // How much of the big circle one small circle covers, to each side of its middle.
+    final cover = 2 * math.asin((d / 2) / (2 * r));
+    final centre = onRing(at(i));
+    double from(Offset p) => math.atan2(p.dy - centre.dy, p.dx - centre.dx);
+    final enter = from(onRing(at(i) + cover));
+    final leave = from(onRing(at(i) - cover));
+    var round = (leave - enter) % (2 * math.pi);
+    if (round < 0) round += 2 * math.pi;
+    round += 2 * math.pi; // once fully round, then on to where it leaves
+    const circling = 0.68; // the share of an era's time spent going round it
+    final a = (t / circling).clamp(0.0, 1.0);
+    final b = ((t - circling) / (1 - circling)).clamp(0.0, 1.0);
+    final ease = Curves.easeInOut.transform(a);
+    final fade = 1 - b;
+    final line = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3
+      ..strokeCap = StrokeCap.round;
+    // The era's circle takes the colour softly, most in the middle of its turn.
+    canvas.drawCircle(centre, d / 2, Paint()..color = color.withValues(alpha: 0.16 * math.sin(math.pi * a) * fade + 0.10 * a * fade));
+    canvas.drawArc(Rect.fromCircle(center: centre, radius: d / 2), enter, round * ease, false, line..color = color.withValues(alpha: fade));
+    if (b > 0) {
+      final go = Curves.easeInOut.transform(b);
+      canvas.drawArc(Rect.fromCircle(center: c, radius: r), at(i) - cover, -(step - 2 * cover) * go, false, line..color = color.withValues(alpha: 0.35 + 0.65 * math.sin(math.pi * b)));
+    }
+  }
+
+  @override
+  bool shouldRepaint(_WheelLine old) => old.n != n || old.r != r || old.d != d || old.color != color;
 }

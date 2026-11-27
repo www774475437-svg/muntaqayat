@@ -236,7 +236,7 @@ class _CountListBodyState extends State<_CountListBody> {
 
 Widget erasScreen(BuildContext context) {
   final counts = <String, int>{};
-  for (final p in Library.poems) {
+  for (final p in Library.wide) {
     if (p.era.isNotEmpty) counts[p.era] = (counts[p.era] ?? 0) + 1;
   }
   final rows = [
@@ -257,7 +257,7 @@ Widget poetsScreen(BuildContext context) {
 
 Widget rhymesScreen(BuildContext context) {
   final counts = <String, int>{};
-  for (final p in Library.poems) {
+  for (final p in Library.wide) {
     if (p.rhyme.isNotEmpty) counts[p.rhyme] = (counts[p.rhyme] ?? 0) + 1;
   }
   const order = 'ءابتثجحخدذرزسشصضطظعغفقكلمنهوي';

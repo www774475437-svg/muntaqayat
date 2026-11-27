@@ -18,6 +18,7 @@ import 'screens/intro.dart';
 import 'screens/poem.dart';
 import 'screens/qawafi.dart';
 import 'screens/search.dart';
+import 'screens/shawahid.dart' show ShahidPieceScreen;
 import 'screens/today.dart';
 import 'services/cloud.dart';
 import 'services/device.dart';
@@ -424,6 +425,12 @@ class _ShellState extends State<Shell> with TickerProviderStateMixin {
 
 /// Open a selection (used everywhere).
 void openPoem(BuildContext context, Poem p) {
+  // A piece shown from the citations or from «كتب الشعر» opens on its own page, with its source.
+  final x = p.fromShahid ? Library.shahidOf(p.shahidId) : null;
+  if (x != null) {
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => ShahidPieceScreen(piece: x)));
+    return;
+  }
   Navigator.of(context).push(MaterialPageRoute(settings: RouteSettings(name: '/p/${p.id}'), builder: (_) => PoemScreen(poem: p)));
 }
 

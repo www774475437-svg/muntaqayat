@@ -385,3 +385,40 @@ Widget shahidSharh(BuildContext context, Shahid x) => Column(crossAxisAlignment:
         ),
       ),
     ]);
+
+/// One shown piece on a page of its own: reached from its era, its rhyme and the search.
+class ShahidPieceScreen extends StatelessWidget {
+  final Shahid piece;
+  const ShahidPieceScreen({super.key, required this.piece});
+  @override
+  Widget build(BuildContext context) {
+    final x = piece;
+    final name = x.own ? x.scholar : (x.poet.isEmpty ? 'بلا نسبة' : x.poet);
+    return Scaffold(
+      appBar: AppBar(),
+      body: ListView(padding: const EdgeInsets.fromLTRB(20, 0, 20, 40), children: [
+        InkWell(
+          onTap: x.own ? () => openShawahid(context, x.scholar, own: true) : () => openPoet(context, name),
+          child: Text(name, style: TextStyle(fontSize: 23, fontWeight: FontWeight.w700, color: C.accent(context))),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          [Ar.verses(x.lines.length), if (x.era.isNotEmpty) x.era, if (x.died.isNotEmpty) 'ت ${x.died.endsWith('هـ') ? x.died : '${x.died}هـ'}'].join(' · '),
+          style: TextStyle(fontSize: 15, color: C.muted(context)),
+        ),
+        Divider(height: 32, color: C.line(context)),
+        if (x.note.isNotEmpty) Padding(padding: const EdgeInsets.only(bottom: 10), child: Text(x.note, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: C.muted(context)))),
+        for (final l in x.lines) Padding(padding: const EdgeInsets.only(bottom: 10), child: VerseLines(l, size: 23)),
+        if (x.hasSharh) shahidSharh(context, x),
+        const SizedBox(height: 8),
+        InkWell(
+          onTap: () => openShawahid(context, x.scholar, own: x.own),
+          child: Text(x.citeLine, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: C.accent(context))),
+        ),
+        if (x.edition.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 4), child: Text('الطبعة: ${x.edition}', style: TextStyle(fontSize: 13, color: C.muted(context)))),
+        const SizedBox(height: 6),
+        shahidActions(context, x),
+      ]),
+    );
+  }
+}

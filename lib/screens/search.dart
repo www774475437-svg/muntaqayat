@@ -102,7 +102,7 @@ class _SearchScreenState extends State<SearchScreen> {
     final poets = nq.isEmpty ? <Poet>[] : Library.namedPoets.where((p) => words.every(Ar.norm(p.name).contains)).toList();
     final poems = nq.length < 2
         ? <Poem>[]
-        : Library.poems.where((p) {
+        : Library.wide.where((p) {
             final t = Ar.norm(p.plainText);
             return words.every(t.contains);
           }).toList();
