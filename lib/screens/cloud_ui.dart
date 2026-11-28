@@ -125,7 +125,7 @@ class ProfileScreen extends StatelessWidget {
                   style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
                   onPressed: () => needAccount(context),
                   icon: const Icon(Icons.login_rounded),
-                  label: const Text('ادخل بحساب جوجل', style: TextStyle(fontSize: 17)),
+                  label: Text(Cloud.signInLabel, style: const TextStyle(fontSize: 17)),
                 ),
               ]),
             ),
@@ -767,7 +767,7 @@ class _DuelsScreenState extends State<DuelsScreen> {
                       onPressed: () async {
                         if (await needAccount(context) && mounted) setState(() => job = Cloud.i.duels());
                       },
-                      child: const Text('ادخل بحساب جوجل'),
+                      child: Text(Cloud.signInLabel),
                     ),
                   ]),
                 ),
@@ -1304,7 +1304,7 @@ class _StudentTestsScreenState extends State<StudentTestsScreen> {
                       onPressed: () async {
                         if (await needAccount(context) && mounted) setState(() => job = c.myTests());
                       },
-                      child: const Text('ادخل بحساب جوجل'),
+                      child: Text(Cloud.signInLabel),
                     ),
                   ]),
                 )
