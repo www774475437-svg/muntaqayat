@@ -1856,7 +1856,12 @@ class _DevMessagesScreenState extends State<DevMessagesScreen> {
                               _load();
                             },
                             child: Row(children: [
-                              const RoundIcon(Icons.person_outline_rounded, size: 46),
+                              // the circle opens his page; the rest of the row opens the conversation
+                              GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onTap: () => _openUser(context, '${c.first['publicId']}'),
+                                child: const Padding(padding: EdgeInsets.all(4), child: RoundIcon(Icons.person_outline_rounded, size: 46)),
+                              ),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
