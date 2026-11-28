@@ -38,6 +38,22 @@ class Cloud extends ChangeNotifier {
     storageBucket: 'muntaqayat.firebasestorage.app',
   );
 
+  static const _iosClient = '581548975960-c9fut35d4qqov4qqe4pgs3mad1h8qam3.apps.googleusercontent.com';
+  static const _ios = FirebaseOptions(
+    apiKey: _key,
+    appId: '1:581548975960:ios:9e3553fd9d33da2678e72d',
+    messagingSenderId: '581548975960',
+    projectId: 'muntaqayat',
+    storageBucket: 'muntaqayat.firebasestorage.app',
+    iosBundleId: 'com.muntaqayat.muntaqayat',
+    iosClientId: _iosClient,
+  );
+
+  static String get signInLabel => onApple ? 'ادخل بحسابك' : 'ادخل بحساب جوجل';
+
+  /// On an iPhone or iPad: «الدخول بحساب Apple» is offered beside Google.
+  static bool get onApple => !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+
   bool ready = false;
   User? user;
   Doc profile = {};
@@ -64,7 +80,7 @@ class Cloud extends ChangeNotifier {
   Future<void> init() async {
     _p = await SharedPreferences.getInstance();
     try {
-      await Firebase.initializeApp(options: kIsWeb ? _web : _android);
+      await Firebase.initializeApp(options: kIsWeb ? _web : (onApple ? _ios : _android));
       ready = true;
       Store.cloudPush = _schedulePush;
       Store.isDevAccount = () => isDev;
@@ -100,14 +116,19 @@ class Cloud extends ChangeNotifier {
   // ------------------------------------------------------------ sign in
 
   /// Returns an Arabic error text, or null when signed in.
-  Future<String?> signIn() async {
+  Future<String?> signIn({bool apple = false}) async {
     if (!ready) return 'تعذّر الاتصال بالخادم. تحقّق من الإنترنت ثم أعد فتح التطبيق.';
     try {
-      if (kIsWeb) {
+      if (apple) {
+        // Apple's own sheet; the reader may hide his email, and the app asks for nothing else.
+        await FirebaseAuth.instance.signInWithProvider(AppleAuthProvider()
+          ..addScope('email')
+          ..addScope('name'));
+      } else if (kIsWeb) {
         // Always show the list of Google accounts to choose from.
         await FirebaseAuth.instance.signInWithPopup(GoogleAuthProvider()..setCustomParameters({'prompt': 'select_account'}));
       } else {
-        final g = GoogleSignIn(serverClientId: _webClient, scopes: const ['email']);
+        final g = GoogleSignIn(clientId: onApple ? _iosClient : null, serverClientId: _webClient, scopes: const ['email']);
         try {
           await g.signOut();
         } catch (_) {}
@@ -121,7 +142,8 @@ class Cloud extends ChangeNotifier {
       notifyListeners();
       return user == null ? 'لم يكتمل الدخول.' : null;
     } catch (e) {
-      return 'تعذّر الدخول بحساب جوجل.\n$e';
+      if ('$e'.contains('canceled') || '$e'.contains('cancelled')) return 'أُلغي الدخول.';
+      return 'تعذّر الدخول بحساب ${apple ? 'Apple' : 'جوجل'}.\n$e';
     }
   }
 

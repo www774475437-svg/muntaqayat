@@ -1,0 +1,32 @@
+name: iOS signing key (once)
+
+# Runs when signing/ios_setup_request changes: makes the private key of the App Store
+# certificate on GitHub itself, keeps it encrypted with KEY_PASSWORD, and leaves the
+# request file (CSR) that Apple turns into the certificate.
+on:
+  push:
+    paths: ['signing/ios_setup_request']
+
+permissions:
+  contents: write
+
+jobs:
+  key:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Make the key and the request
+        env:
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          test -n "$KEY_PASSWORD"
+          if [ -f signing/ios_dist.key.enc ]; then echo "Key already there"; exit 0; fi
+          openssl genrsa -out /tmp/dist.key 2048
+          openssl req -new -key /tmp/dist.key -out signing/ios_dist.csr -subj "/emailAddress=www773517015@icloud.com/CN=Muntaqayat Distribution/C=US"
+          openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -in /tmp/dist.key -out signing/ios_dist.key.enc -pass env:KEY_PASSWORD
+          rm -f /tmp/dist.key
+          git config user.name "www774475437-svg"
+          git config user.email "338496743+www774475437-svg@users.noreply.github.com"
+          git add signing/ios_dist.csr signing/ios_dist.key.enc
+          git commit -m "مفتاح توقيع نسخة الآيفون (مشفّر) وطلب الشهادة"
+          git push

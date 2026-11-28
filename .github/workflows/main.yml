@@ -81,6 +81,90 @@ jobs:
             muntaqayat.apk
             muntaqayat.aab
 
+  ios:
+    needs: check
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Create iOS platform files
+        run: flutter create --org com.muntaqayat --project-name muntaqayat --platforms ios .
+
+      - name: Signing files (certificate and profile kept in the repository, key behind KEY_PASSWORD)
+        id: sign
+        env:
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEY_PASSWORD" ] && [ -f signing/ios_dist.key.enc ] && [ -f signing/ios_dist.cer ] && [ -f signing/ios_appstore.mobileprovision ]; then
+            openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in signing/ios_dist.key.enc -out "$RUNNER_TEMP/dist.key" -pass env:KEY_PASSWORD
+            openssl x509 -inform DER -in signing/ios_dist.cer -out "$RUNNER_TEMP/dist.pem"
+            openssl pkcs12 -export -legacy -inkey "$RUNNER_TEMP/dist.key" -in "$RUNNER_TEMP/dist.pem" -out "$RUNNER_TEMP/dist.p12" -passout pass:ci || \
+              openssl pkcs12 -export -inkey "$RUNNER_TEMP/dist.key" -in "$RUNNER_TEMP/dist.pem" -out "$RUNNER_TEMP/dist.p12" -passout pass:ci
+            security create-keychain -p ci "$RUNNER_TEMP/ci.keychain-db"
+            security set-keychain-settings -lut 21600 "$RUNNER_TEMP/ci.keychain-db"
+            security unlock-keychain -p ci "$RUNNER_TEMP/ci.keychain-db"
+            security import "$RUNNER_TEMP/dist.p12" -P ci -A -t cert -f pkcs12 -k "$RUNNER_TEMP/ci.keychain-db"
+            security set-key-partition-list -S apple-tool:,apple: -k ci "$RUNNER_TEMP/ci.keychain-db" > /dev/null
+            security list-keychains -d user -s "$RUNNER_TEMP/ci.keychain-db" login.keychain-db
+            mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+            cp signing/ios_appstore.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
+            rm -f "$RUNNER_TEMP/dist.key"
+            echo "on=1" >> "$GITHUB_OUTPUT"
+            echo "Signing for the App Store"
+          else
+            echo "on=0" >> "$GITHUB_OUTPUT"
+            echo "No signing files yet - building unsigned to check that the app compiles"
+          fi
+
+      - name: Patch iOS (name, permissions, sign-in, signing)
+        env:
+          SIGN: ${{ steps.sign.outputs.on }}
+        run: python3 tool/patch_ios.py
+
+      - run: flutter pub get
+
+      - name: App icon
+        run: dart run flutter_launcher_icons -f tool/launcher/ios_icons.yaml
+
+      - name: Build (unsigned check)
+        if: steps.sign.outputs.on != '1'
+        run: flutter build ios --release --no-codesign --build-number=${{ github.run_number }} --dart-define=BUILD=${{ github.run_number }} --dart-define=STORE=play
+
+      - name: Build the App Store file (IPA)
+        if: steps.sign.outputs.on == '1'
+        run: |
+          flutter build ipa --release --export-options-plist=ios/ExportOptions.plist --build-number=${{ github.run_number }} --dart-define=BUILD=${{ github.run_number }} --dart-define=STORE=play
+          cp build/ios/ipa/*.ipa muntaqayat.ipa
+
+      - name: Send to TestFlight (when the App Store Connect key is set)
+        if: steps.sign.outputs.on == '1'
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          if [ -z "$ASC_KEY_ID" ] || [ -z "$ASC_ISSUER_ID" ] || [ -z "$ASC_KEY_P8" ]; then
+            echo "App Store Connect key not set - the IPA is kept as a build file instead"
+            exit 0
+          fi
+          mkdir -p ~/.appstoreconnect/private_keys
+          printf '%s' "$ASC_KEY_P8" > ~/.appstoreconnect/private_keys/AuthKey_$ASC_KEY_ID.p8
+          xcrun altool --upload-app -f muntaqayat.ipa -t ios --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
+          rm -f ~/.appstoreconnect/private_keys/AuthKey_$ASC_KEY_ID.p8
+
+      - name: Keep the IPA
+        if: steps.sign.outputs.on == '1'
+        uses: actions/upload-artifact@v4
+        with:
+          name: muntaqayat-ipa
+          path: muntaqayat.ipa
+          retention-days: 14
+
   website:
     needs: check
     runs-on: ubuntu-latest

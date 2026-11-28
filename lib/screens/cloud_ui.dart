@@ -59,7 +59,7 @@ String ago(dynamic ms) {
 /// Asks the reader to sign in with Google when a feature needs an account.
 Future<bool> needAccount(BuildContext context, [String why = '']) async {
   if (Cloud.i.signedIn) return true;
-  final go = await showModalBottomSheet<bool>(
+  final go = await showModalBottomSheet<String>(
     context: context,
     showDragHandle: true,
     builder: (c) => Padding(
@@ -67,20 +67,29 @@ Future<bool> needAccount(BuildContext context, [String why = '']) async {
       child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         const Text('ادخل بحسابك', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
         const SizedBox(height: 8),
-        Text('${why.isEmpty ? '' : '$why\n\n'}تدخل بحساب جوجل بضغطة واحدة، فيكون لك رقم شخصي ثابت من سبعة أرقام. لا نطلب كلمة مرور، ولا يظهر بريدك لأحد من القرّاء.',
+        Text('${why.isEmpty ? '' : '$why\n\n'}تدخل ${Cloud.onApple ? 'بحساب Apple أو جوجل' : 'بحساب جوجل'} بضغطة واحدة، فيكون لك رقم شخصي ثابت من سبعة أرقام. لا نطلب كلمة مرور، ولا يظهر بريدك لأحد من القرّاء.',
             style: const TextStyle(fontSize: 16, height: 1.7)),
         const SizedBox(height: 16),
+        if (Cloud.onApple) ...[
+          FilledButton.icon(
+            style: FilledButton.styleFrom(backgroundColor: Colors.black, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 14)),
+            onPressed: () => Navigator.pop(c, 'apple'),
+            icon: const Icon(Icons.apple, size: 24),
+            label: const Text('ادخل بحساب Apple', style: TextStyle(fontSize: 17)),
+          ),
+          const SizedBox(height: 10),
+        ],
         FilledButton.icon(
           style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
-          onPressed: () => Navigator.pop(c, true),
+          onPressed: () => Navigator.pop(c, 'google'),
           icon: const Icon(Icons.login_rounded),
           label: const Text('ادخل بحساب جوجل', style: TextStyle(fontSize: 17)),
         ),
       ]),
     ),
   );
-  if (go != true || !context.mounted) return false;
-  final err = await Cloud.i.signIn();
+  if (go == null || !context.mounted) return false;
+  final err = await Cloud.i.signIn(apple: go == 'apple');
   if (!context.mounted) return false;
   if (err != null) {
     toast(context, err);
