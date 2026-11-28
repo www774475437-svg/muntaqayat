@@ -424,6 +424,8 @@ class _UserScreenState extends State<UserScreen> {
   }
 
   Map get g => (user['grants'] as Map?) ?? {};
+  // the warning / suspension / ban buttons stay folded behind one button
+  bool _tools = false;
   void _g(String k, dynamic v) => setState(() => user['grants'] = {...g, k: v});
 
   Widget _moderation(BuildContext context) {
@@ -451,6 +453,24 @@ class _UserScreenState extends State<UserScreen> {
         if (g['noMsg'] == true) const Text('مراسلته للمطوّر موقوفة.', style: TextStyle(color: Color(0xFFB3261E))),
         for (final w in warns.reversed.take(5)) Text('• إنذار ${ago(w['at'])}: ${w['text']}', style: TextStyle(height: 1.6, color: C.ink(context))),
         const SizedBox(height: 8),
+        if (c.isDev)
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.tonalIcon(
+              onPressed: () => push(context, ModPermsScreen(uid: uid, name: '${user['name'] ?? 'قارئ'}')),
+              icon: const Icon(Icons.admin_panel_settings_outlined),
+              label: Text(c.mods.containsKey(uid) ? 'صلاحياته في الإشراف' : 'اجعله مشرفاً وحدّد صلاحياته'),
+            ),
+          ),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: () => setState(() => _tools = !_tools),
+            icon: Icon(_tools ? Icons.expand_less_rounded : Icons.expand_more_rounded),
+            label: Text(_tools ? 'أخفِ الأزرار' : 'الإنذار والإيقاف والحظر والاشتراك'),
+          ),
+        ),
+        if (_tools)
         Wrap(spacing: 8, runSpacing: 4, children: [
           if (c.can('حظر') || c.can('إيقاف')) ...[
             b('إنذار', () async {
