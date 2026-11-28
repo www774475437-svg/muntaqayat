@@ -237,17 +237,20 @@ class _ShellState extends State<Shell> with TickerProviderStateMixin {
             onNotification: _onScroll,
             child: IndexedStack(index: tab, children: [
               for (var i = 0; i < pages.length; i++)
-                AnimatedPadding(
-                  duration: const Duration(milliseconds: 260),
-                  curve: Curves.easeOut,
-                  // inner pages end above the bar, so it never covers their last lines
-                  padding: EdgeInsets.only(bottom: i == tab && inner ? barSpace : 0),
-                  child: Navigator(
-                    key: _navs[i],
-                    observers: [_obs[i]],
-                    onGenerateRoute: (s) => MaterialPageRoute(settings: s, builder: (_) => pages[i]),
-                  ),
-                ),
+                // Inner pages run under the floating bar (no band behind it); only their
+                // bottom inset grows, so lists and buttons still clear the bar at the end.
+                Builder(builder: (context) {
+                  final mq = MediaQuery.of(context);
+                  final lift = i == tab && inner;
+                  return MediaQuery(
+                    data: lift ? mq.copyWith(padding: mq.padding.copyWith(bottom: barSpace), viewPadding: mq.viewPadding.copyWith(bottom: barSpace)) : mq,
+                    child: Navigator(
+                      key: _navs[i],
+                      observers: [_obs[i]],
+                      onGenerateRoute: (s) => MaterialPageRoute(settings: s, builder: (_) => pages[i]),
+                    ),
+                  );
+                }),
             ]),
           ),
         ),
