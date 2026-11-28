@@ -43,7 +43,7 @@ def block(m):
         return m.group(0)
     drop = ("CODE_SIGN_ENTITLEMENTS", "DEVELOPMENT_TEAM", "CODE_SIGN_STYLE", "PROVISIONING_PROFILE_SPECIFIER", "CODE_SIGN_IDENTITY", '"CODE_SIGN_IDENTITY')
     lines = [l for l in b.split("\n") if not l.strip().startswith(drop)]
-    add = ["CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;", f"DEVELOPMENT_TEAM = {TEAM};", "TARGETED_DEVICE_FAMILY = \"1,2\";"]
+    add = ["CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;", f"DEVELOPMENT_TEAM = {TEAM};", "TARGETED_DEVICE_FAMILY = 1;"]
     if SIGN:
         add += ["CODE_SIGN_STYLE = Manual;", '"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "Apple Distribution";', f'PROVISIONING_PROFILE_SPECIFIER = "{PROFILE}";']
     lines = [l for l in lines if not l.strip().startswith("TARGETED_DEVICE_FAMILY")]

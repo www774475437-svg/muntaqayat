@@ -618,7 +618,9 @@ class Store extends ChangeNotifier {
 
   /// Whether anything about the subscription may be shown to this reader: the developer's
   /// switch is on, or he is a subscriber already. Off means no locks, no «للمشتركين» anywhere.
-  bool get plusVisible => plusOn || plusUser;
+  /// On iPhone nothing is sold yet (Apple allows payment only through the App Store), so the
+  /// subscription stays out of sight there whatever the switch says.
+  bool get plusVisible => (plusOn && (kIsWeb || defaultTargetPlatform != TargetPlatform.iOS)) || plusUser;
 
   /// «مسودّاتي»: the reader's own poems kept on the phone before he publishes them.
   List<Map<String, dynamic>> drafts = [];
