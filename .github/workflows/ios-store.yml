@@ -22,6 +22,7 @@ jobs:
           k = os.environ
           json.dump({"key_id": k["ASC_KEY_ID"], "issuer_id": k["ASC_ISSUER_ID"], "key": k["ASC_KEY_P8"], "in_house": False}, open(os.path.join(k["RUNNER_TEMP"], "asc.json"), "w"))
           PY
+          echo "# options come from the command line" > Deliverfile
           SHOTS="--skip_screenshots true"
           if ls store/ios/screenshots/ar-SA/*.png >/dev/null 2>&1; then SHOTS="--screenshots_path store/ios/screenshots --overwrite_screenshots true"; fi
           fastlane deliver --api_key_path "$RUNNER_TEMP/asc.json" --app_identifier com.muntaqayat.muntaqayat --platform ios \
