@@ -1,0 +1,7 @@
+An Arabic poetry anthology app. Almost everything works without an account: daily verse, browsing by chapter/era/poet/rhyme, search, memorization texts and quizzes.
+
+Signing in is optional (Sign in with Apple or Google) and is only needed to post quotes, follow other readers and appear on leaderboards. You can review those with Sign in with Apple on the review device; no demo account is needed.
+
+User-generated content: members can post verses. Each post and each member page has a Report action (… menu), a member's posts can be hidden, and moderators can remove content and ban accounts. Account deletion is in the app: the reader's personal page > «حسابي» > «احذف حسابي».
+
+The app has no purchases and no ads.

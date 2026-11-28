@@ -1,9 +1,9 @@
 name: App Store page
 
-# Sends the texts (and screenshots, when there are any) in store/ios to App Store Connect.
+# Sends the texts (and screenshots, when there are any) in store/appstore to App Store Connect.
 on:
   push:
-    paths: ['store/ios/**', '.github/workflows/ios-store.yml']
+    paths: ['store/appstore/**', '.github/workflows/ios-store.yml']
 
 jobs:
   page:
@@ -24,8 +24,8 @@ jobs:
           PY
           echo "# options come from the command line" > Deliverfile
           SHOTS="--skip_screenshots true"
-          if ls store/ios/screenshots/ar-SA/*.png >/dev/null 2>&1; then SHOTS="--screenshots_path store/ios/screenshots --overwrite_screenshots true"; fi
+          if ls store/appstore/screenshots/ar-SA/*.png >/dev/null 2>&1; then SHOTS="--screenshots_path store/appstore/screenshots --overwrite_screenshots true"; fi
           fastlane deliver --api_key_path "$RUNNER_TEMP/asc.json" --app_identifier com.muntaqayat.muntaqayat --platform ios \
-            --app_version 1.7.0 --skip_binary_upload true --metadata_path store/ios/metadata $SHOTS \
+            --app_version 1.7.0 --skip_binary_upload true --metadata_path store/appstore/metadata $SHOTS \
             --force true --run_precheck_before_submit false --submit_for_review false
           rm -f "$RUNNER_TEMP/asc.json"
