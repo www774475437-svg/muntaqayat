@@ -9,6 +9,7 @@ import '../main.dart';
 import '../services/cloud.dart';
 import 'golden.dart';
 import '../ui.dart';
+import 'qawafi.dart' show MiniTitles;
 import 'lists.dart';
 import 'majlis_plus.dart';
 import 'social.dart';
@@ -1048,6 +1049,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                             RankBadge(((list[i]['total'] ?? list[i]['pts'] ?? 0) as num).toInt(), small: true),
                             const SizedBox(width: 6),
                             Text('${Ar.num(((list[i]['streak'] ?? 0) as num).toInt())} يوماً', style: TextStyle(fontSize: 12.5, color: C.muted(context))),
+                            MiniTitles(list[i]['titles'], size: 14),
                           ]),
                         ]),
                       ),

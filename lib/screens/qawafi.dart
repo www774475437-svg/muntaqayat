@@ -95,16 +95,51 @@ class MarkedName extends StatelessWidget {
   final String name;
   final String mark;
   final TextStyle style;
-  const MarkedName(this.name, this.mark, {super.key, required this.style});
+
+  /// The badges the developer gave this writer, drawn small after the mark.
+  final dynamic titles;
+  const MarkedName(this.name, this.mark, {super.key, required this.style, this.titles});
   @override
   Widget build(BuildContext context) => Row(mainAxisSize: MainAxisSize.min, children: [
         Flexible(child: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: style)),
         VerifiedMark(mark, size: (style.fontSize ?? 16) * 0.85),
+        MiniTitles(titles, size: ((style.fontSize ?? 16) * 0.8).clamp(13, 18).toDouble()),
       ]);
+}
+
+/// The badge of those who registered first: bronze, unlike the gold, blue and supervisor marks.
+const earlyTitle = 'من الأوائل';
+const bronze = Color(0xFFCD7F32);
+
+/// A writer's badges as small icons beside his name (the first registrants' one in bronze).
+/// A tap on an icon says which badge it is.
+class MiniTitles extends StatelessWidget {
+  final dynamic titles;
+  final double size;
+  const MiniTitles(this.titles, {super.key, this.size = 15});
+  @override
+  Widget build(BuildContext context) {
+    final list = titles is List ? [for (final t in titles as List) '$t'] : const <String>[];
+    if (list.isEmpty) return const SizedBox.shrink();
+    // the bronze badge first, then at most three more
+    final shown = [if (list.contains(earlyTitle)) earlyTitle, ...list.where((t) => t != earlyTitle && t != 'تحت التجربة')].take(4);
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      for (final t in shown)
+        Padding(
+          padding: const EdgeInsetsDirectional.only(start: 4),
+          child: Tooltip(
+            message: t,
+            triggerMode: TooltipTriggerMode.tap,
+            child: Icon(titlePresets[t] ?? Icons.workspace_premium_rounded, size: size, color: t == earlyTitle ? bronze : const Color(0xFFB08A3E)),
+          ),
+        ),
+    ]);
+  }
 }
 
 /// Badges the developer gives («الشارح», «المقتبس»…).
 const titlePresets = {
+  'من الأوائل': Icons.looks_one_rounded,
   'الشارح': Icons.menu_book_rounded,
   'المقتبس': Icons.format_quote_rounded,
   'شاعر موثّق': Icons.history_edu_rounded,
@@ -129,7 +164,8 @@ class TitleBadge extends StatelessWidget {
   const TitleBadge(this.title, {super.key});
   @override
   Widget build(BuildContext context) {
-    const gold = Color(0xFFD9B45A);
+    final early = title == earlyTitle;
+    final gold = early ? bronze : const Color(0xFFD9B45A);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
       decoration: BoxDecoration(
@@ -141,7 +177,7 @@ class TitleBadge extends StatelessWidget {
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         Icon(titlePresets[title] ?? Icons.workspace_premium_rounded, size: 15, color: gold),
         const SizedBox(width: 5),
-        Text(title, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: Color(0xFFF3DFA6))),
+        Text(title, style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: early ? const Color(0xFFF0C9A0) : const Color(0xFFF3DFA6))),
       ]),
     );
   }
@@ -985,7 +1021,7 @@ class _WallPageState extends State<WallPage> with TickerProviderStateMixin {
                   push(context, PoetScreen(name: it.poet));
                 }
               },
-              child: MarkedName(it.poet, it.own ? '${p!['mark'] ?? ''}' : '',
+              child: MarkedName(it.poet, it.own ? '${p!['mark'] ?? ''}' : '', titles: it.own ? p!['titles'] : null,
                   style: TextStyle(fontFamily: verseFont, fontSize: 21, fontWeight: FontWeight.w700, color: C.ink(context))),
             ),
             if (it.cited)
@@ -999,7 +1035,7 @@ class _WallPageState extends State<WallPage> with TickerProviderStateMixin {
             if (p != null && !it.own)
               GestureDetector(
                 onTap: () => openMember(context, uid: '${p['uid']}', name: '${p['name']}', publicId: '${p['publicId'] ?? ''}'),
-                child: MarkedName('اقتبسه ${p['name']} · ${ago(p['at'])}', '${p['mark'] ?? ''}',
+                child: MarkedName('اقتبسه ${p['name']} · ${ago(p['at'])}', '${p['mark'] ?? ''}', titles: p['titles'],
                     style: TextStyle(fontSize: 13, color: C.accent(context), fontWeight: FontWeight.w700)),
               )
             else if (it.own)
@@ -1071,7 +1107,7 @@ class OwnPoemScreen extends StatelessWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    MarkedName('${post['name']}', '${post['mark'] ?? ''}',
+                    MarkedName('${post['name']}', '${post['mark'] ?? ''}', titles: post['titles'],
                         style: TextStyle(fontFamily: verseFont, fontSize: 21, fontWeight: FontWeight.w700, color: C.ink(context))),
                     Text(ago(post['at']), style: TextStyle(color: C.muted(context))),
                   ]),

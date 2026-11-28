@@ -372,6 +372,7 @@ class Cloud extends ChangeNotifier {
         'w$_weekStart': _sum(_weekStart),
         'm$_monthStart': _sum(_monthStart),
         'streak': _streak,
+        'titles': grants['titles'] ?? [],
         'at': _now,
       }, SetOptions(merge: true));
     } catch (_) {}
@@ -389,7 +390,7 @@ class Cloud extends ChangeNotifier {
       try {
         final q = await _db.collection('board').orderBy(field, descending: true).limit(20).get();
         list = [
-          for (final d in q.docs) {'uid': d.id, 'name': d.data()['name'], 'publicId': d.data()['publicId'], 'pts': d.data()[field], 'total': d.data()['total'], 'streak': d.data()['streak']}
+          for (final d in q.docs) {'uid': d.id, 'name': d.data()['name'], 'publicId': d.data()['publicId'], 'pts': d.data()[field], 'total': d.data()['total'], 'streak': d.data()['streak'], 'titles': d.data()['titles'] ?? []}
         ];
         _p.setString(key, jsonEncode(list));
         _p.setInt('$key:day', Store.today);

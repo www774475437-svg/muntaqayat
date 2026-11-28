@@ -12,6 +12,7 @@ import '../services/cloud.dart';
 import '../ui.dart';
 import 'cloud_ui.dart';
 import 'lists.dart';
+import 'qawafi.dart' show MiniTitles;
 
 // «المنتدى»: one page where the developer talks with the members and they with one another.
 //
@@ -323,6 +324,7 @@ class Forum extends ChangeNotifier {
       'name': c.name,
       'pid': c.publicId,
       'role': role,
+      if ((c.grants['titles'] as List? ?? const []).isNotEmpty) 'titles': c.grants['titles'],
       'text': text,
       'at': _now,
       if (reply != null)
@@ -965,6 +967,7 @@ class _ForumScreenState extends State<ForumScreen> {
                     child: Row(mainAxisSize: MainAxisSize.min, children: [
                       Flexible(child: Text('${m['name'] ?? 'قارئ'}', overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: m['role'] == 'dev' ? forumGold : C.accent(context)))),
                       RoleMark('${m['role'] ?? ''}'),
+                      MiniTitles(m['titles'], size: 14),
                       if (marked) ...[
                         const SizedBox(width: 6),
                         const Text('مخالف', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: forumRed)),
@@ -1121,6 +1124,15 @@ class _ForumScreenState extends State<ForumScreen> {
                 _openUser(m);
               },
             ),
+            if (!mine && (Cloud.i.isDev || Cloud.i.can('حظر') || Cloud.i.can('إيقاف')))
+              ListTile(
+                leading: const Icon(Icons.admin_panel_settings_outlined),
+                title: const Text('إدارته: الحظر والصلاحيات والشارات'),
+                onTap: () {
+                  Navigator.pop(c);
+                  openUserAdmin(context, '${m['uid']}');
+                },
+              ),
             if (!mine)
               ListTile(
                 leading: const Icon(Icons.flag_outlined),

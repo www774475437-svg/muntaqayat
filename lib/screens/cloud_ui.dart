@@ -15,7 +15,7 @@ import 'majlis.dart';
 import 'majlis_plus.dart';
 import 'mutun.dart';
 import 'poem.dart';
-import 'qawafi.dart' show titlePresets, MemberScreen, DraftsScreen;
+import 'qawafi.dart' show titlePresets, earlyTitle, bronze, MemberScreen, DraftsScreen;
 import 'sharh.dart';
 
 // Screens that talk to the server: accounts, quotes, tests by number,
@@ -385,9 +385,24 @@ class _FollowingScreenState extends State<FollowingScreen> {
 }
 
 /// Another reader's page.
+/// Opens, for the developer or a supervisor, everything he may do to one reader:
+/// powers, badges, warning, suspension, ban and subscription.
+Future<void> openUserAdmin(BuildContext context, String uid) async {
+  final u = await Cloud.i.userByUid(uid);
+  if (!context.mounted) return;
+  if (u == null) {
+    toast(context, 'تعذّر فتح حسابه. تحقّق من الإنترنت.');
+    return;
+  }
+  push(context, UserScreen(user: u, admin: true));
+}
+
 class UserScreen extends StatefulWidget {
   final Doc user;
-  const UserScreen({super.key, required this.user});
+
+  /// Only the supervision card, opened from a conversation or a forum message.
+  final bool admin;
+  const UserScreen({super.key, required this.user, this.admin = false});
   @override
   State<UserScreen> createState() => _UserScreenState();
 }
@@ -424,6 +439,61 @@ class _UserScreenState extends State<UserScreen> {
   }
 
   Map get g => (user['grants'] as Map?) ?? {};
+  List<String> get _titles => [for (final t in g['titles'] as List? ?? const []) '$t'];
+
+  Future<void> _setTitles(List<String> t) async {
+    final ok = await Cloud.i.setTitles(uid, t);
+    if (ok) _g('titles', t);
+    if (mounted) toast(context, ok ? 'حُفظت الشارات' : 'تعذّر الحفظ');
+  }
+
+  /// The badges sheet: the ready ones as chips, or one he writes.
+  Future<void> _pickTitles() async {
+    final chosen = [..._titles];
+    final custom = TextEditingController();
+    final saved = await showModalBottomSheet<List<String>>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (s) => StatefulBuilder(
+        builder: (s, set) => Padding(
+          padding: EdgeInsets.fromLTRB(20, 0, 20, 20 + MediaQuery.viewInsetsOf(s).bottom),
+          child: SingleChildScrollView(
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Text('شارات ${user['name'] ?? 'قارئ'}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 4),
+              Text('تظهر تحت اسمه في صفحته، وبجانب اسمه في المنتدى والاقتباسات والتحديات.', style: TextStyle(color: C.muted(s), height: 1.5)),
+              const SizedBox(height: 12),
+              Wrap(spacing: 8, runSpacing: 8, children: [
+                for (final t in {...titlePresets.keys, ...chosen})
+                  FilterChip(
+                    avatar: Icon(titlePresets[t] ?? Icons.workspace_premium_rounded, size: 18, color: t == earlyTitle ? bronze : null),
+                    label: Text(t),
+                    selected: chosen.contains(t),
+                    onSelected: (on) => set(() => on ? chosen.add(t) : chosen.remove(t)),
+                  ),
+              ]),
+              const SizedBox(height: 12),
+              Row(children: [
+                Expanded(child: TextField(controller: custom, maxLength: 20, decoration: const InputDecoration(hintText: 'شارة أخرى تكتبها', counterText: ''))),
+                IconButton(
+                  onPressed: () {
+                    final t = custom.text.trim();
+                    if (t.isNotEmpty && !chosen.contains(t)) set(() => chosen.add(t));
+                    custom.clear();
+                  },
+                  icon: const Icon(Icons.add_circle_outline_rounded),
+                ),
+              ]),
+              const SizedBox(height: 12),
+              FilledButton(onPressed: () => Navigator.pop(s, chosen), child: const Text('احفظ الشارات')),
+            ]),
+          ),
+        ),
+      ),
+    );
+    if (saved != null && mounted) await _setTitles(saved);
+  }
   // the warning / suspension / ban buttons stay folded behind one button
   bool _tools = false;
   void _g(String k, dynamic v) => setState(() => user['grants'] = {...g, k: v});
@@ -462,6 +532,25 @@ class _UserScreenState extends State<UserScreen> {
               label: Text(c.mods.containsKey(uid) ? 'صلاحياته في الإشراف' : 'اجعله مشرفاً وحدّد صلاحياته'),
             ),
           ),
+        if (c.isDev) ...[
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.tonalIcon(
+              style: FilledButton.styleFrom(foregroundColor: bronze),
+              onPressed: () => _setTitles(_titles.contains(earlyTitle) ? (_titles..remove(earlyTitle)) : [earlyTitle, ..._titles]),
+              icon: const Icon(Icons.looks_one_rounded),
+              label: Text(_titles.contains(earlyTitle) ? 'انزع شارة «من الأوائل»' : 'امنحه شارة «من الأوائل» (البرونزية)'),
+            ),
+          ),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _pickTitles,
+              icon: const Icon(Icons.workspace_premium_outlined),
+              label: Text(_titles.isEmpty ? 'امنحه شارات' : 'شاراته: ${_titles.join('، ')}'),
+            ),
+          ),
+        ],
         SizedBox(
           width: double.infinity,
           child: OutlinedButton.icon(
@@ -541,6 +630,22 @@ class _UserScreenState extends State<UserScreen> {
         final c = Cloud.i;
         final following = c.following.containsKey(id);
         final mine = uid == c.uid;
+        if (widget.admin) {
+          return Scaffold(
+            appBar: AppBar(title: Text('إدارة: $name')),
+            body: ListView(padding: const EdgeInsets.fromLTRB(16, 0, 16, 140), children: [
+              Text('رقمه: $id', style: TextStyle(color: C.muted(context))),
+              const SizedBox(height: 8),
+              _moderation(context),
+              const SizedBox(height: 10),
+              OutlinedButton.icon(
+                onPressed: () => push(context, UserScreen(user: user)),
+                icon: const Icon(Icons.person_outline_rounded),
+                label: const Text('صفحته كاملة'),
+              ),
+            ]),
+          );
+        }
         return Scaffold(
           appBar: AppBar(title: Text(name), actions: [
             if (!mine)
@@ -1849,6 +1954,12 @@ class _DevChatScreenState extends State<DevChatScreen> {
             Text('رقمه: $publicId', style: TextStyle(fontSize: 12.5, color: C.muted(context))),
           ]),
           actions: [
+            if (user != null && (Cloud.i.isDev || Cloud.i.can('حظر') || Cloud.i.can('إيقاف')))
+              IconButton(
+                tooltip: 'إدارته: الحظر والصلاحيات والشارات',
+                onPressed: () => push(context, UserScreen(user: user!, admin: true)),
+                icon: const Icon(Icons.menu_rounded),
+              ),
             IconButton(
               tooltip: 'صفحته',
               onPressed: () => user != null ? push(context, UserScreen(user: user!)) : _openUser(context, publicId),
