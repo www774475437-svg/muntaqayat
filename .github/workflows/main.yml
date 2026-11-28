@@ -95,12 +95,15 @@ jobs:
       - name: Create iOS platform files
         run: flutter create --org com.muntaqayat --project-name muntaqayat --platforms ios .
 
-      - name: Signing files (certificate and profile kept in the repository, key behind KEY_PASSWORD)
+      - name: Signing (certificate in the repository, its key behind KEY_PASSWORD, profile fetched with the App Store Connect key)
         id: sign
         env:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
         run: |
-          if [ -n "$KEY_PASSWORD" ] && [ -f signing/ios_dist.key.enc ] && [ -f signing/ios_dist.cer ] && [ -f signing/ios_appstore.mobileprovision ]; then
+          if [ -n "$KEY_PASSWORD" ] && [ -n "$ASC_KEY_ID" ] && [ -n "$ASC_ISSUER_ID" ] && [ -n "$ASC_KEY_P8" ] && [ -f signing/ios_dist.key.enc ] && [ -f signing/ios_dist.cer ]; then
             openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in signing/ios_dist.key.enc -out "$RUNNER_TEMP/dist.key" -pass env:KEY_PASSWORD
             openssl x509 -inform DER -in signing/ios_dist.cer -out "$RUNNER_TEMP/dist.pem"
             openssl pkcs12 -export -legacy -inkey "$RUNNER_TEMP/dist.key" -in "$RUNNER_TEMP/dist.pem" -out "$RUNNER_TEMP/dist.p12" -passout pass:ci || \
@@ -111,14 +114,23 @@ jobs:
             security import "$RUNNER_TEMP/dist.p12" -P ci -A -t cert -f pkcs12 -k "$RUNNER_TEMP/ci.keychain-db"
             security set-key-partition-list -S apple-tool:,apple: -k ci "$RUNNER_TEMP/ci.keychain-db" > /dev/null
             security list-keychains -d user -s "$RUNNER_TEMP/ci.keychain-db" login.keychain-db
-            mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-            cp signing/ios_appstore.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
             rm -f "$RUNNER_TEMP/dist.key"
+            mkdir -p ~/.appstoreconnect/private_keys
+            printf '%s' "$ASC_KEY_P8" > ~/.appstoreconnect/private_keys/AuthKey_$ASC_KEY_ID.p8
+            python3 - <<'PY'
+          import json, os
+          k = os.environ
+          json.dump({"key_id": k["ASC_KEY_ID"], "issuer_id": k["ASC_ISSUER_ID"], "key": open(os.path.expanduser(f"~/.appstoreconnect/private_keys/AuthKey_{k['ASC_KEY_ID']}.p8")).read(), "in_house": False}, open(os.path.join(k["RUNNER_TEMP"], "asc.json"), "w"))
+          PY
+            fastlane sigh --api_key_path "$RUNNER_TEMP/asc.json" --app_identifier com.muntaqayat.muntaqayat --provisioning_name "Muntaqayat App Store" --readonly true --output_path "$RUNNER_TEMP/pp" --filename appstore.mobileprovision
+            mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+            cp "$RUNNER_TEMP/pp/appstore.mobileprovision" ~/Library/MobileDevice/Provisioning\ Profiles/
+            rm -f "$RUNNER_TEMP/asc.json"
             echo "on=1" >> "$GITHUB_OUTPUT"
             echo "Signing for the App Store"
           else
             echo "on=0" >> "$GITHUB_OUTPUT"
-            echo "No signing files yet - building unsigned to check that the app compiles"
+            echo "Signing not complete yet - building unsigned to check that the app compiles"
           fi
 
       - name: Patch iOS (name, permissions, sign-in, signing)
@@ -141,21 +153,16 @@ jobs:
           flutter build ipa --release --export-options-plist=ios/ExportOptions.plist --build-number=${{ github.run_number }} --dart-define=BUILD=${{ github.run_number }} --dart-define=STORE=play
           cp build/ios/ipa/*.ipa muntaqayat.ipa
 
-      - name: Send to TestFlight (when the App Store Connect key is set)
+      - name: Send to TestFlight
         if: steps.sign.outputs.on == '1'
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
-          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
-        run: |
-          if [ -z "$ASC_KEY_ID" ] || [ -z "$ASC_ISSUER_ID" ] || [ -z "$ASC_KEY_P8" ]; then
-            echo "App Store Connect key not set - the IPA is kept as a build file instead"
-            exit 0
-          fi
-          mkdir -p ~/.appstoreconnect/private_keys
-          printf '%s' "$ASC_KEY_P8" > ~/.appstoreconnect/private_keys/AuthKey_$ASC_KEY_ID.p8
-          xcrun altool --upload-app -f muntaqayat.ipa -t ios --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
-          rm -f ~/.appstoreconnect/private_keys/AuthKey_$ASC_KEY_ID.p8
+        run: xcrun altool --upload-app -f muntaqayat.ipa -t ios --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
+
+      - name: Remove the key from the runner
+        if: always()
+        run: rm -rf ~/.appstoreconnect
 
       - name: Keep the IPA
         if: steps.sign.outputs.on == '1'
