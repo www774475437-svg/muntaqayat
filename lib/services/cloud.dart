@@ -217,6 +217,7 @@ class Cloud extends ChangeNotifier {
         'joined': _now,
         'joinedDay': Store.today,
         'lastDay': Store.today,
+        'lastAt': _now,
       };
       try {
         final ok = await _db.runTransaction<bool>((tx) async {
@@ -295,6 +296,7 @@ class Cloud extends ChangeNotifier {
     final s = Store.i;
     final data = <String, dynamic>{
       'lastDay': Store.today,
+      'lastAt': _now,
       'likes': s.likes.length,
       'memo': s.memorized.values.fold<int>(0, (a, b) => a + b.length),
       'days': s.days.length,
@@ -1141,6 +1143,20 @@ class Cloud extends ChangeNotifier {
     } catch (_) {}
   }
 
+  /// The registered readers for the developer's statistics page, sorted by [field]
+  /// (joined = newest first, lastAt / lastDay = last seen first, points = most active first).
+  Future<List<Doc>> members(String field, {int limit = 100}) async {
+    if (!isDev) return [];
+    try {
+      final q = await _db.collection('users').orderBy(field, descending: true).limit(limit).get();
+      return [
+        for (final d in q.docs) {...d.data(), 'uid': d.id}
+      ];
+    } catch (_) {
+      return [];
+    }
+  }
+
   Future<List<Doc>> subscribers() async {
     try {
       final q = await _db.collection('users').where('plus', isEqualTo: true).limit(200).get();
@@ -1204,6 +1220,9 @@ class Cloud extends ChangeNotifier {
         await c(u.where('lastDay', isGreaterThanOrEqualTo: Store.today - 6)),
         await c(u.where('joinedDay', isGreaterThanOrEqualTo: Store.today - 6)),
         await c(u.where('plus', isEqualTo: true)),
+        await c(u.where('lastDay', isGreaterThanOrEqualTo: Store.today - 29)),
+        await c(u.where('joinedDay', isEqualTo: Store.today)),
+        await c(u.where('joinedDay', isGreaterThanOrEqualTo: Store.today - 29)),
       ];
     } catch (_) {
       return null;

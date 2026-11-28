@@ -2465,62 +2465,191 @@ class StatsScreen extends StatefulWidget {
   State<StatsScreen> createState() => _StatsScreenState();
 }
 
+String _dateOf(dynamic ms) {
+  if (ms is! num) return '';
+  final d = DateTime.fromMillisecondsSinceEpoch(ms.toInt());
+  return '${Ar.num(d.year)}/${Ar.num(d.month)}/${Ar.num(d.day)}';
+}
+
+/// When the reader was last seen: the exact time when known, otherwise the day.
+String _lastSeen(Doc u) {
+  if (u['lastAt'] is num) return ago(u['lastAt']);
+  final d = u['lastDay'];
+  if (d is! num) return 'غير معروف';
+  final n = Store.today - d.toInt();
+  return n <= 0 ? 'اليوم' : 'قبل ${Ar.num(n)} يوماً';
+}
+
 class _StatsScreenState extends State<StatsScreen> {
   late final Future<List<int>?> job = Cloud.i.stats();
+  // 0 = newest first, 1 = last seen, 2 = most distinguished
+  int tab = 0;
+  int limit = 100;
+  List<Doc>? people;
+
+  static const _fields = ['joined', 'lastDay', 'points'];
+
   @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('الإحصائيات')),
-        body: ListView(padding: const EdgeInsets.fromLTRB(16, 0, 16, 40), children: [
-          FutureBuilder<(int, int, int)?>(
-            future: Device.downloads(),
-            builder: (context, snap) {
-              final d = snap.data;
-              return SoftCard(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('تحميلات ملف التطبيق (APK)', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: C.ink(context))),
-                  const SizedBox(height: 8),
-                  if (snap.connectionState != ConnectionState.done)
-                    const LinearProgressIndicator()
-                  else if (d == null)
-                    Text('تظهر في تطبيق الجوال (لا في الموقع)، وتحتاج اتصالاً بالإنترنت.', style: TextStyle(color: C.muted(context)))
-                  else ...[
-                    Text('كل التحميلات: ${Ar.num(d.$1)}', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: C.accent(context))),
-                    Text('تحميلات آخر نسخة (${Ar.num(d.$3)}): ${Ar.num(d.$2)}', style: TextStyle(color: C.ink(context))),
-                  ],
-                ]),
-              );
-            },
-          ),
-          const SizedBox(height: 10),
-          SoftCard(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('أصحاب الحسابات', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: C.ink(context))),
-              const SizedBox(height: 6),
-              FutureBuilder<List<int>?>(
-                future: job,
-                builder: (context, snap) {
-                  if (snap.connectionState != ConnectionState.done) return const LinearProgressIndicator();
-                  final v = snap.data;
-                  if (v == null) return Text('ادخل بحساب المطوّر من «صفحتك الشخصية» لتظهر الأرقام.', style: TextStyle(color: C.muted(context)));
-                  const labels = ['كل من سجّل', 'دخلوا اليوم', 'دخلوا هذا الأسبوع', 'الجدد هذا الأسبوع', 'المشتركون'];
-                  return Column(children: [
-                    for (var i = 0; i < 5; i++)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        child: Row(children: [
-                          Expanded(child: Text(labels[i], style: TextStyle(fontSize: 16, color: C.ink(context)))),
-                          Text(Ar.num(v[i]), style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: C.accent(context))),
-                        ]),
-                      ),
-                  ]);
-                },
-              ),
-              const SizedBox(height: 6),
-              Text('تُحسب ممن دخل بحسابه فقط. الزوّار بلا حساب لا يُعدّون هنا.', style: TextStyle(color: C.muted(context), height: 1.6)),
-            ]),
-          ),
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => people = null);
+    var l = await Cloud.i.members(_fields[tab], limit: limit);
+    if (tab == 1) {
+      // inside one day, the exact last visit decides
+      l = [...l]..sort((a, b) {
+          final c = _n(b['lastDay']).compareTo(_n(a['lastDay']));
+          return c != 0 ? c : _n(b['lastAt']).compareTo(_n(a['lastAt']));
+        });
+    }
+    if (mounted) setState(() => people = l);
+  }
+
+  /// Why a reader counts as distinguished: how much he takes part.
+  String _why(Doc u) {
+    final parts = <String>[
+      'نقاط ${Ar.num(_n(u['points']))}',
+      if (_n(u['days']) > 0) '${Ar.num(_n(u['days']))} يوماً',
+      if (_n(u['streak']) > 1) 'تتابع ${Ar.num(_n(u['streak']))}',
+      if (_n(u['memo']) > 0) 'حفظ ${Ar.num(_n(u['memo']))}',
+      if (_n(u['likes']) > 0) 'إعجابات ${Ar.num(_n(u['likes']))}',
+      if (_n(u['poets']) > 0) 'شعراء ${Ar.num(_n(u['poets']))}',
+    ];
+    return parts.join(' · ');
+  }
+
+  Widget _stat(BuildContext context, String label, int v) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(children: [
+          Expanded(child: Text(label, style: TextStyle(fontSize: 16, color: C.ink(context)))),
+          Text(Ar.num(v), style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: C.accent(context))),
         ]),
       );
+
+  @override
+  Widget build(BuildContext context) {
+    final list = people;
+    return Scaffold(
+      appBar: AppBar(title: const Text('الإحصائيات'), actions: [IconButton(onPressed: _load, icon: const Icon(Icons.refresh_rounded))]),
+      body: ListView(padding: const EdgeInsets.fromLTRB(16, 0, 16, 140), children: [
+        FutureBuilder<(int, int, int)?>(
+          future: Device.downloads(),
+          builder: (context, snap) {
+            final d = snap.data;
+            return SoftCard(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('تحميلات ملف التطبيق (APK)', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: C.ink(context))),
+                const SizedBox(height: 8),
+                if (snap.connectionState != ConnectionState.done)
+                  const LinearProgressIndicator()
+                else if (d == null)
+                  Text('تظهر في تطبيق الجوال (لا في الموقع)، وتحتاج اتصالاً بالإنترنت.', style: TextStyle(color: C.muted(context)))
+                else ...[
+                  Text('كل التحميلات: ${Ar.num(d.$1)}', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: C.accent(context))),
+                  Text('تحميلات آخر نسخة (${Ar.num(d.$3)}): ${Ar.num(d.$2)}', style: TextStyle(color: C.ink(context))),
+                ],
+              ]),
+            );
+          },
+        ),
+        const SizedBox(height: 10),
+        SoftCard(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('أصحاب الحسابات', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: C.ink(context))),
+            const SizedBox(height: 6),
+            FutureBuilder<List<int>?>(
+              future: job,
+              builder: (context, snap) {
+                if (snap.connectionState != ConnectionState.done) return const LinearProgressIndicator();
+                final v = snap.data;
+                if (v == null) return Text('ادخل بحساب المطوّر من «صفحتك الشخصية» لتظهر الأرقام.', style: TextStyle(color: C.muted(context)));
+                int at(int i) => i < v.length ? v[i] : 0;
+                return Column(children: [
+                  _stat(context, 'كل من سجّل', at(0)),
+                  const Divider(height: 14),
+                  _stat(context, 'دخلوا اليوم', at(1)),
+                  _stat(context, 'دخلوا هذا الأسبوع', at(2)),
+                  _stat(context, 'دخلوا آخر ٣٠ يوماً', at(5)),
+                  const Divider(height: 14),
+                  _stat(context, 'سجّلوا اليوم', at(6)),
+                  _stat(context, 'سجّلوا هذا الأسبوع', at(3)),
+                  _stat(context, 'سجّلوا آخر ٣٠ يوماً', at(7)),
+                  const Divider(height: 14),
+                  _stat(context, 'المشتركون', at(4)),
+                ]);
+              },
+            ),
+            const SizedBox(height: 6),
+            Text('تُحسب ممن دخل بحسابه فقط. الزوّار بلا حساب لا يُعدّون هنا.', style: TextStyle(color: C.muted(context), height: 1.6)),
+          ]),
+        ),
+        if (Cloud.i.isDev) ...[
+          const SizedBox(height: 14),
+          Text('المسجّلون', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700, color: C.ink(context))),
+          const SizedBox(height: 8),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: SegmentedButton<int>(
+              showSelectedIcon: false,
+              segments: const [
+                ButtonSegment(value: 0, label: Text('الأحدث تسجيلاً')),
+                ButtonSegment(value: 1, label: Text('آخر اتصال')),
+                ButtonSegment(value: 2, label: Text('المتميزون')),
+              ],
+              selected: {tab},
+              onSelectionChanged: (v) {
+                tab = v.first;
+                limit = 100;
+                _load();
+              },
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            tab == 0
+                ? 'من سجّل حديثاً أولاً، مع تاريخ تسجيله.'
+                : tab == 1
+                    ? 'من دخل قبل قليل أولاً، ومتى كان آخر اتصال له.'
+                    : 'مرتّبون بنقاطهم، والمتميز هو الأكثر مشاركة: نقاط وأياماً وحفظاً وإعجابات.',
+            style: TextStyle(color: C.muted(context), height: 1.6),
+          ),
+          const SizedBox(height: 10),
+          if (list == null)
+            const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()))
+          else if (list.isEmpty)
+            const EmptyNote(Icons.people_outline_rounded, 'لا أحد في هذه القائمة بعد.')
+          else ...[
+            for (var i = 0; i < list.length; i++)
+              _row(
+                context,
+                tab == 2 && i < 10 && _n(list[i]['points']) > 0 ? Icons.military_tech_rounded : (list[i]['plus'] == true ? Icons.workspace_premium_outlined : Icons.person_outline_rounded),
+                '${tab == 2 ? '${Ar.num(i + 1)}. ' : ''}${list[i]['name'] ?? ''} · ${list[i]['publicId'] ?? ''}${tab == 2 && i < 10 && _n(list[i]['points']) > 0 ? ' · متميز' : ''}',
+                tab == 2
+                    ? '${_why(list[i])}\nسجّل ${_dateOf(list[i]['joined'])} · آخر اتصال: ${_lastSeen(list[i])}'
+                    : 'سجّل ${_dateOf(list[i]['joined']).isEmpty ? 'قبل ${Ar.num(Store.today - _n(list[i]['joinedDay']))} يوماً' : _dateOf(list[i]['joined'])} (${ago(list[i]['joined'])})\nآخر اتصال: ${_lastSeen(list[i])} · ${_why(list[i])}',
+                () async {
+                  await Navigator.of(context).push(MaterialPageRoute(builder: (_) => UserScreen(user: list[i])));
+                },
+              ),
+            if (list.length >= limit)
+              Center(
+                child: TextButton.icon(
+                  onPressed: () {
+                    limit += 100;
+                    _load();
+                  },
+                  icon: const Icon(Icons.expand_more_rounded),
+                  label: const Text('عرض المزيد'),
+                ),
+              ),
+          ],
+        ],
+      ]),
+    );
+  }
 }
 
 /// Shown instead of the app when the developer banned this phone.
